@@ -292,11 +292,43 @@
         } catch (e) { /* mở bằng file:// hoặc không có file -> bỏ qua */ }
       }
       local();
+      cleanupLegacyPassages();
     }
 
     DB.ready = true;
     return DB.mode;
   };
+
+  /* Bài đọc CŨ sinh bằng bộ mẫu câu cố định (OPENERS/MIDDLES trong
+     context.js, kiểu "quarterly planning meeting" lặp đi lặp lại) không
+     có khối meta phía sau — không phải bài bạn tự dán, không phải AI
+     sinh, cũng không phải Claude viết tay. Sai/vô nghĩa, dọn sạch 1 lần
+     để về đúng trạng thái trống, chờ bạn dán/chọn/nhờ AI lại. An toàn để
+     chạy lại mỗi lần mở app: bài đã đúng nguồn gốc thì không đụng tới. */
+  function cleanupLegacyPassages() {
+    if (!w.Context || !w.Context.META_SEP) return;   /* context.js chưa nạp kịp thì bỏ qua, không sao */
+    var sep = w.Context.META_SEP;
+    var d = local();
+    var FIELDS = ["context_passage", "context_passage_2", "context_passage_3"];
+    var changed = false;
+    d.blocks.forEach(function (b) {
+      FIELDS.forEach(function (f) {
+        var raw = b[f];
+        if (!raw) return;
+        var i = raw.indexOf(sep);
+        var isLegacy;
+        if (i < 0) {
+          isLegacy = true;   /* không có khối meta -> chắc chắn là bài mẫu cũ */
+        } else {
+          var meta = {};
+          try { meta = JSON.parse(raw.slice(i + sep.length)) || {}; } catch (e) { meta = {}; }
+          isLegacy = !meta.ai && !meta.pasted && !meta.claude;
+        }
+        if (isLegacy) { b[f] = ""; changed = true; }
+      });
+    });
+    if (changed) saveLocal();
+  }
 
   function sbList(table, build) {
     var q = DB.sb.from(table).select("*");

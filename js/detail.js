@@ -37,6 +37,7 @@
     D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
     D.si = null;
     D.mi = null;
+    D._claudePick = null;
     var b = block();
     if (!b) return;
 
@@ -219,6 +220,11 @@
     D.renderPassage();
   };
 
+  /* Mỗi Block có ĐÚNG 1 bài đọc đang dùng (context_passage). Ngoài ra
+     Claude có thể chuẩn bị sẵn tối đa 3 bài khác nhau trong
+     context_passage_candidates (mảng, mỗi phần tử là chuỗi full [đánh
+     dấu]+meta như bài thật) — chỉ để CHỌN THỬ khi bài đọc còn trống,
+     không tự động dùng, phải bấm "Dùng bài này" mới đẩy lên chính thức. */
   D.renderPassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
@@ -230,7 +236,8 @@
 
     if (!raw) {
       /* Chưa có bài đọc — để trống thật sự, không tự sinh gì hết, chờ
-         người dùng dán bài của mình hoặc bấm nhờ AI viết. */
+         người dùng dán bài của mình, chọn 1 bài Claude viết sẵn, hoặc
+         bấm nhờ AI viết. */
       if (emptyBox) emptyBox.hidden = false;
       if (contentBox) contentBox.hidden = true;
       if (readModes) readModes.hidden = true;
@@ -238,6 +245,7 @@
       var wc0 = w.$("#passage-wordcount");
       if (wc0) wc0.textContent = "";
       D._passagePlain = "";
+      D.renderClaudePicks(b);
       return;
     }
 
@@ -246,16 +254,15 @@
     if (readModes) readModes.hidden = false;
 
     var meta = w.Context.parseMeta(raw);
-    var seed = (b.global_index || 1) * 3;
-    w.$("#passage-title").textContent = meta.title || w.Context.titleFor(seed);
-    w.$("#passage-src").textContent = meta.source || w.Context.sourceFor(seed);
-    /* Nhãn nhỏ để BIẾT NGAY bài đang xem là AI sinh, tự dán, hay bài mẫu
-       có sẵn — trước đây chỉ khác nhau ở câu chữ nhỏ trong .src-tag, rất
-       dễ bỏ qua. */
+    /* Chỉ hiện tiêu đề/nguồn khi bài đọc THẬT SỰ có (AI sinh, Claude viết,
+       hoặc bạn tự đặt lúc dán) — không tự bịa ra tiêu đề từ 1 danh sách cố
+       định như trước nữa, tránh tình trạng nhiều Block trùng tiêu đề. */
+    w.$("#passage-title").textContent = meta.title || "";
+    w.$("#passage-src").textContent = meta.source || "";
     var badge = w.$("#passage-ai-badge");
     if (badge) {
-      badge.textContent = meta.ai ? "✨ AI" : (meta.pasted ? "📝 Tự dán" : "📄 Mẫu có sẵn");
-      badge.className = "ai-badge" + (meta.ai ? " ai" : " tpl");
+      badge.textContent = meta.ai ? "✨ AI" : (meta.claude ? "✍️ Claude" : (meta.pasted ? "📝 Tự dán" : ""));
+      badge.className = "ai-badge" + (meta.ai ? " ai" : ((meta.claude || meta.pasted) ? " tpl" : ""));
     }
 
     var built = w.Context.build(meta.marked);
@@ -286,18 +293,22 @@
     w.Reader.applyMode();
   };
 
-  /* Nhờ AI viết bài mới (hoặc tạo lại bài mẫu nếu chưa có key AI). Lỗi
-     mạng / hết credit -> tự rơi về bộ mẫu câu có sẵn, không chặn học. */
+  /* Nhờ AI viết bài mới — CHỈ chạy khi đã cấu hình key (js/keys.local.js).
+     Không còn rơi về bộ mẫu câu cố định như trước nữa (nội dung lặp đi
+     lặp lại, vô nghĩa) — chưa có key hoặc AI lỗi thì báo rõ, để trống chờ
+     bạn tự dán bài thật thay vì âm thầm nhét bài mẫu vào. */
   D.generatePassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
     var myBlockId = b.id;
 
     var cfg2 = w.APP_CONFIG || {};
-    var madeWithAI = false;
-    var willTryAI = !!(cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY);
+    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
+      w.toast("Chưa cấu hình API key AI — hãy dán bài đọc của bạn vào ô bên dưới", "err");
+      return;
+    }
 
-    if (willTryAI && D.blockId === myBlockId) {
+    if (D.blockId === myBlockId) {
       w.$("#passage-empty").hidden = true;
       w.$("#passage-content-block").hidden = false;
       w.$("#passage-title").textContent = "Đang nhờ AI viết bài đọc mới…";
@@ -306,17 +317,13 @@
     }
 
     var newPassage;
-    if (willTryAI) {
-      try {
-        newPassage = await w.Context.generateAI(ws, cfg2);
-        madeWithAI = true;
-      } catch (e) {
-        console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
-        w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — đang dùng bài đọc mẫu", "err");
-      }
-    }
-    if (!madeWithAI) {
-      newPassage = w.Context.generate(ws, Math.floor(Math.random() * 997));
+    try {
+      newPassage = await w.Context.generateAI(ws, cfg2);
+    } catch (e) {
+      console.warn("Sinh bài đọc bằng AI thất bại:", e);
+      w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — hãy dán bài đọc của bạn vào thay", "err");
+      if (D.blockId === myBlockId) await D.renderPassage();   /* vẽ lại đúng trạng thái trống, khỏi kẹt ở màn "đang sinh" */
+      return;
     }
 
     b.context_passage = newPassage;
@@ -341,6 +348,48 @@
     b.context_passage = val;
     try { await w.DB.saveContext(b.id, val); } catch (e) { /* offline vẫn hiển thị được */ }
     D._exam = null;
+    await D.renderPassage();
+  };
+
+  /* ---------- 3 bài Claude viết sẵn (nếu có) — chọn thử trước khi dùng ---------- */
+  D._claudePick = null;   /* index đang xem trước, reset mỗi lần render */
+
+  D.renderClaudePicks = function (b) {
+    var wrap = w.$("#claude-picks");
+    if (!wrap) return;
+    var list = Array.isArray(b.context_passage_candidates) ? b.context_passage_candidates : [];
+    if (!list.length) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+
+    w.$("#claude-picks-tabs").innerHTML = list.map(function (_, i) {
+      return '<button data-i="' + i + '" class="' + (D._claudePick === i ? "active" : "") + '">Claude ' + (i + 1) + "</button>";
+    }).join("");
+
+    var useBtn = w.$("#btn-use-claude");
+    if (D._claudePick == null || !list[D._claudePick]) {
+      w.$("#claude-preview").innerHTML = "";
+      if (useBtn) useBtn.hidden = true;
+      return;
+    }
+    var meta = w.Context.parseMeta(list[D._claudePick]);
+    var built = w.Context.build(meta.marked);
+    w.$("#claude-preview").innerHTML =
+      (meta.title ? "<b>" + w.esc(meta.title) + "</b><br>" : "") +
+      w.esc(built.plain).replace(/\n/g, "<br>");
+    if (useBtn) useBtn.hidden = false;
+  };
+
+  D.useClaudeCandidate = async function (idx) {
+    var b = block();
+    if (!b) return;
+    var list = Array.isArray(b.context_passage_candidates) ? b.context_passage_candidates : [];
+    var val = list[idx];
+    if (!val) return;
+
+    b.context_passage = val;
+    try { await w.DB.saveContext(b.id, val); } catch (e) { /* offline vẫn hiển thị được */ }
+    D._exam = null;
+    D._claudePick = null;
     await D.renderPassage();
   };
 
@@ -1219,6 +1268,17 @@
         btn.disabled = false;
         btn.textContent = oldText;
       }
+    };
+    w.$("#claude-picks-tabs").addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-i]");
+      if (!btn) return;
+      D._claudePick = Number(btn.dataset.i);
+      D.renderClaudePicks(block());
+    });
+    w.$("#btn-use-claude").onclick = async function () {
+      if (D._claudePick == null) return;
+      await D.useClaudeCandidate(D._claudePick);
+      w.toast("Đã dùng bài của Claude");
     };
     w.$("#btn-copy-passage").onclick = function () { copyText(this, D._passagePlain || ""); };
     w.$("#btn-copy-vocab").onclick = function () {

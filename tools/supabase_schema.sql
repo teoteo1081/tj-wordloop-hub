@@ -64,7 +64,8 @@ create table if not exists blocks (
   name text not null,
   global_index integer,
   sort integer default 0,
-  context_passage text default ''
+  context_passage text default '',                    -- bài đọc đang dùng (1 bài duy nhất)
+  context_passage_candidates jsonb default '[]'::jsonb -- tối đa 3 bài Claude viết sẵn để chọn thử, chưa dùng luôn
 );
 
 create table if not exists words (

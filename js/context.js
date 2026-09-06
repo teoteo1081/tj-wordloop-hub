@@ -153,7 +153,7 @@
     parseMeta: function (raw) {
       var s = String(raw || "");
       var i = s.indexOf(w.Context.META_SEP);
-      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false };
+      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false, pasted: false, claude: false };
       var meta = {};
       try { meta = JSON.parse(s.slice(i + w.Context.META_SEP.length)) || {}; } catch (e) { meta = {}; }
       return {
@@ -161,7 +161,9 @@
         vi: meta.vi || null,
         title: meta.title || null,
         source: meta.source || null,
-        ai: !!meta.ai
+        ai: !!meta.ai,
+        pasted: !!meta.pasted,
+        claude: !!meta.claude
       };
     },
 

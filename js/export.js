@@ -106,7 +106,9 @@
       var built = w.Context.build(meta.marked);
       var paras = built.plain.split(/\n\s*\n/).filter(function (p) { return p.trim(); });
       if (paras.length) {
-        var title = meta.title || w.Context.titleFor((block.global_index || 1) * 3);
+        /* Không còn bịa tiêu đề từ 1 danh sách cố định nữa — có tiêu đề
+           thật (AI sinh/bạn tự đặt) thì dùng, không thì lấy tên Block. */
+        var title = meta.title || block.name;
         passageHtml =
           '<h3 class="pv-passage-title">📖 ' + w.esc(title) + "</h3>" +
           '<div class="pv-passage">' +

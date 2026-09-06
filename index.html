@@ -263,13 +263,22 @@
             </div>
           </div>
 
-          <!-- Bài đọc còn trống ở khe này -->
+          <!-- Bài đọc còn trống -->
           <div class="passage-empty" id="passage-empty" hidden>
             <p>Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.</p>
             <textarea id="passage-paste" placeholder="Dán đoạn văn tiếng Anh vào đây…"></textarea>
             <div class="passage-empty-actions">
               <button class="btn-primary" id="btn-use-pasted">✅ Dùng bài này</button>
               <button class="btn-soft" id="btn-ai-write">✨ Nhờ AI viết</button>
+            </div>
+
+            <!-- Claude viết sẵn 3 bài khác nhau cho Block này (nếu có) —
+                 chọn 1 cái xem thử rồi mới quyết định dùng. -->
+            <div class="claude-picks" id="claude-picks" hidden>
+              <div class="claude-picks-label">✍️ Claude đã viết sẵn:</div>
+              <div class="claude-picks-tabs" id="claude-picks-tabs"></div>
+              <div class="claude-preview" id="claude-preview"></div>
+              <button class="btn-primary" id="btn-use-claude" hidden>✅ Dùng bài này</button>
             </div>
           </div>
 
