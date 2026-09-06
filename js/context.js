@@ -141,9 +141,10 @@
       return "";     /* câu lạ (đoạn văn cũ / tự sửa) -> không dịch bừa */
     },
 
-    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (OpenAI) ═══════════
-       Cần window.APP_CONFIG.OPENAI_API_KEY (đặt trong js/keys.local.js,
-       KHÔNG commit lên git). Gọi thẳng từ trình duyệt — không có backend.
+    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (Gemini miễn phí, hoặc OpenAI) ═══════════
+       Cần window.APP_CONFIG.GEMINI_API_KEY hoặc OPENAI_API_KEY (đặt trong
+       js/keys.local.js, KHÔNG commit lên git). Gọi thẳng từ trình duyệt —
+       không có backend.
        Trả về CHUỖI để lưu y hệt chỗ dùng Context.generate(): văn bản có
        [đánh dấu] + một khối JSON ẩn phía sau (ngăn bởi META_SEP) chứa
        bản dịch từng câu + tiêu đề + nguồn, để đọc lại đúng như lúc sinh. */
@@ -164,11 +165,64 @@
       };
     },
 
-    /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta) */
+    /* Gọi OpenAI (trả phí, cần credit) */
+    _callOpenAI: async function (cfg, sys, user) {
+      var res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + cfg.OPENAI_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: cfg.OPENAI_MODEL || "gpt-4o-mini",
+          temperature: 0.9,
+          response_format: { type: "json_object" },
+          messages: [{ role: "system", content: sys }, { role: "user", content: user }]
+        })
+      });
+      if (!res.ok) {
+        var errText = await res.text().catch(function () { return ""; });
+        throw new Error("OpenAI HTTP " + res.status + ": " + errText.slice(0, 180));
+      }
+      var data = await res.json();
+      var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!raw) throw new Error("OpenAI trả về rỗng");
+      return raw;
+    },
+
+    /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey) */
+    _callGemini: async function (cfg, sys, user) {
+      var model = cfg.GEMINI_MODEL || "gemini-2.0-flash";
+      var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model +
+                ":generateContent?key=" + encodeURIComponent(cfg.GEMINI_API_KEY);
+      var res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: sys }] },
+          contents: [{ parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.9, responseMimeType: "application/json" }
+        })
+      });
+      if (!res.ok) {
+        var errText = await res.text().catch(function () { return ""; });
+        throw new Error("Gemini HTTP " + res.status + ": " + errText.slice(0, 180));
+      }
+      var data = await res.json();
+      var cand = data.candidates && data.candidates[0];
+      var raw = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+      if (!raw) throw new Error("Gemini trả về rỗng (có thể bị chặn bởi bộ lọc an toàn nội dung)");
+      return raw;
+    },
+
+    /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta).
+       Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. */
     generateAI: async function (words, cfg) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
-      if (!cfg || !cfg.OPENAI_API_KEY) throw new Error("chưa có OPENAI_API_KEY");
+      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
+        throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
+      }
 
       var wordList = words.map(function (x) {
         return "- " + x.term +
@@ -195,27 +249,10 @@
         '{"title":"...", "source_vi":"...", ' +
         '"sentences":[{"term":"...","en":"...","vi":"..."}], "closing_en":"..."}';
 
-      var res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + cfg.OPENAI_API_KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: cfg.OPENAI_MODEL || "gpt-4o-mini",
-          temperature: 0.9,
-          response_format: { type: "json_object" },
-          messages: [{ role: "system", content: sys }, { role: "user", content: user }]
-        })
-      });
-
-      if (!res.ok) {
-        var errText = await res.text().catch(function () { return ""; });
-        throw new Error("OpenAI HTTP " + res.status + ": " + errText.slice(0, 180));
-      }
-      var data = await res.json();
-      var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (!raw) throw new Error("OpenAI trả về rỗng");
+      /* Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. */
+      var raw = cfg.GEMINI_API_KEY
+        ? await w.Context._callGemini(cfg, sys, user)
+        : await w.Context._callOpenAI(cfg, sys, user);
       var parsed = JSON.parse(raw);
       if (!parsed.sentences || !parsed.sentences.length) throw new Error("Thiếu 'sentences' trong JSON trả về");
 
