@@ -269,6 +269,12 @@
     var u = makeUtterance(sentence.text);
     S._current = u;
 
+    /* Reset MỖI CÂU, không phải 1 lần cho cả bài. Lỗi cũ: cờ này chỉ tắt
+       lúc bắt đầu cả đoạn văn -> câu 1 bắt được onboundary thì cờ bật true
+       mãi mãi, nên từ câu sau hễ trình duyệt lỡ không bắn onboundary (rất
+       hay gặp, tuỳ giọng) là chế độ hẹn giờ dự phòng KHÔNG BAO GIỜ được
+       bật lên nữa -> chữ đứng khựng, không sáng tiếp dù giọng vẫn đọc. */
+    S._boundaryFired = false;
     var gotBoundary = false;
     u.onboundary = function (e) {
       if (typeof e.charIndex !== "number") return;
