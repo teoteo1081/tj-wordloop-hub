@@ -671,20 +671,17 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 }
 .passage-empty-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
 
-.claude-picks{border-top:1px dashed var(--border);margin-top:.9rem;padding-top:.9rem;display:flex;flex-direction:column;gap:.6rem;}
-.claude-picks-label{font-size:.78rem;font-weight:700;color:var(--text-2);}
-.claude-picks-tabs{display:flex;gap:.4rem;flex-wrap:wrap;}
-.claude-picks-tabs button{
+.src-tabs{display:flex;gap:.4rem;flex-wrap:wrap;}
+.src-tabs button{
   background:var(--bg-soft);border:1px solid var(--border);color:var(--text-2);
   padding:.35rem .8rem;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;
 }
-.claude-picks-tabs button:hover{color:var(--text);border-color:var(--text-3);}
-.claude-picks-tabs button.active{background:var(--blue-sub);color:var(--blue-l);border-color:var(--blue);}
+.src-tabs button:hover{color:var(--text);border-color:var(--text-3);}
+.src-tabs button.active{background:var(--blue-sub);color:var(--blue-l);border-color:var(--blue);}
 .claude-preview{
   max-height:9rem;overflow-y:auto;border:1px solid var(--border);border-radius:8px;
   padding:.6rem .75rem;font-size:.82rem;line-height:1.55;color:var(--text-2);background:var(--bg);
 }
-.claude-preview:empty::before{content:"Chọn 1 bài ở trên để xem trước";color:var(--text-3);font-style:italic;}
 
 .hidden-unit{display:none !important;}
 .passage.mode-sentence .sent{font-size:1.25rem;line-height:2;display:block;}

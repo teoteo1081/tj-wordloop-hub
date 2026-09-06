@@ -37,7 +37,8 @@
     D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
     D.si = null;
     D.mi = null;
-    D._claudePick = null;
+    D._srcTab = "paste";
+    D._pasteDraft = "";
     var b = block();
     if (!b) return;
 
@@ -240,10 +241,10 @@
        chữ gợi ý cho đúng với trạng thái hiện tại. */
     if (hint) {
       hint.textContent = raw
-        ? "Muốn đổi bài đọc? Dán bài khác, nhờ AI viết lại, hoặc chọn 1 bài Claude đã viết sẵn bên dưới."
-        : "Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.";
+        ? "Muốn đổi bài đọc? Chọn 1 nguồn bên dưới rồi bấm Dùng bài này."
+        : "Bài đọc này còn trống — chọn 1 nguồn bên dưới.";
     }
-    D.renderClaudePicks(b);
+    D.renderSourcePicker(b);
 
     if (!raw) {
       /* Chưa có bài đọc — để trống thật sự, không tự sinh gì hết. */
@@ -357,32 +358,42 @@
     await D.renderPassage();
   };
 
-  /* ---------- 3 bài Claude viết sẵn (nếu có) — chọn thử trước khi dùng ---------- */
-  D._claudePick = null;   /* index đang xem trước, reset mỗi lần render */
+  /* ---------- Nguồn bài đọc: Dán, hoặc chọn 1 bài Claude viết sẵn ----------
+     1 hàng tab "📝 Dán" + "Claude 1/2/3" (tuỳ Block có sẵn bao nhiêu bài),
+     bấm tab nào thì xem thử tab đó, rồi bấm CHUNG 1 nút "Dùng bài này"
+     mới đẩy lên chính thức. Không có nút "Nhờ AI viết" riêng ở đây nữa —
+     dùng nút "🔄 Tạo lại" phía trên (nhờ AI) là đủ, khỏi lặp chức năng. */
+  D._srcTab = "paste";     /* "paste" | 0 | 1 | 2 (chỉ số trong candidates) */
+  D._pasteDraft = "";      /* giữ nội dung đang gõ dở khi chuyển qua lại giữa các tab */
 
-  D.renderClaudePicks = function (b) {
-    var wrap = w.$("#claude-picks");
-    if (!wrap) return;
+  D.renderSourcePicker = function (b) {
+    var tabsEl = w.$("#src-tabs");
+    var bodyEl = w.$("#src-body");
+    if (!tabsEl || !bodyEl) return;
     var list = Array.isArray(b.context_passage_candidates) ? b.context_passage_candidates : [];
-    if (!list.length) { wrap.hidden = true; return; }
-    wrap.hidden = false;
 
-    w.$("#claude-picks-tabs").innerHTML = list.map(function (_, i) {
-      return '<button data-i="' + i + '" class="' + (D._claudePick === i ? "active" : "") + '">Claude ' + (i + 1) + "</button>";
-    }).join("");
+    var tabsHtml = '<button data-src="paste" class="' + (D._srcTab === "paste" ? "active" : "") + '">📝 Dán</button>';
+    list.forEach(function (_, i) {
+      tabsHtml += '<button data-src="' + i + '" class="' + (D._srcTab === i ? "active" : "") + '">Claude ' + (i + 1) + "</button>";
+    });
+    tabsEl.innerHTML = tabsHtml;
 
-    var useBtn = w.$("#btn-use-claude");
-    if (D._claudePick == null || !list[D._claudePick]) {
-      w.$("#claude-preview").innerHTML = "";
-      if (useBtn) useBtn.hidden = true;
+    if (D._srcTab === "paste") {
+      bodyEl.innerHTML = '<textarea id="passage-paste" placeholder="Dán đoạn văn tiếng Anh vào đây…"></textarea>';
+      var ta = w.$("#passage-paste");
+      ta.value = D._pasteDraft;
+      ta.oninput = function (e) { D._pasteDraft = e.target.value; };
       return;
     }
-    var meta = w.Context.parseMeta(list[D._claudePick]);
+
+    var raw = list[D._srcTab];
+    if (!raw) { bodyEl.innerHTML = ""; D._srcTab = "paste"; return D.renderSourcePicker(b); }
+    var meta = w.Context.parseMeta(raw);
     var built = w.Context.build(meta.marked);
-    w.$("#claude-preview").innerHTML =
+    bodyEl.innerHTML = '<div class="claude-preview">' +
       (meta.title ? "<b>" + w.esc(meta.title) + "</b><br>" : "") +
-      w.esc(built.plain).replace(/\n/g, "<br>");
-    if (useBtn) useBtn.hidden = false;
+      w.esc(built.plain).replace(/\n/g, "<br>") +
+      "</div>";
   };
 
   D.useClaudeCandidate = async function (idx) {
@@ -395,7 +406,6 @@
     b.context_passage = val;
     try { await w.DB.saveContext(b.id, val); } catch (e) { /* offline vẫn hiển thị được */ }
     D._exam = null;
-    D._claudePick = null;
     await D.renderPassage();
   };
 
@@ -1256,35 +1266,22 @@
         btn.textContent = oldText;
       }
     };
-    w.$("#btn-use-pasted").onclick = async function () {
-      var text = (w.$("#passage-paste").value || "").trim();
-      if (!text) { w.toast("Dán bài vào ô trước đã nhé", "err"); return; }
-      await D.usePastedPassage(text);
-      w.$("#passage-paste").value = "";
-      w.toast("Đã lưu bài đọc");
-    };
-    w.$("#btn-ai-write").onclick = async function () {
-      var btn = this;
-      btn.disabled = true;
-      var oldText = btn.textContent;
-      btn.textContent = "⏳ Đang tạo...";
-      try {
-        await D.generatePassage();
-      } finally {
-        btn.disabled = false;
-        btn.textContent = oldText;
-      }
-    };
-    w.$("#claude-picks-tabs").addEventListener("click", function (e) {
-      var btn = e.target.closest("button[data-i]");
+    w.$("#src-tabs").addEventListener("click", function (e) {
+      var btn = e.target.closest("button[data-src]");
       if (!btn) return;
-      D._claudePick = Number(btn.dataset.i);
-      D.renderClaudePicks(block());
+      D._srcTab = btn.dataset.src === "paste" ? "paste" : Number(btn.dataset.src);
+      D.renderSourcePicker(block());
     });
-    w.$("#btn-use-claude").onclick = async function () {
-      if (D._claudePick == null) return;
-      await D.useClaudeCandidate(D._claudePick);
-      w.toast("Đã dùng bài của Claude");
+    w.$("#btn-use-source").onclick = async function () {
+      if (D._srcTab === "paste") {
+        var text = D._pasteDraft.trim();
+        if (!text) { w.toast("Dán bài vào ô trước đã nhé", "err"); return; }
+        await D.usePastedPassage(text);
+        D._pasteDraft = "";
+      } else {
+        await D.useClaudeCandidate(D._srcTab);
+      }
+      w.toast("Đã lưu bài đọc");
     };
     w.$("#btn-copy-passage").onclick = function () { copyText(this, D._passagePlain || ""); };
     w.$("#btn-copy-vocab").onclick = function () {

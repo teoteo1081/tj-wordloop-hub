@@ -264,24 +264,16 @@
           </div>
 
           <!-- Nguồn khác cho bài đọc — LUÔN hiện, dù đang có bài đọc chính
-               hay chưa, để bạn đổi bài bất cứ lúc nào (dán bài khác, nhờ
-               AI viết lại, hoặc chọn 1 trong các bài Claude đã viết sẵn). -->
+               hay chưa. 1 hàng lựa chọn: Dán + tối đa 3 bài Claude viết sẵn
+               (nếu có) — bấm 1 cái để xem trước, rồi "Dùng bài này" mới đẩy
+               lên trên dùng cho các bài tập câu. Nhờ AI viết mới đã có sẵn
+               ở nút "🔄 Tạo lại" phía trên, không lặp lại ở đây nữa. -->
           <div class="passage-empty" id="passage-empty">
-            <p id="passage-empty-hint">Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.</p>
-            <textarea id="passage-paste" placeholder="Dán đoạn văn tiếng Anh vào đây…"></textarea>
+            <p id="passage-empty-hint">Bài đọc này còn trống — chọn 1 nguồn bên dưới.</p>
+            <div class="src-tabs" id="src-tabs"><!-- JS: renderSourcePicker() --></div>
+            <div id="src-body"><!-- JS: renderSourcePicker() --></div>
             <div class="passage-empty-actions">
-              <button class="btn-primary" id="btn-use-pasted">✅ Dùng bài này</button>
-              <button class="btn-soft" id="btn-ai-write">✨ Nhờ AI viết</button>
-            </div>
-
-            <!-- Claude viết sẵn tối đa 3 bài khác nhau cho Block này (nếu có)
-                 — chọn 1 cái xem trước rồi "Dùng bài này" để đẩy lên trên,
-                 dùng luôn cho các bài tập câu (Phiếu đầy đủ/Từng câu/Nghĩa). -->
-            <div class="claude-picks" id="claude-picks" hidden>
-              <div class="claude-picks-label">✍️ Claude đã viết sẵn:</div>
-              <div class="claude-picks-tabs" id="claude-picks-tabs"></div>
-              <div class="claude-preview" id="claude-preview"></div>
-              <button class="btn-primary" id="btn-use-claude" hidden>✅ Dùng bài này</button>
+              <button class="btn-primary" id="btn-use-source">✅ Dùng bài này</button>
             </div>
           </div>
 
