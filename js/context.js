@@ -215,8 +215,55 @@
       return raw;
     },
 
+    /* Escape ký tự đặc biệt của regex trong 1 chuỗi thường */
+    _reEsc: function (s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); },
+
+    /* Tìm & bọc [..] quanh từng term trong 1 đoạn văn xuôi liền mạch (không
+       phải kiểu "mỗi từ 1 câu" nữa). Khớp theo ranh giới từ (\b), không
+       chồng lên vùng đã đánh dấu trước đó (đề phòng 1 từ là từ con của
+       từ khác, ví dụ "cost" nằm trong "irreversible cost"). Từ nào AI lỡ
+       quên / đổi dạng không tìm thấy -> chèn thêm câu ngắn ở cuối bài,
+       để không vỡ cơ chế điền từ & bài thi cuối bài. */
+    _markTerms: function (passageText, terms) {
+      var text = String(passageText || "");
+      var claimed = [], matches = [];
+
+      terms.forEach(function (term) {
+        var re;
+        try { re = new RegExp("\\b" + w.Context._reEsc(term) + "\\b", "i"); }
+        catch (e) { return; }
+        var m = re.exec(text);
+        if (!m) return;
+        var start = m.index, end = start + m[0].length;
+        var overlap = claimed.some(function (r) { return start < r[1] && end > r[0]; });
+        if (overlap) return;
+        matches.push({ start: start, end: end, term: term, matched: m[0] });
+        claimed.push([start, end]);
+      });
+      matches.sort(function (a, b) { return a.start - b.start; });
+
+      var out = "", last = 0;
+      matches.forEach(function (m) {
+        out += text.slice(last, m.start) + "[" + m.matched + "]";
+        last = m.end;
+      });
+      out += text.slice(last);
+
+      var found = {};
+      matches.forEach(function (m) { found[m.term.toLowerCase()] = 1; });
+      var missing = terms.filter(function (t) { return !found[t.toLowerCase()]; });
+      if (missing.length) {
+        out += "\n\n" + missing.map(function (t) {
+          return "One more word to remember here: [" + t + "].";
+        }).join(" ");
+      }
+      return out;
+    },
+
     /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta).
-       Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. */
+       Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. Sinh
+       MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
+       câu rời" — từ vựng chỉ là điểm neo xen giữa văn xuôi tự nhiên. */
     generateAI: async function (words, cfg) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
@@ -230,53 +277,39 @@
           (x.def_en ? " — " + x.def_en : "");
       }).join("\n");
 
-      var sys = "Bạn là trợ lý viết bài đọc tiếng Anh ngắn để luyện từ vựng cho người Việt học " +
+      var sys = "Bạn là trợ lý viết bài đọc hiểu tiếng Anh để luyện từ vựng cho người Việt học " +
         "tiếng Anh. Luôn trả lời DUY NHẤT một object JSON đúng schema được yêu cầu, không thêm " +
         "chữ nào khác, không dùng markdown code fence.";
       var user =
-        "Viết một bài đọc tiếng Anh TỰ NHIÊN, có mạch truyện/bối cảnh xuyên suốt do bạn TỰ CHỌN " +
-        "(đừng lúc nào cũng là họp hành văn phòng — hãy đa dạng theo đúng chủ đề của nhóm từ bên " +
-        "dưới: có thể là một chuyến đi, chuyện gia đình, dự án học tập, thể thao, công nghệ…), " +
-        "dùng ĐÚNG các từ sau, mỗi từ xuất hiện trong ĐÚNG MỘT câu riêng, theo thứ tự cho sẵn:\n\n" +
+        "Viết một BÀI ĐỌC HIỂU tiếng Anh hoàn chỉnh, TỰ NHIÊN, dài khoảng 450–550 từ, chia 3–5 " +
+        "đoạn văn (ngăn cách bằng 1 dòng trống), có mạch truyện/chủ đề xuyên suốt do bạn TỰ CHỌN " +
+        "theo đúng chủ đề của nhóm từ bên dưới (đừng lúc nào cũng là họp hành văn phòng — có thể " +
+        "là một chuyến đi, chuyện gia đình, dự án học tập, thể thao, công nghệ, khoa học…).\n\n" +
+        "Bài đọc PHẢI chứa TẤT CẢ các từ sau, mỗi từ xuất hiện ĐÚNG MỘT LẦN, NGUYÊN VĂN (không " +
+        "chia động từ, không đổi số ít/nhiều), xen kẽ tự nhiên trong bài — KHÔNG dồn hết vào 1 " +
+        "câu, KHÔNG viết kiểu mỗi từ 1 câu tách rời nhau, mà để bài đọc trôi chảy như văn viết " +
+        "thật:\n\n" +
         wordList +
-        "\n\nYêu cầu bắt buộc:\n" +
-        "- Mỗi câu tiếng Anh khoảng 12–22 từ, câu sau nối mạch với câu trước (cùng bối cảnh/nhân vật).\n" +
-        "- Từ vựng phải xuất hiện NGUYÊN VĂN trong câu, không chia động từ, không đổi số ít/nhiều.\n" +
-        "- Kèm bản dịch tiếng Việt tự nhiên cho từng câu.\n" +
-        "- Đặt 1 tiêu đề tiếng Anh ngắn (5–8 từ) và 1 dòng mô tả nguồn bằng tiếng Việt.\n" +
-        "- Thêm 1 câu kết bằng tiếng Anh khuyến khích ôn lại theo phương pháp lặp lại ngắt quãng.\n\n" +
+        "\n\nSau khi viết xong, với MỖI từ ở trên, ghi lại bản dịch tiếng Việt của ĐÚNG câu trong " +
+        "bài chứa từ đó (chỉ câu đó thôi, không phải cả đoạn).\n\n" +
+        "Đặt thêm 1 tiêu đề tiếng Anh ngắn (5–8 từ) và 1 dòng mô tả nguồn bằng tiếng Việt.\n\n" +
         "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
-        '{"title":"...", "source_vi":"...", ' +
-        '"sentences":[{"term":"...","en":"...","vi":"..."}], "closing_en":"..."}';
+        '{"title":"...", "source_vi":"...", "passage_en":"...", ' +
+        '"translations":[{"term":"...","vi":"..."}]}';
 
       /* Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. */
       var raw = cfg.GEMINI_API_KEY
         ? await w.Context._callGemini(cfg, sys, user)
         : await w.Context._callOpenAI(cfg, sys, user);
       var parsed = JSON.parse(raw);
-      if (!parsed.sentences || !parsed.sentences.length) throw new Error("Thiếu 'sentences' trong JSON trả về");
+      if (!parsed.passage_en) throw new Error("Thiếu 'passage_en' trong JSON trả về");
 
-      var viMap = {}, paras = [], bucket = [], take = 4;
-      parsed.sentences.forEach(function (s, i) {
-        /* Ưu tiên đúng từ trong kho (đề phòng AI viết sai chính tả từ),
-           chỉ dùng s.term khi không khớp vị trí nào trong danh sách gốc. */
-        var term = terms[i] != null ? terms[i] : (s.term || "");
-        var en = String(s.en || "");
-        var idx = en.toLowerCase().indexOf(String(term).toLowerCase());
-        var marked;
-        if (idx >= 0) {
-          marked = en.slice(0, idx) + "[" + en.slice(idx, idx + term.length) + "]" + en.slice(idx + term.length);
-        } else {
-          /* AI lỡ chia động từ / đổi dạng từ -> vẫn tự chèn nguyên bản từ
-             vào cuối câu để không vỡ cơ chế điền từ & bài thi cuối bài. */
-          marked = en.replace(/[.!?]*$/, "") + " (" + "[" + term + "]" + ").";
-        }
-        if (s.vi) viMap[term.toLowerCase()] = s.vi;
-        bucket.push(marked);
-        if (bucket.length >= take) { paras.push(bucket.join(" ")); bucket = []; take = 3; }
+      var marked = w.Context._markTerms(parsed.passage_en, terms);
+
+      var viMap = {};
+      (parsed.translations || []).forEach(function (t) {
+        if (t && t.term && t.vi) viMap[String(t.term).toLowerCase()] = t.vi;
       });
-      if (bucket.length) paras.push(bucket.join(" "));
-      if (parsed.closing_en) paras.push(String(parsed.closing_en));
 
       var meta = {
         ai: true,
@@ -284,7 +317,7 @@
         title: parsed.title || "",
         source: parsed.source_vi || "Bài đọc do AI sinh riêng cho Block này."
       };
-      return paras.join("\n\n") + w.Context.META_SEP + JSON.stringify(meta);
+      return marked + w.Context.META_SEP + JSON.stringify(meta);
     },
 
     /* Lấy các câu trong đoạn văn, mỗi câu chứa 1 từ vựng, để dựng đề điền từ.
