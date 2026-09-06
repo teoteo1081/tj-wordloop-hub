@@ -183,6 +183,7 @@
           <div class="card-title-row">
             <div class="card-title">📘 1. Danh sách từ vựng cần học</div>
             <div class="audio-toolbar">
+              <button class="btn-soft" id="btn-copy-vocab" title="Copy bảng từ vựng">📋 Copy</button>
               <button class="btn-soft" id="btn-stop-all">⏹ Dừng</button>
               <button class="btn-primary" id="btn-read-all">🔊 Đọc tất cả từ</button>
             </div>
@@ -216,6 +217,7 @@
                 <option value="1.15">1.15x</option>
               </select>
               <button class="btn-soft" id="btn-regen">🔄 Tạo lại</button>
+              <button class="btn-soft" id="btn-copy-passage" title="Copy đoạn văn">📋 Copy</button>
               <button class="btn-soft" id="btn-stop">⏹ Dừng</button>
               <button class="btn-primary" id="btn-read">🎧 Nghe US</button>
             </div>
@@ -232,6 +234,7 @@
             <div class="piece-row">
               <h4 class="piece" id="passage-title"></h4>
               <span class="ai-badge" id="passage-ai-badge"></span>
+              <span class="word-count" id="passage-wordcount"></span>
             </div>
             <div class="passage" id="passage"></div>
             <div class="read-nav" id="read-nav" hidden>

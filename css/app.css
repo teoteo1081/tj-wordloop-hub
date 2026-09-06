@@ -542,6 +542,8 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .ai-badge:empty{display:none;}
 .ai-badge.ai{color:var(--green-l);border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.1);}
 .ai-badge.tpl{color:var(--amber-l);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.1);}
+.word-count{font-size:.72rem;color:var(--text-3);font-weight:600;}
+.word-count:empty{display:none;}
 .glossary{
   background:var(--bg-hover);border:1px solid var(--border-soft);border-radius:8px;
   padding:.75rem 1rem;margin-top:.7rem;font-size:.8rem;line-height:1.65;
@@ -783,6 +785,17 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .gap-card{
   background:var(--bg-soft);border:1px solid var(--border);border-radius:14px;
   padding:1.1rem 1.2rem;margin:.9rem 0 1.1rem;
+}
+/* 4 đáp án bên TRÁI, giải thích bên PHẢI — chấm xong chỉ lấp vào cột
+   phải, không đẩy nút "Câu tiếp" xuống dưới như kiểu xếp chồng cũ. Cột
+   phải có min-height sẵn để lúc chưa trả lời cũng không đổi cao đột
+   ngột khi đáp án hiện ra. Điện thoại gập về 1 cột (chật ngang). */
+.single-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;align-items:start;margin-bottom:.9rem;}
+.single-explain{min-height:100px;}
+.single-explain:empty{min-height:0;}
+@media(max-width:760px){
+  .single-grid{grid-template-columns:1fr;gap:.7rem;}
+  .single-explain{min-height:0;}
 }
 .gap-label{
   font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;

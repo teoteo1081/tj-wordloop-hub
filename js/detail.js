@@ -13,6 +13,23 @@
       .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
   }
 
+  /* Copy văn bản ra clipboard, dùng chung cho nút Copy ở vocab table /
+     đoạn văn / glossary. Đổi tạm chữ trên nút để xác nhận đã copy. */
+  function copyText(btn, text) {
+    var restore = btn.textContent;
+    function ok() {
+      btn.textContent = "✓ Đã copy"; btn.classList.add("done");
+      setTimeout(function () { btn.textContent = restore; btn.classList.remove("done"); }, 1500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok).catch(function () {
+        w.toast("Trình duyệt chặn copy tự động", "err");
+      });
+    } else {
+      w.toast("Trình duyệt này không hỗ trợ copy tự động", "err");
+    }
+  }
+
   /* ══════════════ MỞ / ĐÓNG ══════════════ */
   D.open = function (blockId) {
     D.blockId = blockId;
@@ -236,6 +253,13 @@
     var built = w.Context.build(meta.marked);
     D._passagePlain = built.plain;
     w.$("#passage").innerHTML = built.html;
+
+    /* Thống kê số từ bài đọc — để biết bài AI sinh có đủ dài không. */
+    var wc = w.$("#passage-wordcount");
+    if (wc) {
+      var nWords = built.plain.trim() ? built.plain.trim().split(/\s+/).length : 0;
+      wc.textContent = nWords ? nWords + " từ" : "";
+    }
 
     /* Glossary cuối bài đọc — lấy thẳng định nghĩa tiếng Anh thật của từ.
        Có nút Copy kiểu code-block để copy nguyên khối ra dán chỗ khác. */
@@ -692,10 +716,13 @@
       return c + " dim";
     }
 
-    var body;
+    /* Bố cục 2 cột: đáp án BÊN TRÁI, giải thích BÊN PHẢI — chấm xong thì
+       giải thích chỉ lấp vào cột phải, không đẩy nút "Câu tiếp" xuống dưới
+       như kiểu xếp chồng cũ. Điện thoại tự gập về 1 cột (CSS). */
+    var promptHtml, optsHtml;
     if (cur.kind === "gap") {
       var parts = cur.ref.text.split("{{GAP}}");
-      body =
+      promptHtml =
         '<div class="gap-card">' +
           '<div class="gap-label">Chọn từ đúng điền vào chỗ trống</div>' +
           '<div class="gap-sentence">' + w.esc(parts[0] || "") +
@@ -704,36 +731,37 @@
               (cur.ref.given ? w.esc(cur.ref.given) : "_ _ _") + "</span>" +
             w.esc(parts[1] || "") +
           "</div>" +
-        "</div>" +
-        '<div class="opt-list">' +
-          cur.ref.options.map(function (t, j) {
-            return '<button class="' + optClass(t) + '" data-pick="' + w.esc(t) + '"' +
-                   (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
-                   ".</span>" + w.esc(t) + "</button>";
-          }).join("") +
         "</div>";
+      optsHtml = cur.ref.options.map(function (t, j) {
+        return '<button class="' + optClass(t) + '" data-pick="' + w.esc(t) + '"' +
+               (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
+               ".</span>" + w.esc(t) + "</button>";
+      }).join("");
     } else {
-      body =
+      promptHtml =
         '<div class="gap-card">' +
           '<div class="gap-label">Chọn nghĩa tiếng Việt đúng</div>' +
           '<div class="gap-sentence">' + w.esc(cur.ref.term) + "</div>" +
-        "</div>" +
-        '<div class="opt-list">' +
-          cur.ref.options.map(function (o, j) {
-            return '<button class="' + optClass(o) + '" data-pick="' + w.esc(o) + '"' +
-                   (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
-                   ".</span>" + w.esc(o) + "</button>";
-          }).join("") +
         "</div>";
+      optsHtml = cur.ref.options.map(function (o, j) {
+        return '<button class="' + optClass(o) + '" data-pick="' + w.esc(o) + '"' +
+               (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
+               ".</span>" + w.esc(o) + "</button>";
+      }).join("");
     }
 
-    if (shown) {
-      body +=
-        '<div class="quiz-feedback ' + (cur.ref.ok ? "ok" : "no") + '">' +
+    var explainHtml = shown
+      ? '<div class="quiz-feedback ' + (cur.ref.ok ? "ok" : "no") + '">' +
           (cur.ref.ok ? "✅ Chính xác!" : "❌ Đáp án đúng: <b>" + w.esc(right) + "</b>") +
         "</div>" +
-        D.answerNote(cur.ref.term, cur.kind === "gap" ? cur.ref.text : "");
-    }
+        D.answerNote(cur.ref.term, cur.kind === "gap" ? cur.ref.text : "")
+      : "";
+
+    var body = promptHtml +
+      '<div class="single-grid">' +
+        '<div class="opt-list">' + optsHtml + "</div>" +
+        '<div class="single-explain">' + explainHtml + "</div>" +
+      "</div>";
 
     var last = D.si >= list.length - 1;
     return '<div class="exam-bar-row">' +
@@ -1071,6 +1099,13 @@
         btn.textContent = oldText;
       }
     };
+    w.$("#btn-copy-passage").onclick = function () { copyText(this, D._passagePlain || ""); };
+    w.$("#btn-copy-vocab").onclick = function () {
+      var text = words().map(function (x) {
+        return [x.term, x.level, x.pos, x.ipa, x.def_en, x.meaning_vi].filter(Boolean).join(" | ");
+      }).join("\n");
+      copyText(this, text);
+    };
     w.$("#speed-select").onchange = function (e) { w.Speech.setRate(e.target.value); };
 
     /* --- chọn giọng đọc có sẵn trên máy --- */
@@ -1128,17 +1163,7 @@
         var text = w.$$("#passage-glossary .g-row").map(function (r) {
           return r.textContent.replace(/\s+/g, " ").trim();
         }).join("\n");
-        var done = function () {
-          copyBtn.textContent = "✓ Đã copy"; copyBtn.classList.add("done");
-          setTimeout(function () { copyBtn.textContent = "📋 Copy"; copyBtn.classList.remove("done"); }, 1500);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done).catch(function () {
-            w.toast("Trình duyệt chặn copy tự động", "err");
-          });
-        } else {
-          w.toast("Trình duyệt này không hỗ trợ copy tự động", "err");
-        }
+        copyText(copyBtn, text);
         return;
       }
       var row = e.target.closest(".g-row");
