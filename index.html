@@ -263,24 +263,26 @@
             </div>
           </div>
 
-          <!-- Bài đọc còn trống -->
-          <div class="passage-empty" id="passage-empty" hidden>
-            <p>Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.</p>
+          <!-- Nguồn khác cho bài đọc — LUÔN hiện, dù đang có bài đọc chính
+               hay chưa, để bạn đổi bài bất cứ lúc nào (dán bài khác, nhờ
+               AI viết lại, hoặc chọn 1 trong các bài Claude đã viết sẵn). -->
+          <div class="passage-empty" id="passage-empty">
+            <p id="passage-empty-hint">Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.</p>
             <textarea id="passage-paste" placeholder="Dán đoạn văn tiếng Anh vào đây…"></textarea>
             <div class="passage-empty-actions">
               <button class="btn-primary" id="btn-use-pasted">✅ Dùng bài này</button>
               <button class="btn-soft" id="btn-ai-write">✨ Nhờ AI viết</button>
             </div>
-          </div>
 
-          <!-- Claude viết sẵn tối đa 3 bài khác nhau cho Block này (nếu có)
-               — LUÔN hiện khi có, kể cả khi bài đọc chính đã có sẵn (bạn tự
-               dán/AI sinh), để còn đổi qua bài Claude viết nếu muốn. -->
-          <div class="claude-picks" id="claude-picks" hidden>
-            <div class="claude-picks-label">✍️ Claude đã viết sẵn:</div>
-            <div class="claude-picks-tabs" id="claude-picks-tabs"></div>
-            <div class="claude-preview" id="claude-preview"></div>
-            <button class="btn-primary" id="btn-use-claude" hidden>✅ Dùng bài này</button>
+            <!-- Claude viết sẵn tối đa 3 bài khác nhau cho Block này (nếu có)
+                 — chọn 1 cái xem trước rồi "Dùng bài này" để đẩy lên trên,
+                 dùng luôn cho các bài tập câu (Phiếu đầy đủ/Từng câu/Nghĩa). -->
+            <div class="claude-picks" id="claude-picks" hidden>
+              <div class="claude-picks-label">✍️ Claude đã viết sẵn:</div>
+              <div class="claude-picks-tabs" id="claude-picks-tabs"></div>
+              <div class="claude-preview" id="claude-preview"></div>
+              <button class="btn-primary" id="btn-use-claude" hidden>✅ Dùng bài này</button>
+            </div>
           </div>
 
           <div class="glossary" id="passage-glossary"></div>

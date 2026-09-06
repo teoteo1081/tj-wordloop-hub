@@ -223,38 +223,41 @@
   /* Mỗi Block có ĐÚNG 1 bài đọc đang dùng (context_passage). Ngoài ra
      Claude có thể chuẩn bị sẵn tối đa 3 bài khác nhau trong
      context_passage_candidates (mảng, mỗi phần tử là chuỗi full [đánh
-     dấu]+meta như bài thật) — chỉ để CHỌN THỬ khi bài đọc còn trống,
-     không tự động dùng, phải bấm "Dùng bài này" mới đẩy lên chính thức. */
+     dấu]+meta như bài thật) — LUÔN hiện để chọn thử, dù bài đọc chính
+     đang trống hay đã có sẵn (tự dán/AI/Claude), không tự động dùng,
+     phải bấm "Dùng bài này" mới đẩy lên chính thức. */
   D.renderPassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
 
     var raw = b.context_passage;
-    var emptyBox = w.$("#passage-empty");
     var contentBox = w.$("#passage-content-block");
     var readModes = w.$("#read-modes");
+    var hint = w.$("#passage-empty-hint");
+
+    /* Khu "Dán bài / Nhờ AI viết / Claude đã viết sẵn" LUÔN hiện, dù đang
+       có bài đọc chính hay chưa — để đổi bài bất cứ lúc nào. Chỉ đổi
+       chữ gợi ý cho đúng với trạng thái hiện tại. */
+    if (hint) {
+      hint.textContent = raw
+        ? "Muốn đổi bài đọc? Dán bài khác, nhờ AI viết lại, hoặc chọn 1 bài Claude đã viết sẵn bên dưới."
+        : "Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.";
+    }
+    D.renderClaudePicks(b);
 
     if (!raw) {
-      /* Chưa có bài đọc — để trống thật sự, không tự sinh gì hết, chờ
-         người dùng dán bài của mình, chọn 1 bài Claude viết sẵn, hoặc
-         bấm nhờ AI viết. */
-      if (emptyBox) emptyBox.hidden = false;
+      /* Chưa có bài đọc — để trống thật sự, không tự sinh gì hết. */
       if (contentBox) contentBox.hidden = true;
       if (readModes) readModes.hidden = true;
       w.$("#passage-glossary").innerHTML = "";
       var wc0 = w.$("#passage-wordcount");
       if (wc0) wc0.textContent = "";
       D._passagePlain = "";
-      D.renderClaudePicks(b);
       return;
     }
 
-    if (emptyBox) emptyBox.hidden = true;
     if (contentBox) contentBox.hidden = false;
     if (readModes) readModes.hidden = false;
-    /* Có bài đọc chính rồi vẫn hiện khu chọn Claude nếu Block có sẵn —
-       để đổi qua bài Claude viết ngay cả khi đang dùng bài tự dán/AI. */
-    D.renderClaudePicks(b);
 
     var meta = w.Context.parseMeta(raw);
     /* Chỉ hiện tiêu đề/nguồn khi bài đọc THẬT SỰ có (AI sinh, Claude viết,
