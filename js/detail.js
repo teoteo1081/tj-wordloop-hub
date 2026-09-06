@@ -363,10 +363,13 @@
 
   /* ══════════════ TAB — BÀI THI CUỐI BÀI ══════════════
      Dạng phiếu bài tập, giống bộ tài liệu giấy:
-       Phần A — trắc nghiệm 4 lựa chọn: chọn đúng từ điền vào chỗ trống,
-                câu lấy NGUYÊN VĂN từ đoạn văn đã học, 3 phương án nhiễu
-                lấy ngẫu nhiên trong chính các từ của Block.
-       Phần B — chọn nghĩa tiếng Việt đúng (cũng trắc nghiệm 4 lựa chọn).
+       Phần A — điền từ vào chỗ trống, câu lấy NGUYÊN VĂN từ đoạn văn đã
+                học. Cơ chế điền khác nhau theo chế độ xem:
+                  · "Phiếu đầy đủ": word bank cố định dính trên đầu, bấm
+                    chip để điền (hoặc bấm lại để bỏ chọn).
+                  · "Từng câu": trắc nghiệm 4 lựa chọn mỗi câu (đúng 1 từ +
+                    3 từ nhiễu lấy trong chính Block).
+       Phần B — chọn nghĩa tiếng Việt đúng (trắc nghiệm 4 lựa chọn cả 2 chế độ).
      Đúng >= 80% mới tính là hoàn thành Block và mới đẩy chu kỳ SRS. */
   var PASS_MARK = 80;
   D.PASS_MARK = PASS_MARK;
@@ -388,8 +391,10 @@
     ws.forEach(function (x) { byTerm[x.term.toLowerCase()] = x; });
     var allTerms = ws.map(function (x) { return x.term; });
 
-    /* Phần A giờ là trắc nghiệm 4 lựa chọn (đúng 1 từ + 3 từ nhiễu lấy
-       trong chính Block), không còn word bank kéo-thả liệt kê hết từ. */
+    /* Phần A: mỗi gap có sẵn `options` (đúng 1 từ + 3 từ nhiễu trong chính
+       Block) để chế độ "Từng câu" dùng làm trắc nghiệm 4 lựa chọn. Chế độ
+       "Phiếu đầy đủ" thì vẫn dùng `bank` (word bank cố định, bấm điền vào
+       chỗ trống) — 2 chế độ khác nhau, cùng chung 1 danh sách `gaps`. */
     var passageText = w.Context.parseMeta(b.context_passage).marked;
     var gaps = w.Context.gapSentences(passageText)
       .filter(function (g) { return byTerm[g.term.toLowerCase()]; })
@@ -414,6 +419,7 @@
     return {
       gaps: shuffle(gaps),
       mc: mc,
+      bank: shuffle(ws.map(function (x) { return x.term; })),
       total: gaps.length + mc.length,
       graded: false
     };
@@ -504,31 +510,41 @@
       return;
     }
 
-    /* ---- Phần A: trắc nghiệm 4 lựa chọn, mỗi câu 1 chỗ trống ---- */
+    /* ---- WORD BANK: dính trên đầu khi cuộn ---- */
+    if (!ex.graded) {
+      html += '<div class="wordbank" id="wordbank">' +
+        '<div class="wb-head">' +
+          '<span class="wb-title">Word bank</span>' +
+          '<span class="wb-left" id="wb-left"></span>' +
+          '<button class="wb-clear" id="wb-clear">Xoá hết</button>' +
+        "</div>" +
+        '<div class="wb-items">' +
+          ex.bank.map(function (t) {
+            return '<button class="wb-chip" data-bank="' + w.esc(t) + '">' + w.esc(t) + "</button>";
+          }).join("") +
+        "</div></div>";
+    }
+
+    /* ---- Phần A: bấm chip ở word bank để điền vào chỗ trống ---- */
     html += '<div class="exam-part">';
-    html += '<div class="exam-part-title">Phần A — Chọn từ đúng điền vào chỗ trống (theo bài đọc)</div>';
+    html += '<div class="exam-part-title">Phần A — Điền từ vào chỗ trống (theo bài đọc)</div>';
     html += ex.gaps.map(function (g, i) {
       var parts = g.text.split("{{GAP}}");
-      var blank = '<span class="blank' + (g.given ? " has" : "") +
-                    (ex.graded ? (g.ok ? " ok" : " no") : "") + '">' +
-                    (g.given ? w.esc(g.given) : "_ _ _") + "</span>";
-      var sentence = w.esc(parts[0] || "") + blank + w.esc(parts[1] || "");
-
-      var opts = g.options.map(function (o, j) {
-        var cls = "opt";
-        if (!ex.graded) { if (g.given === o) cls += " sel"; }
-        else if (o === g.term) cls += " right";
-        else if (g.given === o) cls += " wrong";
-        else cls += " dim";
-        return '<button class="' + cls + '" data-gap="' + i + '" data-opt="' + w.esc(o) + '"' +
-               (ex.graded ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) + ".</span>" +
-               w.esc(o) + "</button>";
-      }).join("");
-
+      var slot;
+      if (!ex.graded) {
+        slot = '<span class="slot' + (g.given ? " filled" : "") + '" data-gap="' + i + '">' +
+                 '<span class="slot-text">' + (g.given ? w.esc(g.given) : "&nbsp;") + "</span>" +
+                 (g.given ? '<button class="slot-x" data-clear="' + i + '" title="Bỏ chọn">✕</button>' : "") +
+               "</span>";
+      } else {
+        slot = '<span class="slot ' + (g.ok ? "right" : "wrong") + '">' +
+                 '<span class="slot-text">' + w.esc(g.given || "(bỏ trống)") + "</span></span>" +
+               (g.ok ? "" : '<span class="gap-fix">→ ' + w.esc(g.term) + "</span>");
+      }
       /* chấm xong thì kèm nghĩa của từ và bản dịch cả câu, đúng hay sai đều có */
       var note = ex.graded ? D.answerNote(g.term, g.text) : "";
-      return '<div class="mc-q"><div class="mc-ask"><b class="qn">' + (i + 1) + ".</b> " + sentence + "</div>" +
-             '<div class="opt-list">' + opts + "</div>" + note + "</div>";
+      return '<div class="ex-q"><b class="qn">' + (i + 1) + '.</b><span class="qtext">' +
+             w.esc(parts[0] || "") + slot + w.esc(parts[1] || "") + note + "</span></div>";
     }).join("");
     html += "</div>";
 
@@ -748,22 +764,85 @@
     w.$("#f-quit").onclick = function () { D._exam = null; D.renderFinalIntro(); };
     w.$("#f-submit").onclick = function () { D.submitFinal(); };
 
+    /* ô trống đang được chọn để điền */
+    function activeSlot() {
+      return card.querySelector(".slot.active");
+    }
+    function setActive(el) {
+      w.$$(".slot", card).forEach(function (s) { s.classList.toggle("active", s === el); });
+    }
+    function firstEmpty() {
+      return w.$$(".slot", card).filter(function (s) { return !ex.gaps[+s.dataset.gap].given; })[0];
+    }
+    function refresh() {
+      /* chip nào đã dùng thì mờ đi; đếm số ô còn trống */
+      var used = {};
+      ex.gaps.forEach(function (g) { if (g.given) used[w.normalizeAnswer(g.given)] = 1; });
+      w.$$("[data-bank]", card).forEach(function (c) {
+        c.classList.toggle("used", !!used[w.normalizeAnswer(c.dataset.bank)]);
+      });
+      var left = ex.gaps.filter(function (g) { return !g.given; }).length;
+      var el = w.$("#wb-left");
+      if (el) el.textContent = left ? "còn " + left + " chỗ trống" : "đã điền đủ ✓";
+    }
+
+    function fill(term) {
+      var slot = activeSlot() || firstEmpty();
+      if (!slot) return;
+      ex.gaps[+slot.dataset.gap].given = term;
+      redrawSlots();
+      /* điền xong thì tự nhảy sang ô trống kế tiếp, khỏi phải bấm lại */
+      var next = firstEmpty();
+      if (next) setActive(next); else setActive(null);
+    }
+    function clearGap(i) {
+      ex.gaps[i].given = null;
+      redrawSlots();
+    }
+    function redrawSlots() {
+      w.$$(".slot", card).forEach(function (s) {
+        var i = +s.dataset.gap, g = ex.gaps[i];
+        s.classList.toggle("filled", !!g.given);
+        s.querySelector(".slot-text").innerHTML = g.given ? w.esc(g.given) : "&nbsp;";
+        var x = s.querySelector(".slot-x");
+        if (g.given && !x) {
+          var btn = document.createElement("button");
+          btn.className = "slot-x"; btn.dataset.clear = i; btn.title = "Bỏ chọn"; btn.textContent = "✕";
+          s.appendChild(btn);
+        } else if (!g.given && x) { x.remove(); }
+      });
+      refresh();
+    }
+
     /* onclick (không phải addEventListener): bindFinal chạy lại sau MỖI lần
-       vẽ, dùng addEventListener thì handler chồng lên nhau. onclick thì
-       luôn chỉ có một, bấm lại vào phương án khác là đổi đáp án ngay. */
+       vẽ, dùng addEventListener thì handler chồng lên nhau — một cú bấm chip
+       chạy 2-3 lần, điền rồi tự xoá, ô nhảy loạn. onclick thì luôn chỉ có một. */
     card.onclick = function (e) {
-      /* Phần A — chọn từ đúng điền vào chỗ trống */
-      var gapOpt = e.target.closest("[data-gap]");
-      if (gapOpt) {
-        var gi = +gapOpt.dataset.gap;
-        ex.gaps[gi].given = gapOpt.dataset.opt;
-        w.$$('[data-gap="' + gi + '"]', card).forEach(function (b2) {
-          b2.classList.toggle("sel", b2 === gapOpt);
-        });
+      /* bỏ chọn bằng nút ✕ */
+      var x = e.target.closest("[data-clear]");
+      if (x) { e.stopPropagation(); clearGap(+x.dataset.clear); return; }
+
+      /* bấm vào ô trống -> chọn ô đó để điền */
+      var slot = e.target.closest(".slot[data-gap]");
+      if (slot) {
+        if (ex.gaps[+slot.dataset.gap].given) clearGap(+slot.dataset.gap);
+        setActive(slot);
         return;
       }
 
-      /* Phần B — chọn nghĩa tiếng Việt đúng */
+      /* bấm chip: đã dùng -> gỡ ra; chưa dùng -> điền vào ô đang chọn */
+      var chip = e.target.closest("[data-bank]");
+      if (chip) {
+        var term = chip.dataset.bank;
+        var hit = -1;
+        ex.gaps.forEach(function (g, i) {
+          if (hit < 0 && g.given && w.normalizeAnswer(g.given) === w.normalizeAnswer(term)) hit = i;
+        });
+        if (hit >= 0) clearGap(hit); else fill(term);
+        return;
+      }
+
+      /* phần B */
       var opt = e.target.closest("[data-mc]");
       if (opt) {
         var qi = +opt.dataset.mc;
@@ -773,6 +852,16 @@
         });
       }
     };
+
+    w.$("#wb-clear").onclick = function () {
+      ex.gaps.forEach(function (g) { g.given = null; });
+      redrawSlots();
+    };
+
+    /* mặc định chọn sẵn ô đầu tiên còn trống */
+    var f = firstEmpty();
+    if (f) setActive(f);
+    refresh();
   };
 
   /* ---------- Chấm điểm ---------- */
