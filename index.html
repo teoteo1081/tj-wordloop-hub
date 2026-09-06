@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="description" content="TJ WordLoop Hub - Học từ vựng theo phương pháp lặp lại ngắt quãng Tony Buzan">
+<title>TJ WordLoop Hub</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ══════════════════ 1. THANH TRÊN CÙNG (HUB + USER) ══════════════════ -->
+<header class="topbar">
+  <button class="icon-btn mobile-only" id="btn-drawer-left" aria-label="Mở danh sách Notebook">☰</button>
+
+  <div class="brand" id="brand">
+    <span class="brand-mark">🔁</span>
+    <span class="brand-text">TJ WordLoop</span>
+  </div>
+
+  <nav class="hub-tabs" id="hub-tabs"><!-- JS render --></nav>
+  <button class="tab-add hub-add" id="btn-add-hub" title="Thêm hub">+</button>
+
+  <div class="topbar-right">
+    <button class="theme-btn" id="theme-btn" title="Đổi giao diện sáng / tối">🌙</button>
+    <span class="mode-pill" id="mode-pill" title="Chế độ lưu dữ liệu">…</span>
+
+    <button class="user-chip" id="user-chip" aria-haspopup="true" aria-expanded="false">
+      <span class="avatar" id="user-avatar">🐣</span>
+      <span class="uname" id="user-name">Khách</span>
+      <span class="caret">▾</span>
+    </button>
+
+    <div class="user-menu" id="user-menu" hidden>
+      <div class="user-menu-head">
+        <span class="avatar big" id="menu-avatar">🐣</span>
+        <div>
+          <div class="menu-name" id="menu-name">Khách</div>
+          <div class="menu-sub" id="menu-sub">Chưa đăng nhập</div>
+        </div>
+      </div>
+      <div class="user-menu-sep"></div>
+      <button class="menu-item" id="mi-switch">👥 <span>Đổi / Thêm người học</span></button>
+      <button class="menu-item" id="mi-edit">✏️ <span>Đổi tên &amp; avatar</span></button>
+      <button class="menu-item" id="mi-cloud">☁️ <span>Đăng nhập Cloud (email)</span></button>
+      <div class="user-menu-sep"></div>
+      <button class="menu-item" id="mi-export">💾 <span>Xuất dữ liệu (.json)</span></button>
+      <button class="menu-item" id="mi-import">📂 <span>Nhập dữ liệu (.json)</span></button>
+      <div class="user-menu-sep"></div>
+      <button class="menu-item danger" id="mi-logout">🚪 <span>Đăng xuất</span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════ 2. THÂN ỨNG DỤNG ══════════════════ -->
+<!-- Hàng dưới Hub: tên cột Notebooks (có nút ghim) · tab Sections · tên cột Pages -->
+<div class="section-bar">
+  <div class="pane-head pane-left">
+    <button class="pane-name" id="name-left">Notebooks</button>
+    <button class="pin-btn" id="pin-left" title="Ghim / bỏ ghim cột Notebooks">📌</button>
+  </div>
+
+  <div class="section-tabs" id="section-list"><!-- JS --></div>
+  <button class="tab-add" id="btn-add-section" title="Thêm section">+</button>
+
+  <div class="pane-head pane-right">
+    <button class="pin-btn" id="pin-right" title="Ghim / bỏ ghim cột Pages">📌</button>
+    <button class="pane-name" id="name-right">Pages</button>
+  </div>
+</div>
+
+<div class="app-container">
+
+  <!-- ---------- CỘT TRÁI: NOTEBOOK ➔ SECTION ---------- -->
+  <aside class="sidebar sidebar-left" id="sidebar-left">
+    <div class="sidebar-scroll">
+      <button class="btn-dashed" id="btn-add-notebook">+ Notebook mới</button>
+      <div id="notebook-list" class="nav-list mt-s"><!-- JS --></div>
+
+      <div class="sidebar-foot">
+        <div class="legend-title">Chu kỳ Tony Buzan</div>
+        <div class="legend-row"><i class="dot c1"></i> Lần 1–2 · 10 phút / 24 giờ</div>
+        <div class="legend-row"><i class="dot c2"></i> Lần 3 · 1 tuần</div>
+        <div class="legend-row"><i class="dot c3"></i> Lần 4 · 1 tháng</div>
+        <div class="legend-row"><i class="dot c4"></i> Lần 5–6 · 3–6 tháng</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ---------- GIỮA: WORKSPACE ---------- -->
+  <main class="workspace" id="workspace">
+
+    <div class="crumb" id="crumb"><!-- JS --></div>
+
+    <!-- Thanh Batch -->
+    <div class="batches-bar">
+      <div class="batch-tabs" id="batch-tabs"><!-- JS --></div>
+      <button class="btn-primary" id="btn-paste-new">+ Paste từ mới</button>
+    </div>
+
+    <!-- ===== MÀN HÌNH A: DANH SÁCH BLOCK ===== -->
+    <section id="screen-blocks">
+      <div class="screen-head">
+        <h2 id="batch-title">Batch 1</h2>
+        <div class="muted" id="batch-sub"></div>
+      </div>
+
+      <!-- Ô cảnh báo ôn tập + 4 thẻ chu kỳ -->
+      <div class="alert-box">
+        <div class="alert-header">
+          <div>
+            <div class="alert-title">⏳ <span id="alert-title-text">Đến hạn ôn tập</span></div>
+            <div class="alert-sub" id="alert-sub">Đang tính toán theo chu kỳ suy giảm trí nhớ…</div>
+          </div>
+          <button class="btn-warn" id="btn-review-now">Ôn ngay →</button>
+        </div>
+
+        <div class="cycle-grid">
+          <div class="time-card">
+            <div class="time-label"><i class="dot c1"></i> Lần 1–2 · 10p / 24h</div>
+            <div class="chips-row" id="chips-g1"></div>
+          </div>
+          <div class="time-card">
+            <div class="time-label"><i class="dot c2"></i> Lần 3 · 1 Tuần Sau</div>
+            <div class="chips-row" id="chips-g2"></div>
+          </div>
+          <div class="time-card">
+            <div class="time-label"><i class="dot c3"></i> Lần 4 · 1 Tháng Sau</div>
+            <div class="chips-row" id="chips-g3"></div>
+          </div>
+          <div class="time-card">
+            <div class="time-label"><i class="dot c4"></i> Lần 5–6 · 3–6 Tháng</div>
+            <div class="chips-row" id="chips-g4"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="blocks-list" id="blocks-list"><!-- JS --></div>
+    </section>
+
+    <!-- ===== MÀN HÌNH B: CHI TIẾT BLOCK ===== -->
+    <section id="screen-detail" hidden>
+      <button class="btn-ghost" id="btn-back">← Quay lại danh sách Block</button>
+
+      <div class="detail-banner">
+        <h2 id="detail-title">📕 Block 1</h2>
+        <p>Active Recall &amp; Spaced Repetition — Tony Buzan Method</p>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-num" id="st-total">0</div><div class="stat-label">Tổng từ vựng</div></div>
+        <div class="stat-box"><div class="stat-num green" id="st-mastered">0</div><div class="stat-label">Đã thuộc</div></div>
+        <div class="stat-box"><div class="stat-num blue" id="st-recall">0%</div><div class="stat-label">Độ nhớ TB</div></div>
+        <div class="stat-box"><div class="stat-num amber" id="st-cycle">Lần 1</div><div class="stat-label">Chu kỳ hiện tại</div></div>
+      </div>
+
+      <div class="detail-tabs">
+        <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
+        <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
+        <button class="dtab" data-tab="final">🎯 Bài thi<span class="dt-long"> cuối bài</span></button>
+        <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
+      </div>
+
+      <!-- TAB 1: BÀI HỌC -->
+      <div class="tab-pane active" id="pane-study">
+        <div class="card">
+          <div class="card-title-row">
+            <div class="card-title">📘 1. Danh sách từ vựng cần học</div>
+            <div class="audio-toolbar">
+              <button class="btn-soft" id="btn-stop-all">⏹ Dừng</button>
+              <button class="btn-primary" id="btn-read-all">🔊 Đọc tất cả từ</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="vocab-table">
+              <thead>
+                <tr>
+                  <th style="width:20%">Vocabulary</th>
+                  <th style="width:7%">Level</th>
+                  <th style="width:13%">Word Form</th>
+                  <th style="width:16%">Phonetic</th>
+                  <th style="width:26%">English Definition</th>
+                  <th style="width:18%">Vietnamese Meaning</th>
+                </tr>
+              </thead>
+              <tbody id="vocab-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title-row">
+            <div class="card-title">📖 2. Đoạn văn ngữ cảnh (tự sinh)</div>
+            <div class="audio-toolbar">
+              <select id="voice-select" class="mini-select" title="Chọn giọng đọc"></select>
+              <select id="speed-select" class="mini-select" title="Tốc độ đọc">
+                <option value="0.7">0.7x</option>
+                <option value="0.85">0.85x</option>
+                <option value="1" selected>1.0x</option>
+                <option value="1.15">1.15x</option>
+              </select>
+              <button class="btn-soft" id="btn-regen">🔄 Tạo lại</button>
+              <button class="btn-soft" id="btn-stop">⏹ Dừng</button>
+              <button class="btn-primary" id="btn-read">🎧 Nghe US</button>
+            </div>
+          </div>
+          <!-- Chế độ đọc: cả bài (mặc định) / từng câu / từng đoạn -->
+          <div class="read-modes" id="read-modes">
+            <button class="rm-btn active" data-mode="full">📄 Cả bài</button>
+            <button class="rm-btn" data-mode="sentence">🔤 Từng câu</button>
+            <button class="rm-btn" data-mode="page">📑 Từng đoạn</button>
+          </div>
+
+          <div class="content-block">
+            <span class="src-tag" id="passage-src"></span>
+            <h4 class="piece" id="passage-title"></h4>
+            <div class="passage" id="passage"></div>
+            <div class="read-nav" id="read-nav" hidden>
+              <button class="btn-soft" id="rn-prev">← Trước</button>
+              <span class="rn-pos" id="rn-pos"></span>
+              <button class="btn-soft" id="rn-next">Sau →</button>
+            </div>
+          </div>
+          <div class="glossary" id="passage-glossary"></div>
+          <div class="passage-hint">💡 Bấm <b>Nghe US</b> — chữ sẽ sáng theo giọng đọc (karaoke). Bấm vào bất kỳ từ nào để xem nghĩa và lưu lại.</div>
+
+          <!-- Học xong bài đọc thì dẫn thẳng sang bài kiểm tra -->
+          <button class="btn-primary btn-big go-exam" id="btn-go-exam">Hiểu rồi, vào kiểm tra →</button>
+        </div>
+      </div>
+
+      <!-- TAB 2: QUIZ -->
+      <div class="tab-pane" id="pane-quiz">
+        <div class="card quiz-card" id="quiz-card"></div>
+      </div>
+
+      <!-- TAB 3: BÀI THI CUỐI BÀI (dựa trên chính đoạn văn đã gen) -->
+      <div class="tab-pane" id="pane-final">
+        <div class="card final-wrap" id="final-card"></div>
+      </div>
+
+      <!-- TAB 3: TIẾN TRÌNH -->
+      <div class="tab-pane" id="pane-progress">
+        <div class="card">
+          <div class="card-title">📊 Lịch ôn theo chu kỳ</div>
+          <div id="srs-timeline" class="srs-timeline"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔍 Chi tiết từng từ</div>
+          <div class="table-wrap">
+            <table class="vocab-table">
+              <thead>
+                <tr><th>Từ vựng</th><th>Nghĩa</th><th>Lần ôn</th><th>Đúng</th><th>Tỷ lệ</th><th>Trạng thái</th></tr>
+              </thead>
+              <tbody id="progress-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bảng nghĩa: khi GHIM thì nằm hẳn trong bố cục, đẩy bài đọc hẹp lại,
+       nằm giữa khung bài đọc và cột Pages. Khi bỏ ghim thì trượt đè lên. -->
+<aside class="word-panel" id="word-panel">
+  <div class="wp-grab"></div>
+  <div class="wp-head">
+    <button class="wp-say" id="wp-say" title="Nghe">🔊</button>
+    <div class="wp-title">
+      <div class="wp-term" id="wp-term"></div>
+      <div class="wp-ipa" id="wp-ipa"></div>
+    </div>
+    <button class="pin-btn" id="wp-pin" title="Ghim bảng nghĩa lại">📌</button>
+    <button class="wp-close" id="wp-close" aria-label="Đóng">✕</button>
+  </div>
+
+  <div class="wp-tags" id="wp-tags"></div>
+  <div class="wp-status" id="wp-status"></div>
+  <div class="wp-scope" id="wp-scope"></div>
+
+  <div class="wp-body">
+    <div id="wp-vi"></div>
+    <div id="wp-def"></div>
+    <div id="wp-usage"></div>
+
+    <div id="wp-suggest"></div>
+
+    <div class="wp-lbl mt">Nghĩa của bạn</div>
+    <input type="text" id="wp-meaning" class="text-input" autocomplete="off">
+  </div>
+
+  <div class="wp-foot">
+    <div class="wp-lbl">Mức độ thuộc — bấm để lưu</div>
+    <div class="wp-levels" id="wp-levels">
+      <button class="lvl-btn" data-lv="1" title="Mới hoàn toàn">1</button>
+      <button class="lvl-btn" data-lv="2" title="Còn mơ hồ">2</button>
+      <button class="lvl-btn" data-lv="3" title="Nhớ được">3</button>
+      <button class="lvl-btn" data-lv="4" title="Gần thuộc">4</button>
+      <button class="lvl-btn ok" data-lv="5" title="Đã thuộc">✓</button>
+      <button class="lvl-btn del" id="wp-del" title="Bỏ khỏi kho">🗑</button>
+    </div>
+  </div>
+</aside>
+
+  <!-- ---------- CỘT PHẢI: PAGES ---------- -->
+  <aside class="sidebar sidebar-right" id="sidebar-right">
+    <div class="sidebar-scroll">
+      <button class="btn-dashed" id="btn-add-page">+ Thêm Page</button>
+      <div id="page-list" class="nav-list mt-s"><!-- JS --></div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Thanh điều hướng dưới cùng cho điện thoại -->
+<nav class="mobile-nav mobile-only">
+  <button data-m="left">📓<span>Notebook</span></button>
+  <button data-m="main" class="active">📚<span>Học</span></button>
+  <button data-m="right">📄<span>Pages</span></button>
+  <button data-m="user">👤<span>Tôi</span></button>
+</nav>
+
+<div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+
+<!-- ══════════════════ 3. MODALS ══════════════════ -->
+
+<!-- Paste từ vựng -->
+<div class="modal-overlay" id="modal-paste" hidden>
+  <div class="modal-box wide">
+    <h3>➕ Thêm từ vựng mới</h3>
+    <p class="modal-desc">
+      Dán danh sách từ. Hệ thống tự cắt thành các Block chuẩn <b>10 từ / block</b> và tạo 1 Batch mới trong Page hiện tại.
+    </p>
+
+    <div class="format-help">
+      <b>Định dạng nhận được (mỗi dòng 1 từ):</b><br>
+      <code>term | nghĩa</code> &nbsp;·&nbsp;
+      <code>term | cấp độ | loại từ | phiên âm | định nghĩa Anh | nghĩa Việt</code><br>
+      Cũng nhận dấu <code>Tab</code>, <code>-</code> hoặc <code>=</code> làm dấu phân cách.
+    </div>
+
+    <textarea id="paste-input" spellcheck="false" placeholder="leverage | B2 | Verb | /ˈlevərɪdʒ/ | To use something to maximum advantage. | tận dụng, đòn bẩy
+cohesive | gắn kết
+unforeseen | không lường trước
+comply | tuân thủ
+mitigate | giảm nhẹ"></textarea>
+
+    <div class="paste-preview" id="paste-preview"></div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-paste">Hủy</button>
+      <button class="btn-primary" id="btn-do-paste">Tạo Batch &amp; Block</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hộp nhập tên chung (notebook / section / page …) -->
+<div class="modal-overlay" id="modal-prompt" hidden>
+  <div class="modal-box">
+    <h3 id="prompt-title">Nhập tên</h3>
+    <p class="modal-desc" id="prompt-desc"></p>
+    <input type="text" id="prompt-input" class="text-input" autocomplete="off">
+    <div class="emoji-row" id="prompt-emojis" hidden></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-prompt">Hủy</button>
+      <button class="btn-primary" id="prompt-ok">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<!-- Người dùng -->
+<div class="modal-overlay" id="modal-user" hidden>
+  <div class="modal-box">
+    <h3>👥 Người học trên máy này</h3>
+    <p class="modal-desc">Mỗi người có tiến trình ôn tập riêng, nhưng dùng chung kho từ vựng.</p>
+    <div id="user-list" class="user-list"></div>
+    <button class="btn-dashed" id="btn-new-user">+ Thêm người học mới</button>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-user">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Đăng nhập cloud -->
+<div class="modal-overlay" id="modal-cloud" hidden>
+  <div class="modal-box">
+    <h3>☁️ Đăng nhập Cloud</h3>
+    <p class="modal-desc" id="cloud-desc">
+      Nhập email — hệ thống gửi 1 đường link đăng nhập (magic link). Không cần nhớ mật khẩu.
+    </p>
+    <input type="email" id="cloud-email" class="text-input" placeholder="ban@example.com" autocomplete="email">
+    <div class="cloud-status" id="cloud-status"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-cloud">Đóng</button>
+      <button class="btn-primary" id="btn-send-link">Gửi link đăng nhập</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ BẢNG TRA TỪ (kiểu LingQ) ══════════
+     Máy tính: trượt ra từ mép phải. Điện thoại: trồi lên từ đáy màn hình. -->
+<div class="panel-backdrop" id="panel-backdrop" hidden></div>
+
+
+<!-- Bảng thao tác: đổi tên · lên/xuống · chuyển chỗ · xoá tiến trình · xoá -->
+<div class="ctx-menu" id="ctx-menu" hidden></div>
+
+<!-- Hộp chọn 1 trong nhiều (chuyển Page sang Section khác…) -->
+<div class="modal-overlay" id="modal-pick" hidden>
+  <div class="modal-box">
+    <h3 id="pick-title">Chọn</h3>
+    <div id="pick-list" class="user-list"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-pick">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hộp xác nhận việc không hoàn tác được -->
+<div class="modal-overlay" id="modal-confirm" hidden>
+  <div class="modal-box">
+    <h3 id="confirm-title">Xác nhận</h3>
+    <p class="modal-desc" id="confirm-desc"></p>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-confirm">Hủy</button>
+      <button class="btn-warn" id="confirm-ok">Đồng ý</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap" class="toast-wrap"></div>
+<input type="file" id="file-import" accept="application/json" hidden>
+
+<!-- ══════════════════ 4. SCRIPTS ══════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/context.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/detail.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

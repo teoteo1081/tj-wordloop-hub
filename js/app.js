@@ -1,0 +1,1374 @@
+/* app.js — BỘ ĐIỀU PHỐI
+   Luồng khởi động:
+     DB.init()  ->  Auth.init()  ->  nạp Hub/Notebook  ->  render  ->  gắn sự kiện
+   Cây dữ liệu:  Hub > Notebook > Section > Page > Batch > Block > Word          */
+(function (w) {
+  "use strict";
+
+  var LS_SEL = "tjwl_selection_v1";
+  var cfg = w.APP_CONFIG || {};
+
+  /* Trạng thái toàn app — detail.js cũng đọc biến này */
+  var S = {
+    hubs: [], hubId: null,
+    notebooks: [], notebookId: null,
+    sections: [], sectionId: null,
+    pages: [], pageId: null,
+    batches: [], batchId: null,
+    blocks: [], words: [],
+    wp: {}, bp: {}
+  };
+  w.S = S;
+
+  var App = {};
+  w.App = App;
+
+  /* ══════════════ GHI NHỚ LỰA CHỌN ══════════════ */
+  function saveSel() {
+    try {
+      localStorage.setItem(LS_SEL, JSON.stringify({
+        hubId: S.hubId, notebookId: S.notebookId, sectionId: S.sectionId,
+        pageId: S.pageId, batchId: S.batchId
+      }));
+    } catch (e) {}
+  }
+  function readSel() {
+    try { return JSON.parse(localStorage.getItem(LS_SEL)) || {}; } catch (e) { return {}; }
+  }
+
+  /* ══════════════ TIỆN ÍCH TRUY VẤN ══════════════ */
+  App.blocksOf = function (batchId) {
+    return S.blocks.filter(function (b) { return b.batch_id === batchId; })
+      .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+  };
+  App.wordsOf = function (blockId) {
+    return S.words.filter(function (x) { return x.block_id === blockId; })
+      .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+  };
+  function batchesOfPage(pageId) {
+    return S.batches.filter(function (b) { return b.page_id === pageId; })
+      .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+  }
+  function pagesOfSection(sectionId) {
+    return S.pages.filter(function (p) { return p.section_id === sectionId; })
+      .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
+  }
+
+  /* ══════════════ NẠP DỮ LIỆU ══════════════ */
+  /* Dọn sạch nội dung khi chuyển sang chỗ chưa có gì.
+     Lưu ý: PHẢI tạo 5 mảng riêng. Viết a = b = c = [] thì cả ba cùng trỏ
+     vào MỘT mảng, thêm batch sẽ lòi ra ở cả sections lẫn pages. */
+  function clearContent() {
+    S.sections = []; S.pages = []; S.batches = []; S.blocks = []; S.words = [];
+    S.sectionId = null; S.pageId = null; S.batchId = null;
+    S.wp = {}; S.bp = {};
+  }
+
+  async function loadNotebook(notebookId) {
+    var d = await w.DB.loadNotebook(notebookId);
+    S.sections = d.sections; S.pages = d.pages;
+    S.batches = d.batches; S.blocks = d.blocks; S.words = d.words;
+
+    var sel = readSel();
+    S.sectionId = pick(S.sections, sel.sectionId);
+    var pgs = S.sectionId ? pagesOfSection(S.sectionId) : [];
+    S.pageId = pick(pgs, sel.pageId);
+    var bts = S.pageId ? batchesOfPage(S.pageId) : [];
+    S.batchId = pick(bts, sel.batchId);
+
+    await loadProgress();
+  }
+
+  function pick(list, preferId) {
+    if (!list || !list.length) return null;
+    var hit = list.find(function (x) { return x.id === preferId; });
+    return hit ? hit.id : list[0].id;
+  }
+
+  async function loadProgress() {
+    if (!w.Auth.user) { S.wp = {}; S.bp = {}; return; }
+    try {
+      var r = await w.DB.loadProgress(
+        w.Auth.user.id,
+        S.blocks.map(function (b) { return b.id; }),
+        S.words.map(function (x) { return x.id; })
+      );
+      S.wp = r.wp; S.bp = r.bp;
+    } catch (e) { S.wp = {}; S.bp = {}; }
+  }
+
+  /* ══════════════ RENDER: THANH HUB ══════════════ */
+  function renderHubs() {
+    w.$("#hub-tabs").innerHTML = S.hubs.map(function (h) {
+      return '<span class="hub-tab' + (h.id === S.hubId ? " active" : "") +
+             '" data-hub="' + h.id + '" draggable="true">' + w.esc(h.name) +
+             '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác">⋯</button>' +
+             "</span>";
+    }).join("");
+  }
+
+  /* ══════════════ RENDER: SIDEBAR TRÁI ══════════════ */
+  function renderNotebooks() {
+    var box = w.$("#notebook-list");
+    if (!S.notebooks.length) {
+      box.innerHTML = '<div class="nav-empty">Chưa có notebook nào</div>';
+      return;
+    }
+    box.innerHTML = S.notebooks.map(function (n) {
+      return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") + '" data-nb="' + n.id + '" draggable="true">' +
+               "<span>" + w.esc(n.icon || "📓") + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
+               '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác">⋯</button>' +
+             "</div>";
+    }).join("");
+  }
+
+  /* Sections = hàng tab ngang trên đầu workspace, đúng kiểu OneNote */
+  function renderSections() {
+    var box = w.$("#section-list");
+    if (!S.sections.length) {
+      box.innerHTML = '<span class="nav-empty">Chưa có section — bấm dấu + bên phải</span>';
+      return;
+    }
+    box.innerHTML = S.sections.map(function (s) {
+      var n = pagesOfSection(s.id).length;
+      return '<span class="section-tab' + (s.id === S.sectionId ? " active" : "") + '" data-sec="' + s.id + '" draggable="true">' +
+               w.esc(s.name) + '<span class="count">' + n + "</span>" +
+               '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác">⋯</button>' +
+             "</span>";
+    }).join("");
+  }
+
+  /* ══════════════ RENDER: SIDEBAR PHẢI (PAGES) ══════════════ */
+  function renderPages() {
+    var box = w.$("#page-list");
+    var list = S.sectionId ? pagesOfSection(S.sectionId) : [];
+    if (!list.length) {
+      box.innerHTML = '<div class="nav-empty">Chưa có page nào</div>';
+      return;
+    }
+    box.innerHTML = list.map(function (p) {
+      var n = batchesOfPage(p.id).length;
+      return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true">' +
+               '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span><span class="count">' + n + "</span>" +
+               '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác">⋯</button>' +
+             "</div>";
+    }).join("");
+  }
+
+  /* ══════════════ RENDER: BREADCRUMB ══════════════ */
+  function renderCrumb() {
+    function nameOf(list, id, fb) {
+      var x = list.find(function (r) { return r.id === id; });
+      return x ? x.name : fb;
+    }
+    w.$("#crumb").innerHTML =
+      "<b>" + w.esc(nameOf(S.hubs, S.hubId, "—")) + "</b>" +
+      '<span class="sep">›</span>' + w.esc(nameOf(S.notebooks, S.notebookId, "—")) +
+      '<span class="sep">›</span>' + w.esc(nameOf(S.sections, S.sectionId, "—")) +
+      '<span class="sep">›</span>' + w.esc(nameOf(S.pages, S.pageId, "—"));
+  }
+
+  /* ══════════════ RENDER: THANH BATCH ══════════════ */
+  function renderBatches() {
+    var list = S.pageId ? batchesOfPage(S.pageId) : [];
+    w.$("#batch-tabs").innerHTML = list.map(function (b) {
+      var n = App.blocksOf(b.id).length;
+      return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true">' +
+               w.esc(b.name) + '<span class="n">(' + n + " block)</span>" +
+               '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
+             "</span>";
+    }).join("") || '<span class="nav-empty">Chưa có batch — bấm "+ Paste từ mới"</span>';
+  }
+
+  /* ══════════════ RENDER: DANH SÁCH BLOCK ══════════════ */
+  App.renderBlocks = function () {
+    var batch = S.batches.find(function (b) { return b.id === S.batchId; });
+    var list = S.batchId ? App.blocksOf(S.batchId) : [];
+
+    w.$("#batch-title").textContent = batch ? batch.name : "Chưa chọn Batch";
+
+    var totalWords = 0, doneBlocks = 0;
+    list.forEach(function (b) {
+      totalWords += App.wordsOf(b.id).length;
+      if (S.bp[b.id] && S.bp[b.id].passed) doneBlocks++;
+    });
+    w.$("#batch-sub").innerHTML =
+      "<b>" + list.length + " block</b> • " + doneBlocks + "/" + list.length +
+      " đã đạt bài thi • " + totalWords + " từ";
+
+    var box = w.$("#blocks-list");
+    if (!list.length) {
+      /* Chỉ rõ đang thiếu tầng nào, thay vì báo chung chung "chưa có block" */
+      var msg, hint;
+      if (!S.notebookId) {
+        msg = "Hub này chưa có Notebook nào";
+        hint = "Bấm dấu <strong>+</strong> ở mục NOTEBOOKS bên trái để tạo cái đầu tiên.";
+      } else if (!S.sectionId) {
+        msg = "Notebook này chưa có Section nào";
+        hint = "Bấm dấu <strong>+</strong> ở cuối thanh <strong>SECTIONS</strong> phía trên.";
+      } else if (!S.pageId) {
+        msg = "Section này chưa có Page nào";
+        hint = "Bấm <strong>+ Thêm Page</strong> ở cột bên phải.";
+      } else {
+        msg = "Page này chưa có từ vựng nào";
+        hint = "Bấm <strong>+ Paste từ mới</strong> rồi dán danh sách từ — hệ thống tự cắt thành Block " +
+               (cfg.WORDS_PER_BLOCK || 10) + " từ.";
+      }
+      box.innerHTML = '<div class="empty-state"><b>' + msg + "</b><span>" + hint + "</span></div>";
+      renderAlert();          /* vẫn phải vẽ lại, kẻo 4 ô chu kỳ giữ dữ liệu cũ */
+      return;
+    }
+
+    box.innerHTML = list.map(function (b) {
+      var ws = App.wordsOf(b.id);
+      var bp = S.bp[b.id] || {};
+      var st = w.SRS.state(S.bp[b.id]);
+      var mastered = ws.filter(function (x) { return S.wp[x.id] && S.wp[x.id].mastered; }).length;
+
+      /* "Done" = đã qua bài thi cuối bài với >= 80%, không phải chỉ học lướt qua */
+      var badge, badgeCls;
+      if (bp.passed) {
+        badge = "✓ Done · " + (bp.best_score || 0) + "%"; badgeCls = "";
+      } else if (bp.best_score) {
+        badge = "Chưa đạt · " + bp.best_score + "%"; badgeCls = " warn";
+      } else {
+        badge = "Chưa thi"; badgeCls = " pending";
+      }
+      var levels = {};
+      ws.forEach(function (x) { if (x.level) levels[x.level] = (levels[x.level] || 0) + 1; });
+      var tags = Object.keys(levels).sort().map(function (k) {
+        return '<span class="tag">' + levels[k] + " " + w.esc(k) + "</span>";
+      }).join("");
+      if (!tags) tags = '<span class="tag">' + ws.length + " từ</span>";
+
+      return '<div class="block-card' + (st.due ? " due" : "") + '" data-block="' + b.id + '">' +
+        '<div class="block-top">' +
+          '<div class="block-left">' +
+            '<span class="block-title">' + w.esc(b.name) + "</span>" + tags +
+            '<button class="dots" data-menu="blocks" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
+            '<span class="tag-time' + (st.due ? " due" : "") + '">' +
+              (st.due ? "🔴 " : "🟢 ") + w.esc(st.label) + "</span>" +
+          "</div>" +
+          '<div class="done-badge' + badgeCls + '">' + badge + "</div>" +
+        "</div>" +
+        '<div class="vocab-chips">' + ws.map(function (x) {
+          var ok = S.wp[x.id] && S.wp[x.id].mastered;
+          return '<span class="vchip' + (ok ? " ok" : "") + '">' + w.esc(x.term) + "</span>";
+        }).join("") + "</div>" +
+        '<div class="block-bottom">' +
+          '<div class="audio-hint">🎧 Nghe US · Karaoke highlight</div>' +
+          '<span class="progress-bar"><i style="width:' + w.pct(mastered, ws.length) + '%"></i></span>' +
+          '<button class="btn-soft" data-open="' + b.id + '">Học / Ôn lại →</button>' +
+        "</div>" +
+      "</div>";
+    }).join("");
+
+    renderAlert();
+  };
+
+  /* ══════════════ RENDER: Ô CẢNH BÁO + 4 THẺ CHU KỲ ══════════════ */
+  var CHIPS_PER_CARD = 12;   // nhiều hơn thì gộp lại, kẻo 62 block phủ kín màn hình
+
+  function renderAlert() {
+    var groups = { 1: [], 2: [], 3: [], 4: [] };
+    var dueCount = 0, dueWords = 0, firstDue = null;
+    var newCount = 0, startedCount = 0, firstNew = null;
+
+    /* xếp theo số thứ tự Block để đọc được: Block 1, 2, 3… */
+    S.blocks.slice()
+      .sort(function (a, b) { return (a.global_index || 0) - (b.global_index || 0); })
+      .forEach(function (b) {
+        var st = w.SRS.state(S.bp[b.id]);
+
+        /* CHƯA HỌC thì chưa vào chu kỳ nào cả — không nhét vào ô "Lần 1–2" */
+        if (!st.started) {
+          newCount++;
+          if (!firstNew) firstNew = b;
+          return;
+        }
+
+        startedCount++;
+        groups[w.SRS.groupOf(st.cycle)].push({ block: b, due: st.due });
+        if (st.due) {
+          dueCount++;
+          dueWords += App.wordsOf(b.id).length;
+          if (!firstDue) firstDue = b;
+        }
+      });
+
+    [1, 2, 3, 4].forEach(function (g) {
+      var el = w.$("#chips-g" + g);
+      var list = groups[g];
+      if (!list.length) { el.innerHTML = '<span class="chips-empty">trống</span>'; return; }
+
+      /* ưu tiên hiện những block đang đến hạn trước */
+      var ordered = list.filter(function (x) { return x.due; })
+                        .concat(list.filter(function (x) { return !x.due; }));
+      var shown = ordered.slice(0, CHIPS_PER_CARD);
+      var rest = ordered.length - shown.length;
+
+      el.innerHTML = shown.map(function (x) {
+        return '<div class="overdue-chip' + (x.due ? " due" : "") + '" data-jump="' + x.block.id + '">' +
+               w.esc(x.block.name) + "</div>";
+      }).join("") + (rest > 0 ? '<span class="chips-more">+' + rest + " block nữa</span>" : "");
+    });
+
+    /* nhắc rõ vì sao 4 ô đang trống */
+    if (!startedCount) {
+      w.$("#chips-g1").innerHTML = '<span class="chips-empty">chưa block nào vào chu kỳ</span>';
+    }
+
+    var newNote = newCount ? " · <b>" + newCount + " block</b> chưa học" : "";
+    var btn = w.$("#btn-review-now");
+
+    if (dueCount) {
+      w.$("#alert-title-text").textContent = "Đến hạn ôn tập — đừng để trí nhớ rơi";
+      w.$("#alert-sub").innerHTML = "<b>" + dueCount + " block</b> • " + dueWords +
+        " từ đang chờ ôn theo chu kỳ suy giảm trí nhớ (Ebbinghaus)" + newNote + ".";
+      btn.disabled = false;
+      btn.textContent = "Ôn ngay →";
+      btn.dataset.target = firstDue ? firstDue.id : "";
+    } else if (startedCount) {
+      w.$("#alert-title-text").textContent = "Tất cả đều đúng lịch 🎉";
+      w.$("#alert-sub").innerHTML = "<b>" + startedCount + " block</b> đang trong chu kỳ, " +
+        "chưa cái nào quá hạn" + newNote + ".";
+      btn.disabled = !newCount;
+      btn.textContent = newCount ? "Học block mới →" : "Ôn ngay →";
+      btn.dataset.target = firstNew ? firstNew.id : "";
+    } else {
+      /* chưa có block nào Done -> chu kỳ chưa bắt đầu chạy */
+      w.$("#alert-title-text").textContent = "Chu kỳ ôn tập chưa bắt đầu";
+      w.$("#alert-sub").innerHTML = "Có <b>" + newCount + " block</b> chưa học. " +
+        "Học xong và đạt ≥ 80% ở bài kiểm tra thì Block mới vào lịch ôn Tony Buzan.";
+      btn.disabled = !newCount;
+      btn.textContent = "Bắt đầu học →";
+      btn.dataset.target = firstNew ? firstNew.id : "";
+    }
+  }
+
+  /* ══════════════ RENDER TỔNG ══════════════ */
+  /* Rời màn hình học chi tiết — gọi mỗi khi đổi Hub / Notebook / Section /
+     Page / Batch. Nếu không, chuyển sang chỗ trống mà vẫn thấy bài cũ. */
+  function leaveDetail() {
+    if (w.Detail && w.$("#screen-detail") && !w.$("#screen-detail").hidden) w.Detail.close();
+  }
+  App.leaveDetail = leaveDetail;
+
+  function renderAll() {
+    /* chốt chặn: block đang mở mà không còn trong dữ liệu hiện tại thì đóng lại */
+    if (w.Detail && w.Detail.blockId &&
+        !S.blocks.some(function (b) { return b.id === w.Detail.blockId; })) {
+      leaveDetail();
+    }
+    renderHubs(); renderNotebooks(); renderSections();
+    renderPages(); renderCrumb(); renderBatches();
+    App.renderBlocks();
+    renderUserChip();
+  }
+  App.renderAll = renderAll;
+
+  /* ══════════════ NGƯỜI DÙNG (CHIP GÓC TRÊN) ══════════════ */
+  function renderUserChip() {
+    var u = w.Auth.user;
+    if (!u) return;
+    w.$("#user-avatar").textContent = u.emoji;
+    w.$("#user-name").textContent = u.name;
+    w.$("#menu-avatar").textContent = u.emoji;
+    w.$("#menu-name").textContent = u.name;
+    w.$("#menu-sub").textContent = u.cloud ? (u.email || "Tài khoản Cloud") : "Hồ sơ trên máy này";
+
+    var pill = w.$("#mode-pill");
+    if (w.DB.mode === "cloud") {
+      pill.textContent = u.cloud ? "CLOUD" : "CLOUD · KHÁCH";
+      pill.className = "mode-pill cloud";
+      pill.title = u.cloud ? "Từ vựng và tiến trình đều lưu trên server"
+                           : "Từ vựng lấy từ server, tiến trình còn lưu tạm trong máy — đăng nhập để đồng bộ";
+    } else {
+      pill.textContent = "LOCAL";
+      pill.className = "mode-pill local";
+      pill.title = "Dữ liệu chỉ nằm trong trình duyệt này. Cấu hình js/config.js để lên cloud.";
+    }
+    w.$("#mi-cloud").style.display = w.Auth.canCloud() ? "" : "none";
+  }
+
+  /* ══════════════ HỘP THOẠI NHẬP TÊN DÙNG CHUNG ══════════════ */
+  function askText(opts) {
+    return new Promise(function (resolve) {
+      var m = w.$("#modal-prompt");
+      w.$("#prompt-title").textContent = opts.title || "Nhập tên";
+      w.$("#prompt-desc").textContent = opts.desc || "";
+      var input = w.$("#prompt-input");
+      input.value = opts.value || "";
+      input.placeholder = opts.placeholder || "";
+
+      var emojiBox = w.$("#prompt-emojis");
+      var chosen = opts.emoji || null;
+      if (opts.withEmoji) {
+        emojiBox.hidden = false;
+        emojiBox.innerHTML = w.Auth.EMOJIS.map(function (e) {
+          return '<button class="emoji-pick' + (e === chosen ? " sel" : "") + '" data-e="' + e + '">' + e + "</button>";
+        }).join("");
+        emojiBox.onclick = function (ev) {
+          var b = ev.target.closest(".emoji-pick");
+          if (!b) return;
+          chosen = b.dataset.e;
+          w.$$(".emoji-pick", emojiBox).forEach(function (x) { x.classList.toggle("sel", x === b); });
+        };
+      } else {
+        emojiBox.hidden = true;
+      }
+
+      m.hidden = false;
+      setTimeout(function () { input.focus(); input.select(); }, 40);
+
+      function done(val) {
+        m.hidden = true;
+        w.$("#prompt-ok").onclick = null;
+        input.onkeydown = null;
+        resolve(val);
+      }
+      w.$("#prompt-ok").onclick = function () {
+        var v = input.value.trim();
+        if (!v) { input.focus(); return; }
+        done({ text: v, emoji: chosen });
+      };
+      input.onkeydown = function (e) { if (e.key === "Enter") w.$("#prompt-ok").click(); };
+      m.querySelector('[data-close]').onclick = function () { done(null); };
+    });
+  }
+
+  /* ══════════════ MODAL NGƯỜI HỌC ══════════════ */
+  function renderUserList() {
+    var cur = w.Auth.user;
+    w.$("#user-list").innerHTML = w.Auth.listLocal().map(function (u) {
+      return '<div class="user-row' + (cur && u.id === cur.id ? " active" : "") + '" data-uid="' + u.id + '">' +
+               '<span class="avatar">' + u.emoji + "</span><span>" + w.esc(u.name) + "</span>" +
+               '<button class="del" data-del="' + u.id + '" title="Xoá">✕</button>' +
+             "</div>";
+    }).join("");
+  }
+
+  async function switchUser(id) {
+    w.Auth.switchTo(id);
+    await loadProgress();
+    renderAll();
+    w.$("#modal-user").hidden = true;
+    w.toast("Đang học với hồ sơ: " + w.Auth.user.name, "ok");
+  }
+
+  /* ══════════════ PASTE TỪ MỚI ══════════════ */
+  function nextGlobalIndex() {
+    var mx = 0;
+    S.blocks.forEach(function (b) { mx = Math.max(mx, b.global_index || 0); });
+    return mx + 1;
+  }
+
+  async function doPaste() {
+    if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
+    var parsed = w.parseVocabText(w.$("#paste-input").value);
+    if (!parsed.length) { w.toast("Không đọc được từ nào", "err"); return; }
+
+    var btn = w.$("#btn-do-paste");
+    btn.disabled = true; btn.textContent = "Đang tạo…";
+
+    try {
+      var name = "Batch " + (batchesOfPage(S.pageId).length + 1);
+      var res = await w.DB.addBatchFromWords(S.pageId, parsed, name, nextGlobalIndex());
+
+      S.batches.push(res.batch);
+      S.blocks = S.blocks.concat(res.blocks);
+      S.words = S.words.concat(res.words);
+      S.batchId = res.batch.id;
+      saveSel();
+
+      w.$("#modal-paste").hidden = true;
+      w.$("#paste-input").value = "";
+      w.$("#paste-preview").innerHTML = "";
+      renderBatches(); renderPages(); App.renderBlocks();
+      w.toast("Đã tạo " + res.blocks.length + " block từ " + parsed.length + " từ ✔", "ok");
+    } catch (e) {
+      w.toast("Lỗi: " + (e.message || e), "err");
+    } finally {
+      btn.disabled = false; btn.textContent = "Tạo Batch & Block";
+    }
+  }
+
+  function previewPaste() {
+    var parsed = w.parseVocabText(w.$("#paste-input").value);
+    var per = cfg.WORDS_PER_BLOCK || 10;
+    var nb = Math.ceil(parsed.length / per);
+    w.$("#paste-preview").innerHTML = parsed.length
+      ? "Đọc được <b>" + parsed.length + "</b> từ → sẽ tạo <b>" + nb + "</b> block (" + per + " từ/block)."
+      : "";
+  }
+
+  /* ══════════════ QUẢN LÝ: ĐỔI TÊN · XOÁ · LÊN/XUỐNG · CHUYỂN SECTION ══════════════
+     Bấm chuột phải, hoặc bấm nút ⋯, vào bất kỳ Notebook / Section / Page / Batch
+     là hiện bảng thao tác. Xoá thì hỏi lại một lần vì kéo theo cả nhánh con. */
+  var MENU = {
+    hubs:      { label: "Hub",      listOf: function () { return S.hubs; },      parent: null },
+    notebooks: { label: "Notebook", listOf: function () { return S.notebooks; }, parent: "hub_id" },
+    sections:  { label: "Section",  listOf: function () { return S.sections; },  parent: "notebook_id" },
+    pages:     { label: "Page",     listOf: function () { return pagesOfSection(S.sectionId); }, parent: "section_id" },
+    batches:   { label: "Batch",    listOf: function () { return batchesOfPage(S.pageId); },     parent: "page_id" },
+    blocks:    { label: "Block",    listOf: function () { return App.blocksOf(S.batchId); },     parent: "batch_id" }
+  };
+
+  function rowOf(table, id) {
+    return (S[table] || []).find(function (r) { return r.id === id; });
+  }
+
+  /* Đếm xem xoá cái này thì mất theo bao nhiêu thứ bên dưới */
+  function childCount(table, id) {
+    if (table === "notebooks") {
+      var secs = S.sections.filter(function (s) { return s.notebook_id === id; });
+      var pgs = S.pages.filter(function (p) { return secs.some(function (s) { return s.id === p.section_id; }); });
+      return secs.length + " section · " + pgs.length + " page";
+    }
+    if (table === "sections") {
+      var pg = pagesOfSection(id);
+      var bt = S.batches.filter(function (b) { return pg.some(function (p) { return p.id === b.page_id; }); });
+      return pg.length + " page · " + bt.length + " batch";
+    }
+    if (table === "pages") {
+      var b2 = batchesOfPage(id);
+      var bl = S.blocks.filter(function (x) { return b2.some(function (b) { return b.id === x.batch_id; }); });
+      return b2.length + " batch · " + bl.length + " block";
+    }
+    if (table === "batches") {
+      var bl2 = App.blocksOf(id);
+      var wn = S.words.filter(function (x) { return bl2.some(function (b) { return b.id === x.block_id; }); });
+      return bl2.length + " block · " + wn.length + " từ";
+    }
+    if (table === "blocks") return App.wordsOf(id).length + " từ";
+    return "";
+  }
+
+  App.openMenu = function (table, id, anchor) {
+    var meta = MENU[table];
+    if (!meta) return;
+    var row = rowOf(table, id);
+    if (!row) return;
+
+    var list = meta.listOf();
+    var pos = list.findIndex(function (r) { return r.id === id; });
+
+    var items = [
+      { act: "rename", icon: "✏️", text: "Đổi tên" },
+      { act: "up", icon: "⬆️", text: "Chuyển lên", off: pos <= 0 },
+      { act: "down", icon: "⬇️", text: "Chuyển xuống", off: pos < 0 || pos >= list.length - 1 },
+      { act: "top", icon: "⏫", text: "Lên đầu", off: pos <= 0 },
+      { act: "bottom", icon: "⏬", text: "Xuống cuối", off: pos < 0 || pos >= list.length - 1 }
+    ];
+    /* Page chuyển sang Section khác · Batch chuyển sang Page khác */
+    if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
+    if (table === "batches" && S.pages.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Page khác" });
+    items.push({ act: "sep" });
+    items.push({ act: "reset", icon: "🔄", text: "Xoá tiến trình học" });
+    items.push({ act: "sep" });
+    items.push({ act: "del", icon: "🗑", text: "Xoá " + meta.label, danger: true });
+
+    var box = w.$("#ctx-menu");
+    box.innerHTML =
+      '<div class="ctx-head">' + w.esc(row.name) + "</div>" +
+      items.map(function (it) {
+        if (it.act === "sep") return '<div class="ctx-sep"></div>';
+        return '<button class="ctx-item' + (it.danger ? " danger" : "") + '"' +
+               (it.off ? " disabled" : "") + ' data-act="' + it.act + '">' +
+               "<span>" + it.icon + "</span><span>" + it.text + "</span></button>";
+      }).join("");
+
+    var r = anchor.getBoundingClientRect();
+    box.hidden = false;
+    var top = Math.min(r.bottom + 4, window.innerHeight - box.offsetHeight - 8);
+    var left = Math.min(r.left, window.innerWidth - box.offsetWidth - 8);
+    box.style.top = Math.max(8, top) + "px";
+    box.style.left = Math.max(8, left) + "px";
+
+    w.$$(".ctx-item", box).forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        closeMenu();
+        App.doAction(table, id, b.dataset.act);
+      };
+    });
+  };
+
+  function closeMenu() {
+    var m = w.$("#ctx-menu");
+    if (m) m.hidden = true;
+  }
+  App.closeMenu = closeMenu;
+
+  App.doAction = async function (table, id, act) {
+    var meta = MENU[table];
+    var row = rowOf(table, id);
+    if (!row) return;
+
+    try {
+      if (act === "rename") {
+        var r = await askText({ title: "✏️ Đổi tên " + meta.label, value: row.name, placeholder: "Tên mới" });
+        if (!r) return;
+        row.name = r.text;
+        await w.DB.rename(table, id, r.text);
+        w.toast("Đã đổi tên", "ok");
+      }
+
+      else if (act === "up" || act === "down" || act === "top" || act === "bottom") {
+        var list = meta.listOf();
+        var i = list.findIndex(function (x) { return x.id === id; });
+        if (i < 0) return;
+        var j = act === "up" ? i - 1 : act === "down" ? i + 1
+              : act === "top" ? 0 : list.length - 1;
+        if (j < 0 || j >= list.length) return;
+        var arr = reordered(list, id, act === "down" || act === "bottom" ? j + 1 : j);
+        if (arr) await App.renumber(table, arr);
+      }
+
+      else if (act === "move") {
+        var opts, field;
+        if (table === "pages") {
+          opts = S.sections.filter(function (s) { return s.id !== row.section_id; });
+          field = "section_id";
+        } else {
+          opts = S.pages.filter(function (p) { return p.id !== row.page_id; });
+          field = "page_id";
+        }
+        if (!opts.length) { w.toast("Không có chỗ nào khác để chuyển", "err"); return; }
+        var pickTo = await askPick({
+          title: "📦 Chuyển " + meta.label + ' "' + row.name + '" đi đâu?',
+          options: opts.map(function (o) { return { id: o.id, name: o.name }; })
+        });
+        if (!pickTo) return;
+        row[field] = pickTo;
+        await w.DB.patch(table, id, (function () { var o = {}; o[field] = pickTo; return o; })());
+        w.toast("Đã chuyển sang " + meta.label + " mới", "ok");
+      }
+
+      else if (act === "reset") {
+        var ids = App.scopeIds(table, id);
+        var okR = await askConfirm({
+          title: "🔄 Xoá tiến trình học?",
+          desc: 'Toàn bộ điểm bài kiểm tra, chu kỳ ôn và mức độ thuộc trong "' + row.name +
+                '" (' + ids.blocks.length + " block · " + ids.words.length +
+                " từ) sẽ về 0. Từ vựng vẫn giữ nguyên, chỉ xoá tiến trình."
+        });
+        if (!okR) return;
+        await w.DB.resetProgress(w.Auth.user.id, ids.blocks, ids.words);
+        ids.blocks.forEach(function (b) { delete S.bp[b]; });
+        ids.words.forEach(function (x) { delete S.wp[x]; });
+        w.toast("Đã xoá tiến trình — học lại từ đầu được rồi", "ok");
+      }
+
+      else if (act === "del") {
+        var kids = childCount(table, id);
+        var okDel = await askConfirm({
+          title: "🗑 Xoá " + meta.label + '?',
+          desc: '"' + row.name + '"' + (kids ? " sẽ mất theo " + kids + "." : "") +
+                " Thao tác này không hoàn tác được."
+        });
+        if (!okDel) return;
+        await w.DB.remove(table, id);
+        removeLocal(table, id);
+        w.toast("Đã xoá " + meta.label, "ok");
+      }
+    } catch (e) {
+      w.toast("Lỗi: " + (e.message || e), "err");
+      return;
+    }
+
+    await App.reloadCurrent();
+  };
+
+  /* Gom tất cả block & word nằm dưới một mục — dùng cho "xoá tiến trình học".
+     table = "hub" | "notebooks" | "sections" | "pages" | "batches" | "blocks" */
+  App.scopeIds = function (table, id) {
+    var blocks;
+    if (table === "blocks") blocks = S.blocks.filter(function (b) { return b.id === id; });
+    else if (table === "batches") blocks = App.blocksOf(id);
+    else if (table === "pages") {
+      var bt = batchesOfPage(id);
+      blocks = S.blocks.filter(function (b) { return bt.some(function (x) { return x.id === b.batch_id; }); });
+    } else if (table === "sections") {
+      var pg = pagesOfSection(id);
+      var bt2 = S.batches.filter(function (b) { return pg.some(function (p) { return p.id === b.page_id; }); });
+      blocks = S.blocks.filter(function (b) { return bt2.some(function (x) { return x.id === b.batch_id; }); });
+    } else {
+      /* notebooks hoặc hub -> mọi thứ đang nạp trong notebook hiện tại */
+      blocks = S.blocks.slice();
+    }
+    var bIds = blocks.map(function (b) { return b.id; });
+    var wIds = S.words.filter(function (x) { return bIds.indexOf(x.block_id) >= 0; })
+                      .map(function (x) { return x.id; });
+    return { blocks: bIds, words: wIds };
+  };
+
+  /* dọn khỏi bộ nhớ cả nhánh con, khỏi phải chờ tải lại */
+  function removeLocal(table, id) {
+    if (table === "notebooks") {
+      S.notebooks = S.notebooks.filter(function (r) { return r.id !== id; });
+      if (S.notebookId === id) S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+    } else if (table === "sections") {
+      S.sections = S.sections.filter(function (r) { return r.id !== id; });
+      if (S.sectionId === id) S.sectionId = S.sections.length ? S.sections[0].id : null;
+    } else if (table === "pages") {
+      S.pages = S.pages.filter(function (r) { return r.id !== id; });
+      if (S.pageId === id) S.pageId = null;
+    } else if (table === "batches") {
+      S.batches = S.batches.filter(function (r) { return r.id !== id; });
+      if (S.batchId === id) S.batchId = null;
+    } else if (table === "blocks") {
+      S.blocks = S.blocks.filter(function (r) { return r.id !== id; });
+    }
+  }
+
+  /* ---------- hộp chọn 1 trong nhiều ---------- */
+  function askPick(opts) {
+    return new Promise(function (resolve) {
+      var m = w.$("#modal-pick");
+      w.$("#pick-title").textContent = opts.title || "Chọn";
+      w.$("#pick-list").innerHTML = opts.options.map(function (o) {
+        return '<button class="user-row" data-pick="' + o.id + '">' + w.esc(o.name) + "</button>";
+      }).join("");
+      m.hidden = false;
+      function done(v) { m.hidden = true; resolve(v); }
+      w.$("#pick-list").onclick = function (e) {
+        var b = e.target.closest("[data-pick]");
+        if (b) done(b.dataset.pick);
+      };
+      m.querySelector("[data-close]").onclick = function () { done(null); };
+    });
+  }
+
+  /* ---------- hộp xác nhận ---------- */
+  function askConfirm(opts) {
+    return new Promise(function (resolve) {
+      var m = w.$("#modal-confirm");
+      w.$("#confirm-title").textContent = opts.title || "Xác nhận";
+      w.$("#confirm-desc").textContent = opts.desc || "";
+      m.hidden = false;
+      function done(v) { m.hidden = true; resolve(v); }
+      w.$("#confirm-ok").onclick = function () { done(true); };
+      m.querySelector("[data-close]").onclick = function () { done(false); };
+    });
+  }
+
+  /* ══════════════ ĐÁNH LẠI SỐ THỨ TỰ ══════════════
+     Đổi chỗ hai giá trị `sort` chỉ đúng khi mọi mục đều có sort riêng biệt.
+     Dữ liệu thật hay có sort trùng (cùng =0, hoặc sinh từ Date.now()), lúc đó
+     "chuyển xuống" trông như không nhúc nhích. Nên sau mỗi lần đổi chỗ, ta
+     đánh lại số 1..N cho cả danh sách — luôn đúng, không phụ thuộc dữ liệu cũ. */
+  App.renumber = async function (table, ordered) {
+    for (var i = 0; i < ordered.length; i++) {
+      var want = i + 1;
+      if (ordered[i].sort !== want) {
+        ordered[i].sort = want;
+        try { await w.DB.patch(table, ordered[i].id, { sort: want }); } catch (e) {}
+      }
+    }
+  };
+
+  /* Bỏ mục `id` ra rồi chèn lại vào vị trí `to` */
+  function reordered(list, id, to) {
+    var arr = list.slice();
+    var from = arr.findIndex(function (x) { return x.id === id; });
+    if (from < 0) return null;
+    var item = arr.splice(from, 1)[0];
+    if (to > from) to--;
+    arr.splice(Math.max(0, Math.min(to, arr.length)), 0, item);
+    return arr;
+  }
+
+  /* ══════════════ KÉO THẢ ══════════════
+     · Kéo lên/xuống trong cùng danh sách  -> đổi thứ tự
+     · Kéo Notebook thả lên tab Hub        -> chuyển sang Hub khác
+     · Kéo Page thả lên tab Section        -> chuyển sang Section khác
+     · Kéo Batch thả lên một Page          -> chuyển sang Page khác          */
+  var DRAG = null;
+
+  function metaOf(el) {
+    if (!el || !el.dataset) return null;
+    if (el.dataset.hub)   return { table: "hubs",      id: el.dataset.hub };
+    if (el.dataset.nb)    return { table: "notebooks", id: el.dataset.nb };
+    if (el.dataset.sec)   return { table: "sections",  id: el.dataset.sec };
+    if (el.dataset.page)  return { table: "pages",     id: el.dataset.page };
+    if (el.dataset.batch) return { table: "batches",   id: el.dataset.batch };
+    return null;
+  }
+
+  function listFor(table) {
+    if (table === "hubs") return S.hubs;
+    if (table === "notebooks") return S.notebooks;
+    if (table === "sections") return S.sections;
+    if (table === "pages") return pagesOfSection(S.sectionId);
+    if (table === "batches") return batchesOfPage(S.pageId);
+    return [];
+  }
+
+  /* Cặp (kéo cái gì, thả lên cái gì) nào là "chuyển chỗ" */
+  var MOVE_PAIRS = {
+    "notebooks>hubs": "hub_id",
+    "pages>sections": "section_id",
+    "batches>pages": "page_id"
+  };
+
+  function dropInfo(node) {
+    var el = node && node.closest
+      ? node.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch]") : null;
+    if (!el || !DRAG) return null;
+    var m = metaOf(el);
+    if (!m) return null;
+    if (m.table === DRAG.table) {
+      if (m.id === DRAG.id) return null;
+      return { el: el, kind: "reorder", table: m.table, id: m.id };
+    }
+    var field = MOVE_PAIRS[DRAG.table + ">" + m.table];
+    if (field) return { el: el, kind: "move", table: m.table, id: m.id, field: field };
+    return null;
+  }
+
+  function clearDragMarks() {
+    w.$$(".dragging").forEach(function (x) { x.classList.remove("dragging"); });
+    w.$$(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
+  }
+
+  App.bindDrag = function () {
+    document.addEventListener("dragstart", function (e) {
+      var el = e.target.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch]");
+      if (!el) return;
+      DRAG = metaOf(el);
+      if (!DRAG) return;
+      el.classList.add("dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", DRAG.id); } catch (err) {}
+      }
+    });
+
+    document.addEventListener("dragend", function () { clearDragMarks(); DRAG = null; });
+
+    document.addEventListener("dragover", function (e) {
+      var t = dropInfo(e.target);
+      if (!t) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      w.$$(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
+      t.el.classList.add("drag-over");
+    });
+
+    document.addEventListener("drop", function (e) {
+      var t = dropInfo(e.target);
+      if (!t) return;
+      e.preventDefault();
+      var d = DRAG;
+      clearDragMarks();
+      DRAG = null;
+      App.applyDrop(d, t);
+    });
+  };
+
+  App.applyDrop = async function (drag, target) {
+    try {
+      if (target.kind === "reorder") {
+        var list = listFor(drag.table);
+        var to = list.findIndex(function (x) { return x.id === target.id; });
+        var arr = reordered(list, drag.id, to);
+        if (!arr) return;
+        await App.renumber(drag.table, arr);
+      } else {
+        var row = (S[drag.table] || []).find(function (x) { return x.id === drag.id; });
+        if (!row) return;
+        if (row[target.field] === target.id) return;
+        row[target.field] = target.id;
+        var patch = {}; patch[target.field] = target.id;
+        await w.DB.patch(drag.table, drag.id, patch);
+        w.toast("Đã chuyển sang chỗ mới", "ok");
+      }
+    } catch (e) {
+      w.toast("Không chuyển được: " + (e.message || e), "err");
+      return;
+    }
+    await App.reloadCurrent();
+  };
+
+  /* Nạp lại notebook đang mở rồi vẽ lại — dùng chung sau mọi thao tác quản lý */
+  App.reloadCurrent = async function () {
+    S.hubs = await w.DB.getHubs();
+    if (!S.hubs.some(function (h) { return h.id === S.hubId; })) {
+      S.hubId = S.hubs.length ? S.hubs[0].id : null;
+    }
+    S.notebooks = S.hubId ? await w.DB.getNotebooks(S.hubId) : [];
+    if (!S.notebooks.some(function (n) { return n.id === S.notebookId; })) {
+      S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+    }
+    if (S.notebookId) await loadNotebook(S.notebookId);
+    else clearContent();
+    saveSel();
+    renderAll();
+  };
+
+  /* ══════════════ ĐỔI GIAO DIỆN SÁNG / TỐI ══════════════
+     Toàn bộ màu đi qua biến CSS, nên đổi giao diện chỉ là gắn/gỡ
+     thuộc tính data-theme trên thẻ <html>. Nhớ lựa chọn trong máy. */
+  var LS_THEME = "tjwl_theme_v1";
+
+  function applyTheme(name) {
+    var light = name === "light";
+    if (light) document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+
+    var btn = w.$("#theme-btn");
+    if (btn) {
+      btn.textContent = light ? "☀️" : "🌙";
+      btn.title = light ? "Chuyển sang giao diện tối" : "Chuyển sang giao diện sáng";
+    }
+    /* màu thanh trạng thái của trình duyệt điện thoại theo luôn */
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", light ? "#f4f1ec" : "#0f1115");
+  }
+
+  App.theme = function () {
+    try { return localStorage.getItem(LS_THEME) || "dark"; } catch (e) { return "dark"; }
+  };
+
+  App.setTheme = function (name) {
+    try { localStorage.setItem(LS_THEME, name); } catch (e) {}
+    applyTheme(name);
+  };
+
+  App.toggleTheme = function () {
+    App.setTheme(App.theme() === "light" ? "dark" : "light");
+  };
+
+  /* ══════════════ GHIM / BỎ GHIM CỘT (kiểu OneNote) ══════════════
+     Ghim  = cột nằm cố định trong bố cục.
+     Bỏ ghim = cột thu lại; bấm vào tên cột thì nó trượt ra đè lên nội dung,
+               bấm ra ngoài là cất đi. Giống "Pin Notebook Pane to side".   */
+  var LS_PIN = "tjwl_pins_v1";
+
+  function readPins() {
+    try { return JSON.parse(localStorage.getItem(LS_PIN)) || { left: true, right: true }; }
+    catch (e) { return { left: true, right: true }; }
+  }
+  var pins = readPins();
+
+  function applyPins() {
+    [["left", "#sidebar-left", "#pin-left"], ["right", "#sidebar-right", "#pin-right"]]
+      .forEach(function (t) {
+        var on = pins[t[0]] !== false;
+        var bar = w.$(t[1]), btn = w.$(t[2]);
+        bar.classList.toggle("unpinned", !on);
+        if (!on) bar.classList.remove("flyout");
+        btn.classList.toggle("off", !on);
+        btn.textContent = on ? "📌" : "📍";
+        btn.title = on ? "Bỏ ghim cột này" : "Ghim cột này lại";
+      });
+    /* cột thu lại thì nhường chỗ cho hàng tab Sections rộng ra */
+    var bar = document.querySelector(".section-bar");
+    bar.classList.toggle("left-off", pins.left === false);
+    bar.classList.toggle("right-off", pins.right === false);
+  }
+
+  function togglePin(side) {
+    pins[side] = pins[side] === false;
+    try { localStorage.setItem(LS_PIN, JSON.stringify(pins)); } catch (e) {}
+    applyPins();
+  }
+
+  function toggleFlyout(side) {
+    var bar = w.$(side === "left" ? "#sidebar-left" : "#sidebar-right");
+    if (!bar.classList.contains("unpinned")) return;   /* đang ghim thì thôi */
+    var open = bar.classList.contains("flyout");
+    w.$("#sidebar-left").classList.remove("flyout");
+    w.$("#sidebar-right").classList.remove("flyout");
+    if (!open) bar.classList.add("flyout");
+  }
+
+  function closeFlyouts() {
+    w.$("#sidebar-left").classList.remove("flyout");
+    w.$("#sidebar-right").classList.remove("flyout");
+  }
+
+  /* ══════════════ ĐIỀU HƯỚNG MOBILE ══════════════ */
+  function openDrawer(side) {
+    var left = w.$("#sidebar-left"), right = w.$("#sidebar-right");
+    left.classList.toggle("open", side === "left");
+    right.classList.toggle("open", side === "right");
+    w.$("#drawer-backdrop").hidden = !(side === "left" || side === "right");
+  }
+  function closeDrawers() { openDrawer(null); }
+
+  /* ══════════════ GẮN SỰ KIỆN ══════════════ */
+  function bind() {
+    /* --- hub --- */
+    w.$("#hub-tabs").onclick = async function (e) {
+      var b = e.target.closest("[data-hub]");
+      if (!b) return;
+      leaveDetail();
+      S.hubId = b.dataset.hub;
+      S.notebooks = await w.DB.getNotebooks(S.hubId);
+      S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+      if (S.notebookId) await loadNotebook(S.notebookId);
+      else clearContent();
+      saveSel(); renderAll();
+    };
+
+    /* --- notebook / section --- */
+    w.$("#notebook-list").onclick = async function (e) {
+      if (e.target.closest("[data-menu]")) return;
+      var el = e.target.closest("[data-nb]");
+      if (!el) return;
+      leaveDetail();
+      S.notebookId = el.dataset.nb;
+      await loadNotebook(S.notebookId);
+      saveSel(); renderAll(); closeDrawers();
+    };
+
+    w.$("#section-list").onclick = function (e) {
+      if (e.target.closest("[data-menu]")) return;
+      var el = e.target.closest("[data-sec]");
+      if (!el) return;
+      leaveDetail();
+      S.sectionId = el.dataset.sec;
+      var pgs = pagesOfSection(S.sectionId);
+      S.pageId = pgs.length ? pgs[0].id : null;
+      var bts = S.pageId ? batchesOfPage(S.pageId) : [];
+      S.batchId = bts.length ? bts[0].id : null;
+      saveSel(); renderAll(); closeDrawers();
+    };
+
+    w.$("#page-list").onclick = function (e) {
+      if (e.target.closest("[data-menu]")) return;
+      var el = e.target.closest("[data-page]");
+      if (!el) return;
+      leaveDetail();
+      S.pageId = el.dataset.page;
+      var bts = batchesOfPage(S.pageId);
+      S.batchId = bts.length ? bts[0].id : null;
+      saveSel(); renderCrumb(); renderPages(); renderBatches(); App.renderBlocks(); closeDrawers();
+    };
+
+    w.$("#batch-tabs").onclick = function (e) {
+      if (e.target.closest("[data-menu]")) return;
+      var el = e.target.closest("[data-batch]");
+      if (!el) return;
+      S.batchId = el.dataset.batch;
+      saveSel();
+      leaveDetail();
+      renderBatches(); App.renderBlocks();
+    };
+
+    /* --- mở block --- */
+    w.$("#blocks-list").onclick = function (e) {
+      if (e.target.closest("[data-menu]")) return;
+      var openBtn = e.target.closest("[data-open]");
+      var card = e.target.closest("[data-block]");
+      var id = openBtn ? openBtn.dataset.open : (card ? card.dataset.block : null);
+      if (id) w.Detail.open(id);
+    };
+
+    /* --- chip trong 4 ô chu kỳ --- */
+    w.$$(".chips-row").forEach(function (row) {
+      row.onclick = function (e) {
+        var chip = e.target.closest("[data-jump]");
+        if (!chip) return;
+        jumpToBlock(chip.dataset.jump);
+      };
+    });
+
+    w.$("#btn-review-now").onclick = function () {
+      var id = this.dataset.target;
+      if (id) jumpToBlock(id);
+    };
+
+    /* --- thêm hub --- */
+    w.$("#btn-add-hub").onclick = async function () {
+      var r = await askText({ title: "🗂️ Hub mới", desc: "Ví dụ: IELTS HUB, BUSINESS HUB…", placeholder: "Tên hub" });
+      if (!r) return;
+      var h = await w.DB.insertHub(r.text);
+      S.hubs.push(h); S.hubId = h.id;
+      S.notebooks = []; clearContent();
+      saveSel(); renderAll();
+      w.toast("Đã tạo hub", "ok");
+    };
+
+    /* --- thêm notebook / section / page --- */
+    w.$("#btn-add-notebook").onclick = async function () {
+      var r = await askText({ title: "📓 Notebook mới", desc: "Ví dụ: TJ BOOK 2, US TAX BOOK…", withEmoji: true, emoji: "📓", placeholder: "Tên notebook" });
+      if (!r) return;
+      var nb = await w.DB.addNotebook(S.hubId, r.text, r.emoji || "📓");
+      S.notebooks.push(nb); S.notebookId = nb.id;
+      await loadNotebook(nb.id);
+      saveSel(); renderAll();
+      w.toast("Đã tạo notebook", "ok");
+    };
+
+    w.$("#btn-add-section").onclick = async function () {
+      if (!S.notebookId) { w.toast("Hãy tạo notebook trước", "err"); return; }
+      var r = await askText({ title: "📁 Section mới", desc: "Ví dụ: ETS 2024 · LC, Unit 6–10…", placeholder: "Tên section" });
+      if (!r) return;
+      var sec = await w.DB.addSection(S.notebookId, r.text);
+      S.sections.push(sec); S.sectionId = sec.id; S.pageId = null; S.batchId = null;
+      saveSel(); renderAll();
+      w.toast("Đã tạo section", "ok");
+    };
+
+    w.$("#btn-add-page").onclick = async function () {
+      if (!S.sectionId) { w.toast("Hãy tạo section trước", "err"); return; }
+      var r = await askText({ title: "📄 Page mới", desc: "Ví dụ: Test 3 — Part 3, AEF3 Unit 8…", placeholder: "Tên page" });
+      if (!r) return;
+      var pg = await w.DB.addPage(S.sectionId, r.text);
+      S.pages.push(pg); S.pageId = pg.id; S.batchId = null;
+      saveSel(); renderAll();
+      w.toast("Đã tạo page", "ok");
+    };
+
+    /* --- paste --- */
+    w.$("#btn-paste-new").onclick = function () {
+      w.$("#modal-paste").hidden = false;
+      setTimeout(function () { w.$("#paste-input").focus(); }, 50);
+    };
+    w.$("#paste-input").addEventListener("input", previewPaste);
+    w.$("#btn-do-paste").onclick = doPaste;
+
+    /* --- đóng modal chung --- */
+    w.$$("[data-close]").forEach(function (b) {
+      b.onclick = function () { w.$("#" + b.dataset.close).hidden = true; };
+    });
+    w.$$(".modal-overlay").forEach(function (m) {
+      /* bấm ra ngoài để đóng — trừ hộp nhập tên, vì nó đang chờ kết quả
+         (đóng kiểu đó sẽ để lại một Promise treo lơ lửng) */
+      if (m.id === "modal-prompt") return;
+      m.addEventListener("click", function (e) { if (e.target === m) m.hidden = true; });
+    });
+
+    /* --- menu người dùng --- */
+    var menu = w.$("#user-menu");
+    w.$("#user-chip").onclick = function (e) {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    };
+    document.addEventListener("click", function () { menu.hidden = true; });
+    menu.addEventListener("click", function (e) { e.stopPropagation(); });
+
+    w.$("#mi-switch").onclick = function () {
+      menu.hidden = true; renderUserList(); w.$("#modal-user").hidden = false;
+    };
+    w.$("#mi-edit").onclick = async function () {
+      menu.hidden = true;
+      var u = w.Auth.user;
+      var r = await askText({ title: "✏️ Đổi tên & avatar", value: u.name, withEmoji: true, emoji: u.emoji });
+      if (!r) return;
+      w.Auth.updateCurrent(r.text, r.emoji);
+      renderUserChip();
+    };
+    w.$("#mi-cloud").onclick = function () {
+      menu.hidden = true;
+      w.$("#cloud-status").textContent = ""; w.$("#cloud-status").className = "cloud-status";
+      w.$("#modal-cloud").hidden = false;
+    };
+    w.$("#mi-logout").onclick = async function () {
+      menu.hidden = true;
+      await w.Auth.signOut();
+      await loadProgress(); renderAll();
+      w.toast("Đã đăng xuất");
+    };
+
+    w.$("#user-list").onclick = function (e) {
+      var del = e.target.closest("[data-del]");
+      if (del) {
+        e.stopPropagation();
+        w.Auth.deleteLocal(del.dataset.del);
+        renderUserList(); renderUserChip();
+        return;
+      }
+      var row = e.target.closest("[data-uid]");
+      if (row) switchUser(row.dataset.uid);
+    };
+
+    w.$("#btn-new-user").onclick = async function () {
+      var r = await askText({ title: "👤 Người học mới", desc: "Tiến trình ôn tập sẽ tách riêng.", withEmoji: true, emoji: "🦊", placeholder: "Tên hiển thị" });
+      if (!r) return;
+      var u = w.Auth.createLocal(r.text, r.emoji || "🐣");
+      await switchUser(u.id);
+    };
+
+    /* --- đăng nhập cloud --- */
+    w.$("#btn-send-link").onclick = async function () {
+      var email = w.$("#cloud-email").value.trim();
+      var st = w.$("#cloud-status");
+      if (!email) { st.className = "cloud-status err"; st.textContent = "Hãy nhập email."; return; }
+      st.className = "cloud-status"; st.textContent = "Đang gửi…";
+      try {
+        await w.Auth.sendMagicLink(email);
+        st.className = "cloud-status ok";
+        st.textContent = "✅ Đã gửi! Mở hộp thư " + email + " và bấm vào link để đăng nhập. (Nhớ kiểm tra cả mục Spam.)";
+      } catch (e) {
+        st.className = "cloud-status err";
+        st.textContent = "❌ " + (e.message || e);
+      }
+    };
+
+    /* --- sao lưu / phục hồi --- */
+    w.$("#mi-export").onclick = function () {
+      menu.hidden = true;
+      var blob = new Blob([w.DB.exportJSON()], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "tj-wordloop-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    };
+    w.$("#mi-import").onclick = function () { menu.hidden = true; w.$("#file-import").click(); };
+    w.$("#file-import").onchange = function (e) {
+      var f = e.target.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = async function () {
+        try {
+          w.DB.importJSON(fr.result);
+          w.toast("Đã nhập dữ liệu — đang tải lại…", "ok");
+          setTimeout(function () { location.reload(); }, 700);
+        } catch (err) { w.toast("File không hợp lệ", "err"); }
+      };
+      fr.readAsText(f);
+      e.target.value = "";
+    };
+
+    /* người dùng tự cuộn thì karaoke nhường, khỏi giật */
+    w.$("#workspace").addEventListener("scroll", function () { w.Speech.noteUserScroll(); }, { passive: true });
+    w.$("#workspace").addEventListener("wheel", function () { w.Speech.noteUserScroll(); }, { passive: true });
+    w.$("#workspace").addEventListener("touchstart", function () { w.Speech.noteUserScroll(); }, { passive: true });
+
+    /* --- bảng thao tác: nút ⋯ hoặc bấm chuột phải --- */
+    document.addEventListener("click", function (e) {
+      var d = e.target.closest("[data-menu]");
+      if (d) {
+        e.stopPropagation();
+        App.openMenu(d.dataset.menu, d.dataset.id, d);
+        return;
+      }
+      if (!e.target.closest("#ctx-menu")) App.closeMenu();
+    });
+    document.addEventListener("contextmenu", function (e) {
+      var host = e.target.closest("[data-nb],[data-sec],[data-page],[data-batch]");
+      if (!host) return;
+      var table = host.dataset.nb ? "notebooks" : host.dataset.sec ? "sections"
+                : host.dataset.page ? "pages" : "batches";
+      var id = host.dataset.nb || host.dataset.sec || host.dataset.page || host.dataset.batch;
+      e.preventDefault();
+      App.openMenu(table, id, host);
+    });
+
+    /* --- đổi giao diện --- */
+    w.$("#theme-btn").onclick = function (e) { e.stopPropagation(); App.toggleTheme(); };
+
+    /* --- ghim cột --- */
+    w.$("#pin-left").onclick = function (e) { e.stopPropagation(); togglePin("left"); };
+    w.$("#pin-right").onclick = function (e) { e.stopPropagation(); togglePin("right"); };
+    w.$("#name-left").onclick = function (e) { e.stopPropagation(); toggleFlyout("left"); };
+    w.$("#name-right").onclick = function (e) { e.stopPropagation(); toggleFlyout("right"); };
+    /* Không dùng stopPropagation trên cột — làm vậy sẽ chặn luôn sự kiện
+       lên tới document, khiến nút ⋯ trong cột không mở được bảng thao tác.
+       Thay vào đó chỉ cần bỏ qua khi cú bấm nằm trong cột. */
+    document.addEventListener("click", function (e) {
+      if (e.target.closest(".sidebar")) return;
+      closeFlyouts();
+    });
+    applyPins();
+    App.bindDrag();
+
+    /* --- mobile --- */
+    w.$("#btn-drawer-left").onclick = function () {
+      openDrawer(w.$("#sidebar-left").classList.contains("open") ? null : "left");
+    };
+    w.$("#drawer-backdrop").onclick = closeDrawers;
+    w.$$(".mobile-nav button").forEach(function (b) {
+      b.onclick = function () {
+        var m = b.dataset.m;
+        w.$$(".mobile-nav button").forEach(function (x) { x.classList.toggle("active", x === b); });
+        if (m === "user") { closeDrawers(); renderUserList(); w.$("#modal-user").hidden = false; return; }
+        openDrawer(m === "main" ? null : m);
+      };
+    });
+
+    w.Detail.bind();
+  }
+
+  function jumpToBlock(blockId) {
+    var blk = S.blocks.find(function (b) { return b.id === blockId; });
+    if (!blk) return;
+    var batch = S.batches.find(function (b) { return b.id === blk.batch_id; });
+    if (batch) {
+      var page = S.pages.find(function (p) { return p.id === batch.page_id; });
+      if (page) { S.pageId = page.id; S.sectionId = page.section_id; }
+      S.batchId = batch.id;
+      saveSel();
+      renderCrumb(); renderSections(); renderPages(); renderBatches(); App.renderBlocks();
+    }
+    w.Detail.open(blockId);
+  }
+
+  /* ══════════════ THƯ VIỆN CÓ BẢN MỚI ══════════════
+     Kho từ gói sẵn chỉ được nạp lúc bộ nhớ máy còn trống. Ai đã mở app một
+     lần rồi thì dựng lại kho bao nhiêu lần cũng không thấy — trước đây phải
+     mở Console gõ localStorage.clear(). Giờ app tự so và hỏi. */
+  App.checkLibraryUpdate = async function () {
+    var info = await w.DB.checkStarter();
+    if (!info) return false;
+
+    var ok = await askConfirm({
+      title: "Thư viện có bản mới",
+      desc: "Máy này đang giữ bản cũ. Bản mới có " + info.words + " từ · "
+          + info.pages + " bài · " + info.notebooks + " notebook. "
+          + "Cập nhật ngay? Tiến trình học và những gì bạn tự thêm vẫn giữ nguyên."
+    });
+    if (!ok) return false;
+
+    try {
+      var res = await w.DB.applyStarter();
+      w.toast("Đã cập nhật thư viện: " + res.words + " từ", "ok");
+      await App.reloadCurrent();
+      return true;
+    } catch (e) {
+      w.toast("Không cập nhật được: " + (e.message || e), "err");
+      return false;
+    }
+  };
+
+  /* ══════════════ KHỞI ĐỘNG ══════════════ */
+  async function boot() {
+    applyTheme(App.theme());          /* đặt màu trước khi vẽ, tránh nháy sáng */
+    w.Speech.init();
+    var mode = await w.DB.init();
+    await w.Auth.init();
+
+    w.Auth.onChange(async function () {
+      await loadProgress();
+      renderAll();
+    });
+
+    S.hubs = await w.DB.getHubs();
+    var sel = readSel();
+    S.hubId = pick(S.hubs, sel.hubId);
+
+    if (S.hubId) {
+      S.notebooks = await w.DB.getNotebooks(S.hubId);
+      S.notebookId = pick(S.notebooks, sel.notebookId);
+      if (S.notebookId) await loadNotebook(S.notebookId);
+    }
+
+    renderAll();
+    bind();
+
+    if (mode === "local") {
+      console.info("[TJ WordLoop] Đang chạy CHẾ ĐỘ LOCAL. Muốn dùng chung: điền js/config.js.");
+      App.checkLibraryUpdate();       /* không await: để app hiện ra trước */
+    }
+    if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", boot);
+})(window);
