@@ -25,7 +25,7 @@
 - Đừng nhầm `sb_secret_...` (service_role, toàn quyền, chỉ dùng server) với `sb_publishable_...`/`anon` JWT (an toàn client-side) — Supabase dashboard mới hiển thị cả 2 loại key rất giống nhau về vị trí, dễ user gửi nhầm. Luôn **decode JWT payload kiểm tra `role: anon`** trước khi tin key người dùng gửi (base64 phần giữa 2 dấu `.`).
 
 ## Quyết định đã chốt (đừng đề xuất lại)
-- **KHÔNG** có UI chọn độ khó Dễ/Vừa/Khó cho bài đọc (đã làm rồi bị yêu cầu bỏ — "hong có tác dụng"). Thay vào đó là picker "Claude 1/2/3" ẩn trong ô bài đọc trống, chọn thủ công.
+- **KHÔNG** có UI chọn độ khó Dễ/Vừa/Khó cho bài đọc (đã làm rồi bị yêu cầu bỏ — "hong có tác dụng"). Thay vào đó là 1 hàng tab **"📝 Dán" + "Claude 1/2/3"** (`#src-tabs`/`#src-body` trong `detail.js`, hàm `D.renderSourcePicker`) — LUÔN hiện (không ẩn khi đã có bài đọc), chọn tab nào xem trước tab đó rồi bấm chung 1 nút "Dùng bài này" mới đẩy lên. Không có nút "Nhờ AI viết" riêng ở khu này — dùng "🔄 Tạo lại" ở đầu card bài đọc.
 - **KHÔNG** tự động luân phiên bài đọc theo chu kỳ ôn (đã thử, bị thay bằng picker thủ công ở trên).
 - **KHÔNG** tự fallback về mẫu câu cứng khi chưa có AI/chưa dán bài — thà để trống.
 - Số Block **đánh lại từ 1 trong mỗi Batch**, không chạy dồn toàn Notebook (nhưng field nội bộ `global_index` vẫn tăng liên tục xuyên Batch, dùng cho sắp xếp — đừng nhầm với tên hiển thị).

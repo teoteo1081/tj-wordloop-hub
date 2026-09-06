@@ -76,10 +76,11 @@ Mỗi file tự gắn 1 global lên `window` (`w.App`, `w.DB`, `w.Detail`, `w.Co
 ## Bài đọc ngữ cảnh — cách hoạt động
 Mỗi Block có **đúng 1 bài đọc đang dùng**: `block.context_passage` (chuỗi text `[term]` đánh dấu + 1 khối JSON ẩn phía sau, ngăn bởi `Context.META_SEP`, chứa `{ai, pasted, claude, vi, title, source}`).
 
-**Không tự sinh bài khi mở Block** — trống thì hiện 3 lựa chọn (đều KHÔNG bắt buộc):
-1. **"Claude 1/2/3"** — nếu Block có `context_passage_candidates` (mảng tối đa 3 bài Claude viết tay sẵn), hiện nút chọn xem trước rồi "Dùng bài này" mới đẩy lên chính thức. Đây là cách **KHÔNG tốn quota AI**.
-2. **"✨ Nhờ AI viết"** — chỉ chạy khi có `GEMINI_API_KEY`/`OPENAI_API_KEY` trong `keys.local.js`. Ưu tiên Gemini (free, nhưng ~20 request/ngày với tài khoản mới).
-3. **Dán bài của riêng bạn** vào ô — app tự bôi `[ngoặc]` đúng các từ của Block bằng `Context._markTerms()`.
+**Không tự sinh bài khi mở Block.** Khu "chọn nguồn bài đọc" (`#passage-empty`, hàm `D.renderSourcePicker`) LUÔN hiện — kể cả khi đã có bài đọc chính, để đổi bất cứ lúc nào — dưới dạng 1 hàng tab:
+- **"📝 Dán"** — dán bài của riêng bạn vào ô, app tự bôi `[ngoặc]` đúng các từ của Block bằng `Context._markTerms()`.
+- **"Claude 1/2/3"** — nếu Block có `context_passage_candidates` (mảng tối đa 3 bài Claude viết tay sẵn), hiện thêm các tab này. Đây là cách **KHÔNG tốn quota AI**.
+
+Chọn tab nào thì xem trước tab đó, bấm **"✅ Dùng bài này"** mới đẩy lên chính thức. Muốn nhờ AI viết bài mới thì dùng nút **"🔄 Tạo lại"** ở đầu card bài đọc (chỉ chạy khi có `GEMINI_API_KEY`/`OPENAI_API_KEY` trong `keys.local.js`, ưu tiên Gemini free nhưng ~20 request/ngày với tài khoản mới).
 
 Bộ mẫu câu cứng cũ (`OPENERS`/`MIDDLES`/`CLOSERS`, kiểu "quarterly planning meeting" lặp lại) **đã bị loại bỏ hoàn toàn** — không còn là fallback im lặng nữa vì nội dung vô nghĩa/lặp lại. `db.js` có 1 lượt dọn tự động (`cleanupLegacyPassages`, chạy mỗi lần mở app ở chế độ local) xoá sạch bài đọc nào không có `ai`/`pasted`/`claude` trong meta.
 
