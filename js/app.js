@@ -751,6 +751,8 @@
     if (table === "sections" && S.notebooks.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Notebook khác" });
     if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
     if (table === "batches" && S.pages.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Page khác" });
+    /* Gộp hàng loạt: đứng ở 1 Hub, gom hết Notebook từ MỌI Hub khác về đây */
+    if (table === "hubs" && S.hubs.length > 1) items.push({ act: "consolidate", icon: "📦", text: "Gộp tất cả Notebook về đây" });
     items.push({ act: "sep" });
     items.push({ act: "reset", icon: "🔄", text: "Xoá tiến trình học" });
     items.push({ act: "sep" });
@@ -836,7 +838,35 @@
         if (!pickTo) return;
         row[field] = pickTo;
         await w.DB.patch(table, id, (function () { var o = {}; o[field] = pickTo; return o; })());
-        w.toast("Đã chuyển sang " + meta.label + " mới", "ok");
+        /* Nói rõ TÊN nơi vừa chuyển tới — trước đây chỉ báo "sang Notebook
+           mới" chung chung, khiến người dùng tưởng dữ liệu biến mất khi
+           không thấy nó ở chỗ cũ nữa (nó chỉ chuyển hub/section/page khác,
+           đang đứng nhầm tab nên không thấy). */
+        var destRow = opts.find(function (o) { return o.id === pickTo; });
+        w.toast('Đã chuyển "' + row.name + '" sang ' + (destRow ? '"' + destRow.name + '"' : "chỗ mới") +
+                " — bấm qua đó để xem lại nhé", "ok");
+      }
+
+      else if (act === "consolidate") {
+        var otherHubs = S.hubs.filter(function (h) { return h.id !== id; });
+        var toMove = [];
+        for (var oi = 0; oi < otherHubs.length; oi++) {
+          var nbs = await w.DB.getNotebooks(otherHubs[oi].id);
+          toMove = toMove.concat(nbs);
+        }
+        if (!toMove.length) { w.toast("Không có Notebook nào ở Hub khác để gộp", "err"); return; }
+
+        var okC = await askConfirm({
+          title: "📦 Gộp " + toMove.length + ' Notebook về "' + row.name + '"?',
+          desc: "Sẽ chuyển toàn bộ " + toMove.length + ' Notebook đang nằm ở các Hub khác về "' +
+                row.name + '". Không mất dữ liệu, chỉ đổi Hub — có thể chuyển lại từng cái sau nếu cần.'
+        });
+        if (!okC) return;
+
+        for (var ti = 0; ti < toMove.length; ti++) {
+          await w.DB.patch("notebooks", toMove[ti].id, { hub_id: id });
+        }
+        w.toast('Đã gộp ' + toMove.length + ' Notebook về "' + row.name + '"', "ok");
       }
 
       else if (act === "reset") {
