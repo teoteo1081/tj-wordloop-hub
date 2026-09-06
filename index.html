@@ -179,17 +179,12 @@
         <p>Active Recall &amp; Spaced Repetition — Tony Buzan Method</p>
       </div>
 
-      <div class="stats-grid">
-        <div class="stat-box"><div class="stat-num" id="st-total">0</div><div class="stat-label">Tổng từ vựng</div></div>
-        <div class="stat-box"><div class="stat-num green" id="st-mastered">0</div><div class="stat-label">Đã thuộc</div></div>
-        <div class="stat-box"><div class="stat-num blue" id="st-recall">0%</div><div class="stat-label">Độ nhớ TB</div></div>
-        <div class="stat-box"><div class="stat-num amber" id="st-cycle">Lần 1</div><div class="stat-label">Chu kỳ hiện tại</div></div>
-      </div>
-
       <div class="detail-tabs">
         <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
         <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
-        <button class="dtab" data-tab="final">🎯 Bài thi<span class="dt-long"> cuối bài</span></button>
+        <button class="dtab" data-tab="sheet">📋 Phiếu<span class="dt-long"> đầy đủ</span></button>
+        <button class="dtab" data-tab="single">🔤 Từng câu</button>
+        <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
         <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
       </div>
 
@@ -281,13 +276,29 @@
         <div class="card quiz-card" id="quiz-card"></div>
       </div>
 
-      <!-- TAB 3: BÀI THI CUỐI BÀI (dựa trên chính đoạn văn đã gen) -->
-      <div class="tab-pane" id="pane-final">
-        <div class="card final-wrap" id="final-card"></div>
+      <!-- TAB: PHIẾU ĐẦY ĐỦ (điền từ, word bank — tối đa 10 câu) -->
+      <div class="tab-pane" id="pane-sheet">
+        <div class="card final-wrap" id="sheet-card"></div>
       </div>
 
-      <!-- TAB 3: TIẾN TRÌNH -->
+      <!-- TAB: TỪNG CÂU (điền từ, trắc nghiệm 4 đáp án — tối đa 10 câu) -->
+      <div class="tab-pane" id="pane-single">
+        <div class="card final-wrap" id="single-card"></div>
+      </div>
+
+      <!-- TAB: NGHĨA (10 từ đảo nghĩa, trắc nghiệm 4 đáp án — riêng, không tính SRS) -->
+      <div class="tab-pane" id="pane-meaning">
+        <div class="card final-wrap" id="meaning-card"></div>
+      </div>
+
+      <!-- TAB: TIẾN TRÌNH -->
       <div class="tab-pane" id="pane-progress">
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-num" id="st-total">0</div><div class="stat-label">Tổng từ vựng</div></div>
+          <div class="stat-box"><div class="stat-num green" id="st-mastered">0</div><div class="stat-label">Đã thuộc</div></div>
+          <div class="stat-box"><div class="stat-num blue" id="st-recall">0%</div><div class="stat-label">Độ nhớ TB</div></div>
+          <div class="stat-box"><div class="stat-num amber" id="st-cycle">Lần 1</div><div class="stat-label">Chu kỳ hiện tại</div></div>
+        </div>
         <div class="card">
           <div class="card-title">📊 Lịch ôn theo chu kỳ</div>
           <div id="srs-timeline" class="srs-timeline"></div>

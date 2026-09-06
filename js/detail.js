@@ -118,7 +118,23 @@
     w.$$(".tab-pane").forEach(function (p) { p.classList.remove("active"); });
     w.$("#pane-" + name).classList.add("active");
     if (name === "quiz") D.startQuiz();
-    if (name === "final") { if (D._exam) D.renderFinal(); else D.renderFinalIntro(); }
+    /* "Phiếu đầy đủ" và "Từng câu" giờ là 2 TAB riêng (trước đây là 2 nút
+       chuyển chế độ trong cùng 1 tab), cùng dùng chung 1 đề (D._exam) —
+       vào tab nào cũng tự dựng đề nếu chưa có, không cần màn "chuẩn bị"
+       trung gian nữa. "Nghĩa" là đề hoàn toàn riêng, không ảnh hưởng SRS. */
+    if (name === "sheet") {
+      if (!D._exam) D._exam = D.buildExam();
+      D.renderSheet();
+    }
+    if (name === "single") {
+      if (!D._exam) D._exam = D.buildExam();
+      if (D.si == null) D.si = 0;
+      D.renderSingle();
+    }
+    if (name === "meaning") {
+      if (!D._meaningQuiz) D._meaningQuiz = D.buildMeaningQuiz();
+      D.renderMeaning();
+    }
     if (name !== "study") w.Speech.stop();
   };
 
@@ -429,17 +445,19 @@
     D.renderProgress();
   };
 
-  /* ══════════════ TAB — BÀI THI CUỐI BÀI ══════════════
-     Dạng phiếu bài tập, giống bộ tài liệu giấy:
-       Phần A — điền từ vào chỗ trống, câu lấy NGUYÊN VĂN từ đoạn văn đã
-                học. Cơ chế điền khác nhau theo chế độ xem:
-                  · "Phiếu đầy đủ": word bank cố định dính trên đầu, bấm
-                    chip để điền (hoặc bấm lại để bỏ chọn).
-                  · "Từng câu": trắc nghiệm 4 lựa chọn mỗi câu (đúng 1 từ +
-                    3 từ nhiễu lấy trong chính Block).
-       Phần B — chọn nghĩa tiếng Việt đúng (trắc nghiệm 4 lựa chọn cả 2 chế độ).
-     Đúng >= 80% mới tính là hoàn thành Block và mới đẩy chu kỳ SRS. */
+  /* ══════════════ 3 TAB BÀI THI: PHIẾU ĐẦY ĐỦ · TỪNG CÂU · NGHĨA ══════════════
+     Trước đây "Phiếu đầy đủ"/"Từng câu" là 2 nút chuyển chế độ trong CÙNG
+     1 tab "Bài thi cuối bài", còn "chọn nghĩa" là Phần B nằm chung. Giờ
+     tách hẳn thành 3 tab riêng ở thanh trên:
+       · Phiếu đầy đủ / Từng câu — CÙNG 1 đề điền từ (D._exam.gaps, tối đa
+         10 câu), chỉ khác cách hiển thị/thao tác. Đúng ≥ 80% mới tính
+         hoàn thành Block và đẩy chu kỳ SRS (giữ nguyên như trước).
+       · Nghĩa — đề RIÊNG (D._meaningQuiz, 10 từ, trắc nghiệm 4 đáp án),
+         chỉ để luyện thêm, KHÔNG ảnh hưởng SRS/trạng thái hoàn thành
+         Block (giống tinh thần tab Active Recall Quiz — luyện tập thôi). */
   var PASS_MARK = 80;
+  var EXAM_CAP = 10;      /* Phiếu đầy đủ / Từng câu: tối đa 10 câu */
+  var MEANING_CAP = 10;   /* Nghĩa: đúng 10 từ (hoặc ít hơn nếu Block không đủ) */
   D.PASS_MARK = PASS_MARK;
 
   function shuffle(arr) {
@@ -451,6 +469,7 @@
     return a;
   }
 
+  /* ---------- Đề điền từ (Phiếu đầy đủ + Từng câu dùng chung) ---------- */
   D.buildExam = function () {
     var b = block(), ws = words();
     if (!b || !ws.length) return null;
@@ -459,10 +478,9 @@
     ws.forEach(function (x) { byTerm[x.term.toLowerCase()] = x; });
     var allTerms = ws.map(function (x) { return x.term; });
 
-    /* Phần A: mỗi gap có sẵn `options` (đúng 1 từ + 3 từ nhiễu trong chính
-       Block) để chế độ "Từng câu" dùng làm trắc nghiệm 4 lựa chọn. Chế độ
-       "Phiếu đầy đủ" thì vẫn dùng `bank` (word bank cố định, bấm điền vào
-       chỗ trống) — 2 chế độ khác nhau, cùng chung 1 danh sách `gaps`. */
+    /* mỗi gap có sẵn `options` (đúng 1 từ + 3 từ nhiễu trong chính Block)
+       cho "Từng câu"; "Phiếu đầy đủ" thì dùng `bank` (word bank cố định,
+       bấm điền vào chỗ trống) — 2 cách hiển thị, cùng chung 1 `gaps`. */
     var passageText = w.Context.parseMeta(b.context_passage).marked;
     var gaps = w.Context.gapSentences(passageText)
       .filter(function (g) { return byTerm[g.term.toLowerCase()]; })
@@ -474,9 +492,23 @@
       });
     if (!gaps.length) return null;
 
-    var withVi = ws.filter(function (x) { return x.meaning_vi; });
-    var mcWords = shuffle(withVi).slice(0, Math.min(5, withVi.length));
+    gaps = shuffle(gaps).slice(0, EXAM_CAP);   /* tối đa 10 câu */
 
+    return {
+      gaps: gaps,
+      bank: shuffle(ws.map(function (x) { return x.term; })),
+      total: gaps.length,
+      graded: false
+    };
+  };
+
+  /* ---------- Đề chọn nghĩa (tab Nghĩa, riêng, không ảnh hưởng SRS) ---------- */
+  D.buildMeaningQuiz = function () {
+    var ws = words();
+    var withVi = ws.filter(function (x) { return x.meaning_vi; });
+    if (!withVi.length) return null;
+
+    var mcWords = shuffle(withVi).slice(0, Math.min(MEANING_CAP, withVi.length));
     var mc = mcWords.map(function (x) {
       var others = shuffle(withVi.filter(function (y) {
         return y.id !== x.id && y.meaning_vi !== x.meaning_vi;
@@ -484,172 +516,7 @@
       return { term: x.term, answer: x.meaning_vi, options: shuffle([x.meaning_vi].concat(others)), given: null };
     });
 
-    return {
-      gaps: shuffle(gaps),
-      mc: mc,
-      bank: shuffle(ws.map(function (x) { return x.term; })),
-      total: gaps.length + mc.length,
-      graded: false
-    };
-  };
-
-  /* ---------- Màn hình chuẩn bị ---------- */
-  D.renderFinalIntro = function () {
-    var ws = words();
-    var bp = S().bp[D.blockId] || {};
-    var b = block() || {};
-    var gapN = w.Context.gapSentences(w.Context.parseMeta(b.context_passage || "").marked).length;
-    var mcN = Math.min(5, ws.filter(function (x) { return x.meaning_vi; }).length);
-
-    var rows = ws.map(function (x) {
-      return '<div class="prep-row">' +
-               '<span class="prep-term w-tap" data-term="' + w.esc(x.term) + '">' + w.esc(x.term) + "</span>" +
-               '<button class="spk" data-say="' + w.esc(x.term) + '" title="Nghe">🔊</button>' +
-               '<span class="prep-vi">' + w.esc(x.meaning_vi || x.def_en || "") + "</span>" +
-             "</div>";
-    }).join("");
-
-    w.$("#final-card").innerHTML =
-      '<div class="prep">' +
-        '<div class="prep-head">' +
-          '<button class="btn-soft" id="f-read">🔊 Đọc lại đoạn văn</button>' +
-          '<span class="prep-note">Xem lại một lượt, bấm vào từ để nghe — rồi hãy vào kiểm tra</span>' +
-        "</div>" +
-        '<div class="prep-list">' + rows + "</div>" +
-        '<div class="pass-rule">Phần A: ' + gapN + " câu chọn từ đúng · Phần B: " + mcN +
-          " câu chọn nghĩa · cần đúng ≥ " + PASS_MARK + "% mới hoàn thành Block</div>" +
-        '<button class="btn-primary btn-big" id="f-start">Hiểu rồi, vào kiểm tra →</button>' +
-        (bp.last_exam_at
-          ? '<div class="best-line">Điểm cao nhất: <b>' + (bp.best_score || 0) + "%</b> · " +
-            (bp.passed ? "đã đạt ✓" : "chưa đạt") + " · lần gần nhất " + w.humanTime(bp.last_exam_at) + "</div>"
-          : '<div class="best-line">Bạn chưa làm bài kiểm tra này lần nào.</div>') +
-      "</div>";
-
-    w.$("#f-read").onclick = function () {
-      D.showTab("study");
-      setTimeout(function () { w.$("#btn-read").click(); }, 200);
-    };
-    w.$("#f-start").onclick = function () { D.startFinal(); };
-  };
-
-  D.startFinal = function () {
-    D._exam = D.buildExam();
-    if (!D._exam) { w.toast("Chưa dựng được đề — hãy mở tab Bài học một lượt", "err"); return; }
-    D.renderFinal();
-  };
-
-  /* ---------- Phiếu bài tập ---------- */
-  D.renderFinal = function () {
-    var ex = D._exam;
-    if (!ex) return D.renderFinalIntro();
-
-    var b = block() || {};
-    var html = "";
-
-    if (ex.graded) {
-      var passed = ex.score >= PASS_MARK;
-      html +=
-        '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
-          '<div class="score">' + ex.score + "%</div>" +
-          '<div class="verdict">' + (passed ? "✅ ĐẠT — Block đã hoàn thành" : "❌ CHƯA ĐẠT — cần ≥ " + PASS_MARK + "%") + "</div>" +
-          '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu" +
-            (passed ? " · Block đã lên chu kỳ tiếp theo, lịch ôn: " + ex.nextLabel
-                    : " · Đọc lại bài rồi kiểm tra lại nhé") +
-          "</div>" +
-        "</div>";
-    } else {
-      html +=
-        '<div class="exam-head">' +
-          '<button class="btn-soft" id="f-quit">← Quay lại</button>' +
-          '<span class="exam-tag">KIỂM TRA</span>' +
-          '<span class="exam-meta">' + w.esc(b.name || "") + " · " + ex.total + " câu</span>" +
-        "</div>" +
-        '<div class="read-modes" id="exam-modes">' +
-          '<button class="rm-btn' + (D.examView === "sheet" ? " active" : "") + '" data-ev="sheet">📋 Phiếu đầy đủ</button>' +
-          '<button class="rm-btn' + (D.examView === "single" ? " active" : "") + '" data-ev="single">🔤 Từng câu</button>' +
-        "</div>";
-    }
-
-    /* chế độ TỪNG CÂU: vẽ riêng, thoát sớm */
-    if (!ex.graded && D.examView === "single") {
-      w.$("#final-card").innerHTML = html + D.singleHtml();
-      D.bindExamModes();
-      D.bindSingle();
-      return;
-    }
-
-    /* ---- WORD BANK: dính trên đầu khi cuộn ---- */
-    if (!ex.graded) {
-      html += '<div class="wordbank" id="wordbank">' +
-        '<div class="wb-head">' +
-          '<span class="wb-title">Word bank</span>' +
-          '<span class="wb-left" id="wb-left"></span>' +
-          '<button class="wb-clear" id="wb-clear">Xoá hết</button>' +
-        "</div>" +
-        '<div class="wb-items">' +
-          ex.bank.map(function (t) {
-            return '<button class="wb-chip" data-bank="' + w.esc(t) + '">' + w.esc(t) + "</button>";
-          }).join("") +
-        "</div></div>";
-    }
-
-    /* ---- Phần A: bấm chip ở word bank để điền vào chỗ trống ---- */
-    html += '<div class="exam-part">';
-    html += '<div class="exam-part-title">Phần A — Điền từ vào chỗ trống (theo bài đọc)</div>';
-    html += ex.gaps.map(function (g, i) {
-      var parts = g.text.split("{{GAP}}");
-      var slot;
-      if (!ex.graded) {
-        slot = '<span class="slot' + (g.given ? " filled" : "") + '" data-gap="' + i + '">' +
-                 '<span class="slot-text">' + (g.given ? w.esc(g.given) : "&nbsp;") + "</span>" +
-                 (g.given ? '<button class="slot-x" data-clear="' + i + '" title="Bỏ chọn">✕</button>' : "") +
-               "</span>";
-      } else {
-        slot = '<span class="slot ' + (g.ok ? "right" : "wrong") + '">' +
-                 '<span class="slot-text">' + w.esc(g.given || "(bỏ trống)") + "</span></span>" +
-               (g.ok ? "" : '<span class="gap-fix">→ ' + w.esc(g.term) + "</span>");
-      }
-      /* chấm xong thì kèm nghĩa của từ và bản dịch cả câu, đúng hay sai đều có */
-      var note = ex.graded ? D.answerNote(g.term, g.text) : "";
-      return '<div class="ex-q"><b class="qn">' + (i + 1) + '.</b><span class="qtext">' +
-             w.esc(parts[0] || "") + slot + w.esc(parts[1] || "") + note + "</span></div>";
-    }).join("");
-    html += "</div>";
-
-    /* ---- Phần B ---- */
-    if (ex.mc.length) {
-      html += '<div class="exam-part">';
-      html += '<div class="exam-part-title">Phần B — Chọn nghĩa tiếng Việt đúng</div>';
-      html += ex.mc.map(function (q, i) {
-        var opts = q.options.map(function (o, j) {
-          var cls = "opt";
-          if (!ex.graded) { if (q.given === o) cls += " sel"; }
-          else if (o === q.answer) cls += " right";
-          else if (q.given === o) cls += " wrong";
-          else cls += " dim";
-          return '<button class="' + cls + '" data-mc="' + i + '" data-opt="' + w.esc(o) + '"' +
-                 (ex.graded ? " disabled" : "") + '>' +
-                 '<span class="mk">' + "ABCD".charAt(j) + ".</span>" + w.esc(o) + "</button>";
-        }).join("");
-        return '<div class="mc-q"><div class="mc-ask"><b class="qn">' + (ex.gaps.length + i + 1) +
-               '.</b> Nghĩa của <b class="mc-term">' + w.esc(q.term) + "</b> là gì?</div>" +
-               '<div class="opt-list">' + opts + "</div></div>";
-      }).join("");
-      html += "</div>";
-    }
-
-    /* ---- Nút ---- */
-    html += '<div class="exam-actions">';
-    if (!ex.graded) {
-      html += '<button class="btn-primary" id="f-submit">Nộp bài</button>';
-    } else {
-      html += '<button class="btn-soft" id="f-again">🔁 Kiểm tra lại</button>' +
-              '<button class="btn-primary" id="f-back">← Về danh sách Block</button>';
-    }
-    html += "</div>";
-
-    w.$("#final-card").innerHTML = html;
-    D.bindFinal();
+    return { mc: mc, total: mc.length, graded: false };
   };
 
   /* Khối "đáp án" hiện sau khi chấm: nghĩa của từ + bản dịch cả câu.
@@ -672,182 +539,80 @@
     "</div>";
   };
 
-  /* ══════════ CHẾ ĐỘ LÀM BÀI: PHIẾU ĐẦY ĐỦ ↔ TỪNG CÂU ══════════
-     Điện thoại mặc định "từng câu" cho dễ bấm; máy tính mặc định "phiếu". */
-  var LS_EV = "tjwl_examview_v1";
-  try {
-    D.examView = localStorage.getItem(LS_EV) ||
-                 (window.matchMedia("(max-width:860px)").matches ? "single" : "sheet");
-  } catch (e) { D.examView = "sheet"; }
-
-  D.setExamView = function (v) {
-    clearTimeout(D._autoNext);
-    D.examView = v;
-    try { localStorage.setItem(LS_EV, v); } catch (e) {}
-    D.si = 0;
-    D.renderFinal();
-  };
-
-  D.bindExamModes = function () {
-    w.$$("#exam-modes .rm-btn").forEach(function (b) {
-      b.onclick = function () { D.setExamView(b.dataset.ev); };
-    });
-    var q = w.$("#f-quit");
-    if (q) q.onclick = function () { D._exam = null; D.renderFinalIntro(); };
-  };
-
-  /* Gộp Phần A + Phần B thành một dãy câu để đi từng câu một */
-  D.singleList = function () {
-    var ex = D._exam, list = [];
-    ex.gaps.forEach(function (g, i) { list.push({ kind: "gap", i: i, ref: g }); });
-    ex.mc.forEach(function (q, i) { list.push({ kind: "mc", i: i, ref: q }); });
-    return list;
-  };
-
-  D.singleHtml = function () {
+  /* ---------- TAB: PHIẾU ĐẦY ĐỦ (word bank) ---------- */
+  D.renderSheet = function () {
     var ex = D._exam;
-    var list = D.singleList();
-    if (D.si == null || D.si < 0) D.si = 0;
-    if (D.si >= list.length) D.si = list.length - 1;
+    if (!ex) { w.$("#sheet-card").innerHTML = '<div class="quiz-done">Chưa dựng được đề — hãy mở tab Bài học một lượt.</div>'; return; }
 
-    var cur = list[D.si];
-    var answered = ex.gaps.filter(function (g) { return g.given; }).length +
-                   ex.mc.filter(function (q) { return q.given; }).length;
-    var pct = Math.round((answered / ex.total) * 100);
-
-    /* Chấm ngay từng câu: ĐÚNG thì tự sang câu sau, SAI thì dừng lại.
-       Dù đúng hay sai cũng hiện nghĩa của từ và bản dịch cả câu. */
-    var shown = !!cur.ref.shown;
-    var right = cur.kind === "gap" ? cur.ref.term : cur.ref.answer;
-
-    function optClass(val) {
-      var c = "opt";
-      if (!shown) { if (cur.ref.given === val) c += " sel"; return c; }
-      if (val === right) return c + " right";
-      if (cur.ref.given === val) return c + " wrong";
-      return c + " dim";
-    }
-
-    /* Bố cục 2 cột: đáp án BÊN TRÁI, giải thích BÊN PHẢI — chấm xong thì
-       giải thích chỉ lấp vào cột phải, không đẩy nút "Câu tiếp" xuống dưới
-       như kiểu xếp chồng cũ. Điện thoại tự gập về 1 cột (CSS). */
-    var promptHtml, optsHtml;
-    if (cur.kind === "gap") {
-      var parts = cur.ref.text.split("{{GAP}}");
-      promptHtml =
-        '<div class="gap-card">' +
-          '<div class="gap-label">Chọn từ đúng điền vào chỗ trống</div>' +
-          '<div class="gap-sentence">' + w.esc(parts[0] || "") +
-            '<span class="blank' + (cur.ref.given ? " has" : "") +
-              (shown ? (cur.ref.ok ? " ok" : " no") : "") + '">' +
-              (cur.ref.given ? w.esc(cur.ref.given) : "_ _ _") + "</span>" +
-            w.esc(parts[1] || "") +
-          "</div>" +
-        "</div>";
-      optsHtml = cur.ref.options.map(function (t, j) {
-        return '<button class="' + optClass(t) + '" data-pick="' + w.esc(t) + '"' +
-               (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
-               ".</span>" + w.esc(t) + "</button>";
-      }).join("");
-    } else {
-      promptHtml =
-        '<div class="gap-card">' +
-          '<div class="gap-label">Chọn nghĩa tiếng Việt đúng</div>' +
-          '<div class="gap-sentence">' + w.esc(cur.ref.term) + "</div>" +
-        "</div>";
-      optsHtml = cur.ref.options.map(function (o, j) {
-        return '<button class="' + optClass(o) + '" data-pick="' + w.esc(o) + '"' +
-               (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
-               ".</span>" + w.esc(o) + "</button>";
-      }).join("");
-    }
-
-    var explainHtml = shown
-      ? '<div class="quiz-feedback ' + (cur.ref.ok ? "ok" : "no") + '">' +
-          (cur.ref.ok ? "✅ Chính xác!" : "❌ Đáp án đúng: <b>" + w.esc(right) + "</b>") +
-        "</div>" +
-        D.answerNote(cur.ref.term, cur.kind === "gap" ? cur.ref.text : "")
-      : "";
-
-    var body = promptHtml +
-      '<div class="single-grid">' +
-        '<div class="opt-list">' + optsHtml + "</div>" +
-        '<div class="single-explain">' + explainHtml + "</div>" +
-      "</div>";
-
-    var last = D.si >= list.length - 1;
-    return '<div class="exam-bar-row">' +
-             '<span class="exam-idx">CÂU ' + (D.si + 1) + " / " + list.length + "</span>" +
-             '<span class="exam-score">đã làm ' + answered + "/" + ex.total + "</span>" +
-           "</div>" +
-           '<div class="quiz-bar"><i style="width:' + pct + '%"></i></div>' +
-           body +
-           '<div class="exam-actions">' +
-             '<button class="btn-soft" id="sg-prev"' + (D.si === 0 ? " disabled" : "") + ">← Trước</button>" +
-             (last
-               ? '<button class="btn-primary" id="f-submit">Nộp bài</button>'
-               : '<button class="btn-primary" id="sg-next">Câu tiếp →</button>') +
-           "</div>";
-  };
-
-  D.bindSingle = function () {
-    var ex = D._exam;
-    var list = D.singleList();
-    var cur = list[D.si];
-
-    w.$$("#final-card [data-pick]").forEach(function (b) {
-      b.onclick = function () {
-        if (cur.ref.shown) return;                 /* đã chấm rồi thì thôi */
-        var v = b.dataset.pick;
-        var right = cur.kind === "gap" ? cur.ref.term : cur.ref.answer;
-        cur.ref.given = v;
-        cur.ref.ok = w.normalizeAnswer(v) === w.normalizeAnswer(right);
-        cur.ref.shown = true;
-        D.renderFinal();
-        if (cur.ref.ok) w.Speech.speakWord(right);
-
-        /* ĐÚNG -> tự sang câu kế. SAI -> dừng lại cho mình đọc đáp án. */
-        if (cur.ref.ok) {
-          clearTimeout(D._autoNext);
-          D._autoNext = setTimeout(function () {
-            if (D.si < D.singleList().length - 1) { D.si++; D.renderFinal(); }
-          }, 1100);
-        }
-      };
-    });
-    var p = w.$("#sg-prev"), n = w.$("#sg-next"), s = w.$("#f-submit");
-    if (p) p.onclick = function () { clearTimeout(D._autoNext); D.si--; D.renderFinal(); };
-    if (n) n.onclick = function () { clearTimeout(D._autoNext); D.si++; D.renderFinal(); };
-    if (s) s.onclick = function () { D.submitFinal(); };
-  };
-
-  /* ---------- Sự kiện của phiếu bài tập ---------- */
-  D.bindFinal = function () {
-    var ex = D._exam;
-    var card = w.$("#final-card");
-    D.bindExamModes();
+    var b = block() || {};
+    var html = "";
 
     if (ex.graded) {
-      w.$("#f-again").onclick = function () { D._exam = null; D.renderFinalIntro(); };
-      w.$("#f-back").onclick = function () { D.close(); w.App.renderBlocks(); };
+      html += D.examResultHtml(ex);
+    } else {
+      html += '<div class="exam-head">' +
+                '<span class="exam-tag">PHIẾU ĐẦY ĐỦ</span>' +
+                '<span class="exam-meta">' + w.esc(b.name || "") + " · " + ex.total + " câu</span>" +
+              "</div>";
+      html += '<div class="wordbank" id="wordbank">' +
+        '<div class="wb-head">' +
+          '<span class="wb-title">Word bank</span>' +
+          '<span class="wb-left" id="wb-left"></span>' +
+          '<button class="wb-clear" id="wb-clear">Xoá hết</button>' +
+        "</div>" +
+        '<div class="wb-items">' +
+          ex.bank.map(function (t) {
+            return '<button class="wb-chip" data-bank="' + w.esc(t) + '">' + w.esc(t) + "</button>";
+          }).join("") +
+        "</div></div>";
+    }
+
+    html += ex.gaps.map(function (g, i) {
+      var parts = g.text.split("{{GAP}}");
+      var slot;
+      if (!ex.graded) {
+        slot = '<span class="slot' + (g.given ? " filled" : "") + '" data-gap="' + i + '">' +
+                 '<span class="slot-text">' + (g.given ? w.esc(g.given) : "&nbsp;") + "</span>" +
+                 (g.given ? '<button class="slot-x" data-clear="' + i + '" title="Bỏ chọn">✕</button>' : "") +
+               "</span>";
+      } else {
+        slot = '<span class="slot ' + (g.ok ? "right" : "wrong") + '">' +
+                 '<span class="slot-text">' + w.esc(g.given || "(bỏ trống)") + "</span></span>" +
+               (g.ok ? "" : '<span class="gap-fix">→ ' + w.esc(g.term) + "</span>");
+      }
+      var note = ex.graded ? D.answerNote(g.term, g.text) : "";
+      return '<div class="ex-q"><b class="qn">' + (i + 1) + '.</b><span class="qtext">' +
+             w.esc(parts[0] || "") + slot + w.esc(parts[1] || "") + note + "</span></div>";
+    }).join("");
+
+    html += '<div class="exam-actions">';
+    if (!ex.graded) {
+      html += '<button class="btn-primary" id="sheet-submit">Nộp bài</button>';
+    } else {
+      html += '<button class="btn-soft" id="sheet-again">🔁 Kiểm tra lại</button>' +
+              '<button class="btn-primary" id="sheet-back">← Về danh sách Block</button>';
+    }
+    html += "</div>";
+
+    w.$("#sheet-card").innerHTML = html;
+    D.bindSheet();
+  };
+
+  D.bindSheet = function () {
+    var ex = D._exam;
+    var card = w.$("#sheet-card");
+
+    if (ex.graded) {
+      w.$("#sheet-again").onclick = function () { D._exam = D.buildExam(); D.si = 0; D.renderSheet(); D.renderSingle(); };
+      w.$("#sheet-back").onclick = function () { D.close(); w.App.renderBlocks(); };
       return;
     }
+    w.$("#sheet-submit").onclick = function () { D.submitFinal(); };
 
-    w.$("#f-quit").onclick = function () { D._exam = null; D.renderFinalIntro(); };
-    w.$("#f-submit").onclick = function () { D.submitFinal(); };
-
-    /* ô trống đang được chọn để điền */
-    function activeSlot() {
-      return card.querySelector(".slot.active");
-    }
-    function setActive(el) {
-      w.$$(".slot", card).forEach(function (s) { s.classList.toggle("active", s === el); });
-    }
-    function firstEmpty() {
-      return w.$$(".slot", card).filter(function (s) { return !ex.gaps[+s.dataset.gap].given; })[0];
-    }
+    function activeSlot() { return card.querySelector(".slot.active"); }
+    function setActive(el) { w.$$(".slot", card).forEach(function (s) { s.classList.toggle("active", s === el); }); }
+    function firstEmpty() { return w.$$(".slot", card).filter(function (s) { return !ex.gaps[+s.dataset.gap].given; })[0]; }
     function refresh() {
-      /* chip nào đã dùng thì mờ đi; đếm số ô còn trống */
       var used = {};
       ex.gaps.forEach(function (g) { if (g.given) used[w.normalizeAnswer(g.given)] = 1; });
       w.$$("[data-bank]", card).forEach(function (c) {
@@ -857,18 +622,15 @@
       var el = w.$("#wb-left");
       if (el) el.textContent = left ? "còn " + left + " chỗ trống" : "đã điền đủ ✓";
     }
-
     function fill(term) {
       var slot = activeSlot() || firstEmpty();
       if (!slot) return;
       var g = ex.gaps[+slot.dataset.gap];
       g.given = term;
-      /* Reset trạng thái "đã chấm" của chế độ Từng câu — nếu không, đổi
-         đáp án ở đây rồi quay lại Từng câu sẽ vẫn hiện kết quả ĐÚNG/SAI
-         cũ (tính từ đáp án trước khi sửa), không khớp với given hiện tại. */
+      /* Reset trạng thái "đã chấm" của tab Từng câu — dùng chung ex.gaps,
+         sửa ở đây mà không reset thì Từng câu vẫn hiện đúng/sai CŨ. */
       g.shown = false; g.ok = undefined;
       redrawSlots();
-      /* điền xong thì tự nhảy sang ô trống kế tiếp, khỏi phải bấm lại */
       var next = firstEmpty();
       if (next) setActive(next); else setActive(null);
     }
@@ -892,15 +654,12 @@
       refresh();
     }
 
-    /* onclick (không phải addEventListener): bindFinal chạy lại sau MỖI lần
-       vẽ, dùng addEventListener thì handler chồng lên nhau — một cú bấm chip
-       chạy 2-3 lần, điền rồi tự xoá, ô nhảy loạn. onclick thì luôn chỉ có một. */
+    /* onclick (không phải addEventListener): renderSheet chạy lại sau MỖI
+       lần vẽ, dùng addEventListener thì handler chồng lên nhau. */
     card.onclick = function (e) {
-      /* bỏ chọn bằng nút ✕ */
       var x = e.target.closest("[data-clear]");
       if (x) { e.stopPropagation(); clearGap(+x.dataset.clear); return; }
 
-      /* bấm vào ô trống -> chọn ô đó để điền */
       var slot = e.target.closest(".slot[data-gap]");
       if (slot) {
         if (ex.gaps[+slot.dataset.gap].given) clearGap(+slot.dataset.gap);
@@ -908,7 +667,6 @@
         return;
       }
 
-      /* bấm chip: đã dùng -> gỡ ra; chưa dùng -> điền vào ô đang chọn */
       var chip = e.target.closest("[data-bank]");
       if (chip) {
         var term = chip.dataset.bank;
@@ -917,33 +675,143 @@
           if (hit < 0 && g.given && w.normalizeAnswer(g.given) === w.normalizeAnswer(term)) hit = i;
         });
         if (hit >= 0) clearGap(hit); else fill(term);
-        return;
-      }
-
-      /* phần B */
-      var opt = e.target.closest("[data-mc]");
-      if (opt) {
-        var qi = +opt.dataset.mc;
-        ex.mc[qi].given = opt.dataset.opt;
-        ex.mc[qi].shown = false; ex.mc[qi].ok = undefined;   /* cùng lý do như fill()/clearGap() ở Phần A */
-        w.$$('[data-mc="' + qi + '"]', card).forEach(function (b2) {
-          b2.classList.toggle("sel", b2 === opt);
-        });
       }
     };
 
     w.$("#wb-clear").onclick = function () {
-      ex.gaps.forEach(function (g) { g.given = null; });
+      ex.gaps.forEach(function (g) { g.given = null; g.shown = false; g.ok = undefined; });
       redrawSlots();
     };
 
-    /* mặc định chọn sẵn ô đầu tiên còn trống */
     var f = firstEmpty();
     if (f) setActive(f);
     refresh();
   };
 
-  /* ---------- Chấm điểm ---------- */
+  /* ---------- TAB: TỪNG CÂU (trắc nghiệm 4 đáp án, đi từng câu) ---------- */
+  D.renderSingle = function () {
+    var ex = D._exam;
+    if (!ex) { w.$("#single-card").innerHTML = '<div class="quiz-done">Chưa dựng được đề — hãy mở tab Bài học một lượt.</div>'; return; }
+
+    if (ex.graded) { w.$("#single-card").innerHTML = D.examResultHtml(ex) + D.singleResultActionsHtml(); D.bindSingleResult(); return; }
+
+    var list = ex.gaps;
+    if (D.si == null || D.si < 0) D.si = 0;
+    if (D.si >= list.length) D.si = list.length - 1;
+    var g = list[D.si];
+
+    var answered = ex.gaps.filter(function (x) { return x.given; }).length;
+    var pct = Math.round((answered / ex.total) * 100);
+
+    var shown = !!g.shown;
+    function optClass(val) {
+      var c = "opt";
+      if (!shown) { if (g.given === val) c += " sel"; return c; }
+      if (val === g.term) return c + " right";
+      if (g.given === val) return c + " wrong";
+      return c + " dim";
+    }
+
+    var parts = g.text.split("{{GAP}}");
+    var promptHtml =
+      '<div class="gap-card">' +
+        '<div class="gap-label">Chọn từ đúng điền vào chỗ trống</div>' +
+        '<div class="gap-sentence">' + w.esc(parts[0] || "") +
+          '<span class="blank' + (g.given ? " has" : "") +
+            (shown ? (g.ok ? " ok" : " no") : "") + '">' +
+            (g.given ? w.esc(g.given) : "_ _ _") + "</span>" +
+          w.esc(parts[1] || "") +
+        "</div>" +
+      "</div>";
+    var optsHtml = g.options.map(function (t, j) {
+      return '<button class="' + optClass(t) + '" data-pick="' + w.esc(t) + '"' +
+             (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
+             ".</span>" + w.esc(t) + "</button>";
+    }).join("");
+
+    var explainHtml = shown
+      ? '<div class="quiz-feedback ' + (g.ok ? "ok" : "no") + '">' +
+          (g.ok ? "✅ Chính xác!" : "❌ Đáp án đúng: <b>" + w.esc(g.term) + "</b>") +
+        "</div>" + D.answerNote(g.term, g.text)
+      : "";
+
+    var body = promptHtml +
+      '<div class="single-grid">' +
+        '<div class="opt-list">' + optsHtml + "</div>" +
+        '<div class="single-explain">' + explainHtml + "</div>" +
+      "</div>";
+
+    var last = D.si >= list.length - 1;
+    w.$("#single-card").innerHTML =
+      '<div class="exam-bar-row">' +
+        '<span class="exam-idx">CÂU ' + (D.si + 1) + " / " + list.length + "</span>" +
+        '<span class="exam-score">đã làm ' + answered + "/" + ex.total + "</span>" +
+      "</div>" +
+      '<div class="quiz-bar"><i style="width:' + pct + '%"></i></div>' +
+      body +
+      '<div class="exam-actions">' +
+        '<button class="btn-soft" id="sg-prev"' + (D.si === 0 ? " disabled" : "") + ">← Trước</button>" +
+        (last
+          ? '<button class="btn-primary" id="single-submit">Nộp bài</button>'
+          : '<button class="btn-primary" id="sg-next">Câu tiếp →</button>') +
+      "</div>";
+
+    D.bindSingle();
+  };
+
+  D.bindSingle = function () {
+    var ex = D._exam;
+    var g = ex.gaps[D.si];
+
+    w.$$("#single-card [data-pick]").forEach(function (b) {
+      b.onclick = function () {
+        if (g.shown) return;
+        var v = b.dataset.pick;
+        g.given = v;
+        g.ok = w.normalizeAnswer(v) === w.normalizeAnswer(g.term);
+        g.shown = true;
+        D.renderSingle();
+        if (g.ok) w.Speech.speakWord(g.term);
+
+        if (g.ok) {
+          clearTimeout(D._autoNext);
+          D._autoNext = setTimeout(function () {
+            if (D.si < ex.gaps.length - 1) { D.si++; D.renderSingle(); }
+          }, 1100);
+        }
+      };
+    });
+    var p = w.$("#sg-prev"), n = w.$("#sg-next"), s = w.$("#single-submit");
+    if (p) p.onclick = function () { clearTimeout(D._autoNext); D.si--; D.renderSingle(); };
+    if (n) n.onclick = function () { clearTimeout(D._autoNext); D.si++; D.renderSingle(); };
+    if (s) s.onclick = function () { D.submitFinal(); };
+  };
+
+  D.singleResultActionsHtml = function () {
+    return '<div class="exam-actions">' +
+      '<button class="btn-soft" id="single-again">🔁 Kiểm tra lại</button>' +
+      '<button class="btn-primary" id="single-back">← Về danh sách Block</button>' +
+    "</div>";
+  };
+  D.bindSingleResult = function () {
+    w.$("#single-again").onclick = function () { D._exam = D.buildExam(); D.si = 0; D.renderSingle(); D.renderSheet(); };
+    w.$("#single-back").onclick = function () { D.close(); w.App.renderBlocks(); };
+  };
+
+  /* ---------- Khối kết quả dùng chung cho Phiếu đầy đủ & Từng câu ---------- */
+  D.examResultHtml = function (ex) {
+    var passed = ex.score >= PASS_MARK;
+    return '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
+        '<div class="score">' + ex.score + "%</div>" +
+        '<div class="verdict">' + (passed ? "✅ ĐẠT — Block đã hoàn thành" : "❌ CHƯA ĐẠT — cần ≥ " + PASS_MARK + "%") + "</div>" +
+        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu" +
+          (passed ? " · Block đã lên chu kỳ tiếp theo, lịch ôn: " + ex.nextLabel
+                  : " · Đọc lại bài rồi kiểm tra lại nhé") +
+        "</div>" +
+      "</div>";
+  };
+
+  /* ---------- Chấm điểm đề điền từ (Phiếu đầy đủ / Từng câu) ---------- */
   D.submitFinal = async function () {
     var ex = D._exam;
     var correct = 0;
@@ -951,10 +819,6 @@
     ex.gaps.forEach(function (g) {
       g.ok = !!g.given && w.normalizeAnswer(g.given) === w.normalizeAnswer(g.term);
       if (g.ok) correct++;
-    });
-    ex.mc.forEach(function (q) {
-      q.ok = q.given === q.answer;
-      if (q.ok) correct++;
     });
 
     ex.correct = correct;
@@ -985,33 +849,136 @@
     /* kết quả cũng tính vào độ nhớ từng từ */
     var byTerm = {};
     words().forEach(function (x) { byTerm[x.term.toLowerCase()] = x; });
-    var touched = [];
-    ex.gaps.forEach(function (g) { touched.push({ x: byTerm[g.term.toLowerCase()], ok: g.ok }); });
-    ex.mc.forEach(function (q) { touched.push({ x: byTerm[q.term.toLowerCase()], ok: q.ok }); });
-
-    for (var i = 0; i < touched.length; i++) {
-      var it = touched[i];
-      if (!it.x) continue;
-      var prev = S().wp[it.x.id] || { attempts: 0, correct: 0 };
+    for (var i = 0; i < ex.gaps.length; i++) {
+      var g = ex.gaps[i];
+      var x = byTerm[g.term.toLowerCase()];
+      if (!x) continue;
+      var prev = S().wp[x.id] || { attempts: 0, correct: 0 };
       var attempts = (prev.attempts || 0) + 1;
-      var okCount = (prev.correct || 0) + (it.ok ? 1 : 0);
+      var okCount = (prev.correct || 0) + (g.ok ? 1 : 0);
       var wpatch = {
         attempts: attempts, correct: okCount,
         mastered: attempts >= (cfg.MASTER_MIN_ATTEMPTS || 3) &&
                   (okCount / attempts) >= (cfg.MASTER_THRESHOLD || 0.8),
         last_reviewed_at: Date.now()
       };
-      S().wp[it.x.id] = Object.assign({}, prev, wpatch, { user_id: w.Auth.user.id, word_id: it.x.id });
-      try { await w.DB.saveWordProgress(w.Auth.user.id, it.x.id, wpatch); } catch (e) {}
+      S().wp[x.id] = Object.assign({}, prev, wpatch, { user_id: w.Auth.user.id, word_id: x.id });
+      try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
     }
 
-    D.renderFinal();
+    D.renderSheet();
+    D.renderSingle();
     D.renderStats();
     D.renderStudy();
     D.renderProgress();
-    w.$("#workspace").scrollTop = w.$("#pane-final").offsetTop - 60;
+    w.$("#workspace").scrollTop = 0;
     w.toast(passed ? "🎉 Đạt " + ex.score + "% — Block hoàn thành!" : "Được " + ex.score + "% — cần ≥ " + PASS_MARK + "%",
             passed ? "ok" : "err");
+  };
+
+  /* ---------- TAB: NGHĨA (10 từ đảo nghĩa, 4 đáp án — luyện riêng) ---------- */
+  D.renderMeaning = function () {
+    var ex = D._meaningQuiz;
+    if (!ex) { w.$("#meaning-card").innerHTML = '<div class="quiz-done">Block này chưa có từ nào có nghĩa tiếng Việt để tạo bài này.</div>'; return; }
+
+    var html = "";
+    if (ex.graded) {
+      var passed = ex.score >= PASS_MARK;
+      html += '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
+          '<div class="score">' + ex.score + "%</div>" +
+          '<div class="verdict">' + (passed ? "✅ Nhớ nghĩa tốt!" : "🙂 Luyện thêm cho quen") + "</div>" +
+          '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu · phần này chỉ để luyện, không tính vào chu kỳ ôn</div>" +
+        "</div>";
+    } else {
+      html += '<div class="exam-head">' +
+                '<span class="exam-tag">NGHĨA</span>' +
+                '<span class="exam-meta">' + ex.total + " câu · luyện riêng, không tính SRS</span>" +
+              "</div>";
+    }
+
+    html += ex.mc.map(function (q, i) {
+      var opts = q.options.map(function (o, j) {
+        var cls = "opt";
+        if (!ex.graded) { if (q.given === o) cls += " sel"; }
+        else if (o === q.answer) cls += " right";
+        else if (q.given === o) cls += " wrong";
+        else cls += " dim";
+        return '<button class="' + cls + '" data-mc="' + i + '" data-opt="' + w.esc(o) + '"' +
+               (ex.graded ? " disabled" : "") + '>' +
+               '<span class="mk">' + "ABCD".charAt(j) + ".</span>" + w.esc(o) + "</button>";
+      }).join("");
+      return '<div class="mc-q"><div class="mc-ask"><b class="qn">' + (i + 1) +
+             '.</b> Nghĩa của <b class="mc-term">' + w.esc(q.term) + "</b> là gì?</div>" +
+             '<div class="opt-list">' + opts + "</div></div>";
+    }).join("");
+
+    html += '<div class="exam-actions">';
+    if (!ex.graded) {
+      html += '<button class="btn-primary" id="meaning-submit">Nộp bài</button>';
+    } else {
+      html += '<button class="btn-soft" id="meaning-again">🔁 Làm lại</button>';
+    }
+    html += "</div>";
+
+    w.$("#meaning-card").innerHTML = html;
+    D.bindMeaning();
+  };
+
+  D.bindMeaning = function () {
+    var ex = D._meaningQuiz;
+    var card = w.$("#meaning-card");
+
+    if (ex.graded) {
+      w.$("#meaning-again").onclick = function () { D._meaningQuiz = D.buildMeaningQuiz(); D.renderMeaning(); };
+      return;
+    }
+
+    card.onclick = function (e) {
+      var opt = e.target.closest("[data-mc]");
+      if (!opt) return;
+      var qi = +opt.dataset.mc;
+      ex.mc[qi].given = opt.dataset.opt;
+      w.$$('[data-mc="' + qi + '"]', card).forEach(function (b2) {
+        b2.classList.toggle("sel", b2 === opt);
+      });
+    };
+    w.$("#meaning-submit").onclick = function () { D.submitMeaning(); };
+  };
+
+  D.submitMeaning = async function () {
+    var ex = D._meaningQuiz;
+    var correct = 0;
+    ex.mc.forEach(function (q) { q.ok = q.given === q.answer; if (q.ok) correct++; });
+    ex.correct = correct;
+    ex.score = w.pct(correct, ex.total);
+    ex.graded = true;
+
+    /* Luyện riêng, không đụng SRS/passed — nhưng vẫn ghi vào độ nhớ từng
+       từ cho nhất quán với Active Recall Quiz. */
+    var byTerm = {};
+    words().forEach(function (x) { byTerm[x.term.toLowerCase()] = x; });
+    for (var i = 0; i < ex.mc.length; i++) {
+      var q = ex.mc[i];
+      var x = byTerm[q.term.toLowerCase()];
+      if (!x) continue;
+      var prev = S().wp[x.id] || { attempts: 0, correct: 0 };
+      var attempts = (prev.attempts || 0) + 1;
+      var okCount = (prev.correct || 0) + (q.ok ? 1 : 0);
+      var wpatch = {
+        attempts: attempts, correct: okCount,
+        mastered: attempts >= (cfg.MASTER_MIN_ATTEMPTS || 3) &&
+                  (okCount / attempts) >= (cfg.MASTER_THRESHOLD || 0.8),
+        last_reviewed_at: Date.now()
+      };
+      S().wp[x.id] = Object.assign({}, prev, wpatch, { user_id: w.Auth.user.id, word_id: x.id });
+      try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
+    }
+
+    D.renderMeaning();
+    D.renderStats();
+    D.renderStudy();
+    D.renderProgress();
+    w.toast("Đúng " + correct + "/" + ex.total + " (" + ex.score + "%)", ex.score >= PASS_MARK ? "ok" : "err");
   };
 
   /* ══════════════ TAB 3 — TIẾN TRÌNH ══════════════ */
@@ -1090,14 +1057,12 @@
       w.$("#btn-read").textContent = "🎧 Nghe US";
     };
 
-    /* nút cuối Glossary -> vào THẲNG bài kiểm tra, không dừng lại ở màn
-       hình chuẩn bị (màn đó lặp lại đúng bảng từ vừa đọc xong ở tab Bài
-       học nên thừa) — chỉ tạo đề rồi hiện luôn. */
+    /* nút cuối Glossary -> vào THẲNG bài kiểm tra (tab Phiếu đầy đủ),
+       không dừng lại ở màn chuẩn bị nào cả — chỉ tạo đề rồi hiện luôn. */
     w.$("#btn-go-exam").onclick = function () {
       D._autoRead = false;
       w.Speech.stop();
-      D.showTab("final");
-      D.startFinal();
+      D.showTab("sheet");
       w.$("#workspace").scrollTop = 0;
     };
     w.$("#btn-regen").onclick = async function () {
@@ -1220,11 +1185,6 @@
       w.$("#btn-read-all").textContent = "🔊 Đọc tất cả từ";
     };
 
-    /* nút loa ở màn hình chuẩn bị bài thi */
-    w.$("#final-card").addEventListener("click", function (e) {
-      var btn = e.target.closest(".spk");
-      if (btn) { e.stopPropagation(); w.Speech.speakWord(btn.dataset.say); }
-    });
   };
 
   w.Detail = D;
