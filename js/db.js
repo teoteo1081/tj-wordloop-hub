@@ -404,19 +404,6 @@
     return insertOne("pages", { section_id: sectionId, name: name, sort: Date.now() % 100000 });
   };
 
-  /* Số hiển thị "Block N" đánh lại từ 1 trong TỪNG batch — dò theo số cuối
-     tên các Block đã có trong batch đó, không phải đếm số lượng (lỡ batch
-     đã có sẵn Block đánh số kiểu cũ/lỡ cỡ thì cứ nối tiếp từ đó, không
-     nhảy lùi về 1 làm trùng số với Block đã có). */
-  function nextBlockNumberInBatch(blocksInBatch) {
-    var mx = 0;
-    (blocksInBatch || []).forEach(function (b) {
-      var m = /(\d+)\s*$/.exec(String(b.name || ""));
-      if (m) mx = Math.max(mx, parseInt(m[1], 10));
-    });
-    return mx + 1;
-  }
-
   /* Tạo 1 Batch mới + tự cắt danh sách từ thành các Block 10 từ */
   DB.addBatchFromWords = async function (pageId, parsedWords, batchName, startGlobalIndex) {
     var per = cfg.WORDS_PER_BLOCK || 10;
@@ -427,15 +414,16 @@
       page_id: pageId, name: batchName, sort: Date.now() % 100000, created_at: Date.now()
     });
 
-    /* global_index vẫn tăng liên tục xuyên suốt Notebook — cần cho việc
-       sắp xếp Block qua lại giữa các Batch và chọn mẫu bài đọc/tiêu đề,
-       KHÔNG dùng để đặt tên nữa (xem nextBlockNumberInBatch ở trên). */
+    /* Số hiển thị "Block N" LÀ chính global_index — đánh liên tục, KHÔNG
+       trùng nhau xuyên suốt cả Notebook, để gọi tên 1 Block cụ thể (vd
+       "Block 106") là biết chắc chắn chỉ có đúng 1 cái, không lẫn với
+       Block nào của Batch khác. */
     var gi = startGlobalIndex || 1;
     var blocks = [], words = [];
 
     for (var i = 0; i < groups.length; i++) {
       var blk = await insertOne("blocks", {
-        batch_id: batch.id, name: "Block " + (i + 1), global_index: gi, sort: i + 1, context_passage: ""
+        batch_id: batch.id, name: "Block " + gi, global_index: gi, sort: i + 1, context_passage: ""
       });
       gi++;
       blocks.push(blk);
@@ -507,13 +495,11 @@
     }
 
     if (!target) {
-      /* Tên hiển thị đánh theo số đã có sẵn TRONG batch "⭐ Từ đã lưu" này
-         (lỡ cỡ/đánh số kiểu cũ thì cứ nối tiếp) — global_index vẫn lấy
-         theo notebook để giữ đúng thứ tự sắp xếp xuyên Batch. */
-      var nameNum = nextBlockNumberInBatch(blocks);
+      /* Tên hiển thị = global_index — không trùng với Block nào khác
+         trong cả Notebook. */
       var gi = ctx && ctx.nextGlobalIndex ? ctx.nextGlobalIndex : (blocks.length + 1);
       target = await insertOne("blocks", {
-        batch_id: batch.id, name: "Block " + nameNum, global_index: gi,
+        batch_id: batch.id, name: "Block " + gi, global_index: gi,
         sort: blocks.length + 1, context_passage: ""
       });
       count = 0;
