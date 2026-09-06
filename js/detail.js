@@ -32,47 +32,61 @@
     D.renderBatchNav();
   };
 
-  /* ══════════════ CHUYỂN BATCH TRƯỚC / SAU (trong tab Bài học) ══════════════
-     Cho học liên tục hết Batch này sang Batch khác trong cùng Page mà không
-     phải quay ra cột Pages bấm lại — mở luôn Block đầu (Batch sau) hoặc
-     Block cuối (Batch trước) của Batch kế tiếp. */
-  function batchNavInfo() {
+  /* ══════════════ CHUYỂN BLOCK TRƯỚC / SAU (trong tab Bài học) ══════════════
+     Cho học liên tục — trong cùng Batch thì chuyển Block; hết Block của
+     Batch hiện tại rồi mới lăn qua Batch kế/trước (mở Block đầu của Batch
+     sau, hoặc Block cuối của Batch trước), không phải quay ra cột Pages. */
+  function blockNavInfo() {
     var b = block();
     if (!b) return null;
     var curBatch = S().batches.find(function (x) { return x.id === b.batch_id; });
     if (!curBatch) return null;
-    var list = w.App.batchesOf(curBatch.page_id);
-    var idx = list.findIndex(function (x) { return x.id === curBatch.id; });
-    return { list: list, idx: idx, curBatch: curBatch };
+    var batchList = w.App.batchesOf(curBatch.page_id);
+    var batchIdx = batchList.findIndex(function (x) { return x.id === curBatch.id; });
+    var blockList = w.App.blocksOf(curBatch.id);
+    var blockIdx = blockList.findIndex(function (x) { return x.id === b.id; });
+    return { batchList: batchList, batchIdx: batchIdx, curBatch: curBatch, blockList: blockList, blockIdx: blockIdx };
   }
 
   D.renderBatchNav = function () {
     var nav = w.$("#batch-nav");
     if (!nav) return;
-    var info = batchNavInfo();
-    if (!info || info.list.length <= 1) { nav.hidden = true; return; }
-
-    nav.hidden = false;
-    w.$("#bn-prev").disabled = info.idx <= 0;
-    w.$("#bn-next").disabled = info.idx < 0 || info.idx >= info.list.length - 1;
-    w.$("#bn-pos").textContent = "Batch " + (info.idx + 1) + "/" + info.list.length + " · " + info.curBatch.name;
-  };
-
-  D.gotoAdjacentBatch = function (dir) {
-    var info = batchNavInfo();
-    if (!info || info.idx < 0) return;
-    var target = info.list[info.idx + dir];
-    if (!target) {
-      w.toast(dir > 0 ? "Đây là Batch cuối cùng trong Page này" : "Đây là Batch đầu tiên trong Page này", "err");
+    var info = blockNavInfo();
+    if (!info || info.blockIdx < 0 || (info.batchList.length <= 1 && info.blockList.length <= 1)) {
+      nav.hidden = true;
       return;
     }
-    var blocks = w.App.blocksOf(target.id);
-    if (!blocks.length) { w.toast(target.name + " chưa có Block nào", "err"); return; }
 
-    w.App.selectBatch(target.id);
-    /* Batch sau -> mở Block ĐẦU (học tiếp từ đầu); Batch trước -> mở Block
-       CUỐI (đúng chỗ mình vừa học dở trước đó). */
-    D.open(dir > 0 ? blocks[0].id : blocks[blocks.length - 1].id);
+    nav.hidden = false;
+    w.$("#bn-prev").disabled = info.blockIdx <= 0 && info.batchIdx <= 0;
+    w.$("#bn-next").disabled = info.blockIdx >= info.blockList.length - 1 && info.batchIdx >= info.batchList.length - 1;
+    w.$("#bn-pos").textContent = "Block " + (info.blockIdx + 1) + "/" + info.blockList.length + " · " + info.curBatch.name;
+  };
+
+  D.gotoAdjacentBlock = function (dir) {
+    var info = blockNavInfo();
+    if (!info || info.blockIdx < 0) return;
+
+    /* còn Block trong cùng Batch -> chỉ đổi Block, không đụng Batch */
+    var nextIdx = info.blockIdx + dir;
+    if (nextIdx >= 0 && nextIdx < info.blockList.length) {
+      D.open(info.blockList[nextIdx].id);
+      return;
+    }
+
+    /* hết Block của Batch này -> lăn qua Batch kế/trước */
+    var targetBatch = info.batchList[info.batchIdx + dir];
+    if (!targetBatch) {
+      w.toast(dir > 0 ? "Đây là Block cuối cùng trong Page này" : "Đây là Block đầu tiên trong Page này", "err");
+      return;
+    }
+    var targetBlocks = w.App.blocksOf(targetBatch.id);
+    if (!targetBlocks.length) { w.toast(targetBatch.name + " chưa có Block nào", "err"); return; }
+
+    w.App.selectBatch(targetBatch.id);
+    /* Batch sau -> mở Block ĐẦU; Batch trước -> mở Block CUỐI (đúng chỗ
+       mình vừa học dở nếu đang lùi lại). */
+    D.open(dir > 0 ? targetBlocks[0].id : targetBlocks[targetBlocks.length - 1].id);
   };
 
   D.close = function () {
@@ -973,8 +987,8 @@
     w.Reader.bind();
     w.$("#btn-back").onclick = function () { D.close(); w.App.renderBlocks(); };
 
-    w.$("#bn-prev").onclick = function () { D.gotoAdjacentBatch(-1); };
-    w.$("#bn-next").onclick = function () { D.gotoAdjacentBatch(1); };
+    w.$("#bn-prev").onclick = function () { D.gotoAdjacentBlock(-1); };
+    w.$("#bn-next").onclick = function () { D.gotoAdjacentBlock(1); };
 
     w.$$(".dtab").forEach(function (t) {
       t.onclick = function () { D.showTab(t.dataset.tab); };

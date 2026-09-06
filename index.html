@@ -170,12 +170,13 @@
 
       <!-- TAB 1: BÀI HỌC -->
       <div class="tab-pane active" id="pane-study">
-        <!-- Chuyển sang Batch kế / trước trong cùng Page — học liên tục
-             không phải quay ra cột Pages bấm lại. Ẩn khi Page chỉ có 1 batch. -->
+        <!-- Chuyển Block trước/sau trong cùng Page — hết Block của Batch
+             hiện tại thì tự lăn qua Batch kế/trước, không phải quay ra cột
+             Pages bấm lại. Ẩn khi cả Page chỉ có 1 Block duy nhất. -->
         <div class="batch-nav" id="batch-nav" hidden>
-          <button class="btn-soft" id="bn-prev">← Batch trước</button>
+          <button class="btn-soft" id="bn-prev">← Block trước</button>
           <span class="bn-pos" id="bn-pos"></span>
-          <button class="btn-soft" id="bn-next">Batch sau →</button>
+          <button class="btn-soft" id="bn-next">Block sau →</button>
         </div>
 
         <div class="card">
