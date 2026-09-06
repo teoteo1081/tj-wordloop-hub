@@ -173,11 +173,11 @@
     if (forceNew || !b.context_passage) {
       var cfg2 = w.APP_CONFIG || {};
       var madeWithAI = false;
-      /* Có key OpenAI (js/keys.local.js) -> nhờ AI viết văn thật, mỗi lần
-         một bối cảnh khác nhau, không còn trùng khuôn mẫu. Lỗi mạng / hết
-         credit / chưa cấu hình key -> tự rơi về bộ mẫu câu có sẵn, không
-         chặn người học. */
-      if (cfg2.OPENAI_API_KEY) {
+      /* Có key Gemini hoặc OpenAI (js/keys.local.js) -> nhờ AI viết văn
+         thật, mỗi lần một bối cảnh khác nhau, không còn trùng khuôn mẫu.
+         Lỗi mạng / hết credit / chưa cấu hình key -> tự rơi về bộ mẫu câu
+         có sẵn, không chặn người học. */
+      if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
         try {
           b.context_passage = await w.Context.generateAI(ws, cfg2);
           madeWithAI = true;
