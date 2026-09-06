@@ -983,6 +983,11 @@ textarea:focus{border-color:var(--blue);}
 .user-row{
   display:flex;align-items:center;gap:.6rem;padding:.55rem .65rem;border-radius:8px;
   border:1px solid var(--border);background:var(--bg-soft);cursor:pointer;font-size:.85rem;
+  color:var(--text);width:100%;text-align:left;font-family:inherit;
+  /* Đây là <button>, không đặt màu chữ thì trình duyệt tự lấy màu mặc
+     định (thường gần đen) — chỗ "Đổi người học" không lộ ra vì chữ nằm
+     trong span con đã có màu riêng, nhưng askPick() (Chuyển Hub/Section/
+     Page khác) in chữ thẳng vào đây nên bị đen chìm trên nền tối. */
 }
 .user-row:hover{border-color:var(--border-hi);}
 .user-row.active{border-color:var(--blue);background:var(--blue-sub);}
