@@ -125,6 +125,7 @@
 
     <!-- Thanh Batch -->
     <div class="batches-bar">
+      <button class="btn-ghost" id="btn-back" hidden>← Quay lại danh sách Block</button>
       <div class="batch-tabs" id="batch-tabs"><!-- JS --></div>
       <button class="btn-soft" id="btn-paste-extract" title="Dán bài báo / transcript — AI tự trích từ B1+ và tạo Block">✨ Dán bài, tự trích từ</button>
       <button class="btn-primary" id="btn-paste-new">+ Paste từ mới</button>
@@ -172,11 +173,8 @@
 
     <!-- ===== MÀN HÌNH B: CHI TIẾT BLOCK ===== -->
     <section id="screen-detail" hidden>
-      <button class="btn-ghost" id="btn-back">← Quay lại danh sách Block</button>
-
       <div class="detail-banner">
         <h2 id="detail-title">📕 Block 1</h2>
-        <p>Active Recall &amp; Spaced Repetition — Tony Buzan Method</p>
       </div>
 
       <div class="detail-tabs">
@@ -242,6 +240,13 @@
               <button class="btn-primary" id="btn-read">🎧 Nghe US</button>
             </div>
           </div>
+          <!-- 3 bài đọc dễ → khó, đổi qua lại được, mỗi bài lưu riêng -->
+          <div class="passage-slots" id="passage-slots">
+            <button class="pslot active" data-slot="1"><span class="pslot-dot"></span>① Dễ</button>
+            <button class="pslot" data-slot="2"><span class="pslot-dot"></span>② Vừa</button>
+            <button class="pslot" data-slot="3"><span class="pslot-dot"></span>③ Khó</button>
+          </div>
+
           <!-- Chế độ đọc: cả bài (mặc định) / từng câu / từng đoạn -->
           <div class="read-modes" id="read-modes">
             <button class="rm-btn active" data-mode="full">📄 Cả bài</button>
@@ -249,7 +254,7 @@
             <button class="rm-btn" data-mode="page">📑 Từng đoạn</button>
           </div>
 
-          <div class="content-block">
+          <div class="content-block" id="passage-content-block">
             <span class="src-tag" id="passage-src"></span>
             <div class="piece-row">
               <h4 class="piece" id="passage-title"></h4>
@@ -263,6 +268,17 @@
               <button class="btn-soft" id="rn-next">Sau →</button>
             </div>
           </div>
+
+          <!-- Bài đọc còn trống ở khe này -->
+          <div class="passage-empty" id="passage-empty" hidden>
+            <p>Bài đọc này còn trống — dán đoạn văn tiếng Anh của bạn vào đây (app sẽ tự bôi màu đúng các từ trong Block), hoặc nhờ AI viết nếu đã cấu hình API key.</p>
+            <textarea id="passage-paste" placeholder="Dán đoạn văn tiếng Anh vào đây…"></textarea>
+            <div class="passage-empty-actions">
+              <button class="btn-primary" id="btn-use-pasted">✅ Dùng bài này</button>
+              <button class="btn-soft" id="btn-ai-write">✨ Nhờ AI viết</button>
+            </div>
+          </div>
+
           <div class="glossary" id="passage-glossary"></div>
           <div class="passage-hint">💡 Bấm <b>Nghe US</b> — chữ sẽ sáng theo giọng đọc (karaoke). Bấm vào bất kỳ từ nào để xem nghĩa và lưu lại.</div>
 

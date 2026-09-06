@@ -64,7 +64,9 @@ create table if not exists blocks (
   name text not null,
   global_index integer,
   sort integer default 0,
-  context_passage text default ''
+  context_passage text default '',      -- khe 1: bài Dễ
+  context_passage_2 text default '',    -- khe 2: bài Vừa
+  context_passage_3 text default ''     -- khe 3: bài Khó
 );
 
 create table if not exists words (

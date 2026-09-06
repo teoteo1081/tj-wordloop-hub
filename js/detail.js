@@ -34,11 +34,16 @@
   D.open = function (blockId) {
     D.blockId = blockId;
     D._exam = null;
+    D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
+    D.si = null;
+    D.mi = null;
+    D._passageSlot = 1;   /* luôn mở lại ở bài Dễ khi vào Block */
     var b = block();
     if (!b) return;
 
     w.$("#screen-blocks").hidden = true;
     w.$("#screen-detail").hidden = false;
+    w.$("#btn-back").hidden = false;
     w.$("#workspace").scrollTop = 0;
     w.$("#detail-title").textContent = "📕 " + b.name + " — Collocation Builder";
 
@@ -110,6 +115,7 @@
     w.Speech.stop();
     w.$("#screen-detail").hidden = true;
     w.$("#screen-blocks").hidden = false;
+    w.$("#btn-back").hidden = true;
     D.blockId = null;
   };
 
@@ -133,6 +139,7 @@
     }
     if (name === "meaning") {
       if (!D._meaningQuiz) D._meaningQuiz = D.buildMeaningQuiz();
+      if (D.mi == null) D.mi = 0;
       D.renderMeaning();
     }
     if (name !== "study") w.Speech.stop();
@@ -213,68 +220,71 @@
     D.renderPassage();
   };
 
-  D.renderPassage = async function (forceNew) {
+  /* 3 khe bài đọc độc lập trên mỗi Block: khe 1 = Dễ, 2 = Vừa, 3 = Khó.
+     Khe 1 vẫn dùng đúng field "context_passage" cũ (dữ liệu có sẵn từ
+     trước không bị mất), khe 2/3 dùng field mới "context_passage_2/3". */
+  var SLOT_DIFF = { 1: "easy", 2: "medium", 3: "hard" };
+  function slotField(slot) { return slot === 1 ? "context_passage" : "context_passage_" + slot; }
+
+  /* Cập nhật chấm xanh (có bài) trên 3 nút chuyển khe + nút đang chọn */
+  function renderSlotButtons(b) {
+    var bar = w.$("#passage-slots");
+    if (!bar) return;
+    [1, 2, 3].forEach(function (s) {
+      var btn = bar.querySelector('[data-slot="' + s + '"]');
+      if (!btn) return;
+      btn.classList.toggle("active", (D._passageSlot || 1) === s);
+      btn.classList.toggle("has-content", !!b[slotField(s)]);
+    });
+  }
+
+  /* Chuyển sang khe khác — KHÔNG tự sinh gì cả, chỉ vẽ lại đúng khe đó
+     (trống thì hiện khối "dán bài của bạn / nhờ AI viết"). */
+  D.showPassageSlot = function (slot) {
+    D._passageSlot = slot;
+    D._exam = null;   /* đề thi cũ gắn với khe cũ, không còn khớp nữa */
+    D.renderPassage();
+  };
+
+  D.renderPassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
-    var myBlockId = b.id;    /* chụp lại — sau mỗi await phải so sánh với
-                                 D.blockId hiện tại, phòng khi người dùng
-                                 đã chuyển sang Block khác trong lúc chờ */
+    var slot = D._passageSlot || 1;
+    var field = slotField(slot);
+    renderSlotButtons(b);
 
-    if (forceNew || !b.context_passage) {
-      var cfg2 = w.APP_CONFIG || {};
-      var madeWithAI = false;
-      var willTryAI = !!(cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY);
+    var raw = b[field];
+    var emptyBox = w.$("#passage-empty");
+    var contentBox = w.$("#passage-content-block");
+    var readModes = w.$("#read-modes");
 
-      /* AI mất vài giây (bài ~500 từ) — báo ngay để khỏi tưởng app đứng.
-         Chỉ vẽ tạm lên màn hình nếu vẫn đang đứng ở đúng Block này. */
-      if (willTryAI && D.blockId === myBlockId) {
-        w.$("#passage-title").textContent = "Đang nhờ AI viết bài đọc mới…";
-        w.$("#passage").innerHTML = '<p style="color:var(--text-3);font-style:italic">⏳ Đang sinh bài đọc bằng AI, chờ vài giây…</p>';
-        w.$("#passage-glossary").innerHTML = "";
-      }
-
-      /* Có key Gemini hoặc OpenAI (js/keys.local.js) -> nhờ AI viết văn
-         thật, mỗi lần một bối cảnh khác nhau, không còn trùng khuôn mẫu.
-         Lỗi mạng / hết credit / chưa cấu hình key -> tự rơi về bộ mẫu câu
-         có sẵn, không chặn người học. */
-      if (willTryAI) {
-        try {
-          b.context_passage = await w.Context.generateAI(ws, cfg2);
-          madeWithAI = true;
-        } catch (e) {
-          /* Lỗi chi tiết ghi ra console cho lúc cần soi; toast chỉ báo nhẹ
-             là đã tự dùng bài mẫu — tránh giật mình mỗi lần mở Block mới
-             trong lúc key OpenAI chưa có credit / mất mạng. */
-          console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
-          /* Người dùng có thể đã rời Block này để xem Block khác trong lúc
-             chờ AI — toast lỗi vẫn báo bình thường (không sao), nhưng đừng
-             ghi đè DOM của Block họ đang xem ở bước dưới. */
-          w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — đang dùng bài đọc mẫu", "err");
-        }
-      }
-      if (!madeWithAI) {
-        b.context_passage = w.Context.generate(ws, forceNew ? Math.floor(Math.random() * 997) : (b.global_index || 1) * 7);
-      }
-      try { await w.DB.saveContext(b.id, b.context_passage); } catch (e) { /* offline vẫn hiển thị được */ }
-
-      /* Lưu bài đọc vào state THÌ VẪN LÀM (đúng Block, không phụ thuộc
-         đang xem Block nào) — chỉ riêng việc ghi đè DOM và huỷ đề thi
-         đang làm dở là phải đúng Block đang hiển thị mới được đụng vào. */
-      if (D.blockId !== myBlockId) return;
-      D._exam = null;   /* đoạn văn đổi thì đề thi cũ không còn khớp nữa */
+    if (!raw) {
+      /* Khe này còn trống — để trống thật sự, không tự sinh gì hết, chờ
+         người dùng dán bài của mình hoặc bấm nhờ AI viết. */
+      if (emptyBox) emptyBox.hidden = false;
+      if (contentBox) contentBox.hidden = true;
+      if (readModes) readModes.hidden = true;
+      w.$("#passage-glossary").innerHTML = "";
+      var wc0 = w.$("#passage-wordcount");
+      if (wc0) wc0.textContent = "";
+      D._passagePlain = "";
+      return;
     }
 
-    if (D.blockId !== myBlockId) return;   /* đã chuyển Block trong lúc await saveContext ở trên */
+    if (emptyBox) emptyBox.hidden = true;
+    if (contentBox) contentBox.hidden = false;
+    if (readModes) readModes.hidden = false;
 
-    var meta = w.Context.parseMeta(b.context_passage);
-    var seed = (b.global_index || 1) * 3;
+    var meta = w.Context.parseMeta(raw);
+    var seed = (b.global_index || 1) * 3 + slot;
     w.$("#passage-title").textContent = meta.title || w.Context.titleFor(seed);
     w.$("#passage-src").textContent = meta.source || w.Context.sourceFor(seed);
-    /* Nhãn nhỏ để BIẾT NGAY bài đang xem là AI sinh hay bài mẫu có sẵn —
-       trước đây chỉ khác nhau ở câu chữ nhỏ trong .src-tag, rất dễ bỏ qua. */
+    /* Nhãn nhỏ để BIẾT NGAY bài đang xem là AI sinh, tự dán, hay bài mẫu
+       có sẵn — trước đây chỉ khác nhau ở câu chữ nhỏ trong .src-tag, rất
+       dễ bỏ qua. */
     var badge = w.$("#passage-ai-badge");
     if (badge) {
-      badge.textContent = meta.ai ? "✨ AI" : "📄 Mẫu có sẵn";
+      badge.textContent = meta.ai ? "✨ AI" : (meta.pasted ? "📝 Tự dán" : "📄 Mẫu có sẵn");
       badge.className = "ai-badge" + (meta.ai ? " ai" : " tpl");
     }
 
@@ -304,6 +314,68 @@
     /* tô màu từ đã lưu + áp dụng chế độ đọc đang chọn */
     w.Reader.decorate();
     w.Reader.applyMode();
+  };
+
+  /* Nhờ AI viết bài cho ĐÚNG khe đang chọn (độ khó tương ứng easy/medium/
+     hard). Lỗi mạng / hết credit / chưa cấu hình key -> tự rơi về bộ mẫu
+     câu có sẵn, không chặn người học. */
+  D.generatePassageSlot = async function () {
+    var b = block(), ws = words();
+    if (!b) return;
+    var myBlockId = b.id;
+    var slot = D._passageSlot || 1;
+    var field = slotField(slot);
+
+    var cfg2 = w.APP_CONFIG || {};
+    var madeWithAI = false;
+    var willTryAI = !!(cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY);
+
+    if (willTryAI && D.blockId === myBlockId) {
+      w.$("#passage-empty").hidden = true;
+      w.$("#passage-content-block").hidden = false;
+      w.$("#passage-title").textContent = "Đang nhờ AI viết bài đọc mới…";
+      w.$("#passage").innerHTML = '<p style="color:var(--text-3);font-style:italic">⏳ Đang sinh bài đọc bằng AI, chờ vài giây…</p>';
+      w.$("#passage-glossary").innerHTML = "";
+    }
+
+    var newPassage;
+    if (willTryAI) {
+      try {
+        newPassage = await w.Context.generateAI(ws, cfg2, SLOT_DIFF[slot]);
+        madeWithAI = true;
+      } catch (e) {
+        console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
+        w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — đang dùng bài đọc mẫu", "err");
+      }
+    }
+    if (!madeWithAI) {
+      newPassage = w.Context.generate(ws, Math.floor(Math.random() * 997));
+    }
+
+    b[field] = newPassage;
+    try { await w.DB.saveContext(b.id, newPassage, field); } catch (e) { /* offline vẫn hiển thị được */ }
+
+    if (D.blockId !== myBlockId) return;   /* đã chuyển Block trong lúc chờ */
+    D._exam = null;
+    await D.renderPassage();
+  };
+
+  /* Dùng bài người dùng tự dán cho khe đang chọn — tự bôi [ngoặc] đúng
+     các từ của Block, không cần AI, không cần mạng. */
+  D.usePastedPassage = async function (text) {
+    var b = block(), ws = words();
+    if (!b) return;
+    var terms = ws.map(function (x) { return x.term; }).filter(Boolean);
+    var marked = w.Context._markTerms(text, terms);
+    var meta = { ai: false, pasted: true, vi: {}, title: "", source: "Bài đọc do bạn tự dán vào." };
+    var val = marked + w.Context.META_SEP + JSON.stringify(meta);
+
+    var slot = D._passageSlot || 1;
+    var field = slotField(slot);
+    b[field] = val;
+    try { await w.DB.saveContext(b.id, val, field); } catch (e) { /* offline vẫn hiển thị được */ }
+    D._exam = null;
+    await D.renderPassage();
   };
 
   /* ══════════════ TAB 2 — ACTIVE RECALL QUIZ (ĐIỀN TỪ) ══════════════ */
@@ -877,72 +949,117 @@
   };
 
   /* ---------- TAB: NGHĨA (10 từ đảo nghĩa, 4 đáp án — luyện riêng) ---------- */
+  /* Trình bày y hệt tab "Từng câu": mỗi lần 1 câu, chọn đáp án là chấm
+     luôn — đúng thì tự động qua câu sau, sai thì hiện đáp án đúng và chờ
+     bấm "Câu tiếp →" mới đi tiếp. */
   D.renderMeaning = function () {
     var ex = D._meaningQuiz;
     if (!ex) { w.$("#meaning-card").innerHTML = '<div class="quiz-done">Block này chưa có từ nào có nghĩa tiếng Việt để tạo bài này.</div>'; return; }
 
-    var html = "";
-    if (ex.graded) {
-      var passed = ex.score >= PASS_MARK;
-      html += '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
-          '<div class="score">' + ex.score + "%</div>" +
-          '<div class="verdict">' + (passed ? "✅ Nhớ nghĩa tốt!" : "🙂 Luyện thêm cho quen") + "</div>" +
-          '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu · phần này chỉ để luyện, không tính vào chu kỳ ôn</div>" +
-        "</div>";
-    } else {
-      html += '<div class="exam-head">' +
-                '<span class="exam-tag">NGHĨA</span>' +
-                '<span class="exam-meta">' + ex.total + " câu · luyện riêng, không tính SRS</span>" +
-              "</div>";
+    if (ex.graded) { w.$("#meaning-card").innerHTML = D.meaningResultHtml(ex) + D.meaningResultActionsHtml(); D.bindMeaningResult(); return; }
+
+    if (D.mi == null || D.mi < 0) D.mi = 0;
+    if (D.mi >= ex.mc.length) D.mi = ex.mc.length - 1;
+    var q = ex.mc[D.mi];
+
+    var answered = ex.mc.filter(function (x) { return x.given; }).length;
+    var pct = Math.round((answered / ex.total) * 100);
+
+    var shown = !!q.shown;
+    function optClass(val) {
+      var c = "opt";
+      if (!shown) { if (q.given === val) c += " sel"; return c; }
+      if (val === q.answer) return c + " right";
+      if (q.given === val) return c + " wrong";
+      return c + " dim";
     }
 
-    html += ex.mc.map(function (q, i) {
-      var opts = q.options.map(function (o, j) {
-        var cls = "opt";
-        if (!ex.graded) { if (q.given === o) cls += " sel"; }
-        else if (o === q.answer) cls += " right";
-        else if (q.given === o) cls += " wrong";
-        else cls += " dim";
-        return '<button class="' + cls + '" data-mc="' + i + '" data-opt="' + w.esc(o) + '"' +
-               (ex.graded ? " disabled" : "") + '>' +
-               '<span class="mk">' + "ABCD".charAt(j) + ".</span>" + w.esc(o) + "</button>";
-      }).join("");
-      return '<div class="mc-q"><div class="mc-ask"><b class="qn">' + (i + 1) +
-             '.</b> Nghĩa của <b class="mc-term">' + w.esc(q.term) + "</b> là gì?</div>" +
-             '<div class="opt-list">' + opts + "</div></div>";
+    var promptHtml =
+      '<div class="gap-card">' +
+        '<div class="gap-label">Chọn đúng nghĩa tiếng Việt của từ</div>' +
+        '<div class="gap-sentence mc-term-big">' + w.esc(q.term) + "</div>" +
+      "</div>";
+    var optsHtml = q.options.map(function (o, j) {
+      return '<button class="' + optClass(o) + '" data-pick="' + w.esc(o) + '"' +
+             (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
+             ".</span>" + w.esc(o) + "</button>";
     }).join("");
 
-    html += '<div class="exam-actions">';
-    if (!ex.graded) {
-      html += '<button class="btn-primary" id="meaning-submit">Nộp bài</button>';
-    } else {
-      html += '<button class="btn-soft" id="meaning-again">🔁 Làm lại</button>';
-    }
-    html += "</div>";
+    var explainHtml = shown
+      ? '<div class="quiz-feedback ' + (q.ok ? "ok" : "no") + '">' +
+          (q.ok ? "✅ Chính xác!" : "❌ Đáp án đúng: <b>" + w.esc(q.answer) + "</b>") +
+        "</div>"
+      : "";
 
-    w.$("#meaning-card").innerHTML = html;
+    var body = promptHtml +
+      '<div class="single-grid">' +
+        '<div class="opt-list">' + optsHtml + "</div>" +
+        '<div class="single-explain">' + explainHtml + "</div>" +
+      "</div>";
+
+    var last = D.mi >= ex.mc.length - 1;
+    w.$("#meaning-card").innerHTML =
+      '<div class="exam-bar-row">' +
+        '<span class="exam-idx">CÂU ' + (D.mi + 1) + " / " + ex.mc.length + "</span>" +
+        '<span class="exam-score">đã làm ' + answered + "/" + ex.total + "</span>" +
+      "</div>" +
+      '<div class="quiz-bar"><i style="width:' + pct + '%"></i></div>' +
+      body +
+      '<div class="exam-actions">' +
+        '<button class="btn-soft" id="mn-prev"' + (D.mi === 0 ? " disabled" : "") + ">← Trước</button>" +
+        (last
+          ? '<button class="btn-primary" id="meaning-submit">Nộp bài</button>'
+          : '<button class="btn-primary" id="mn-next">Câu tiếp →</button>') +
+      "</div>";
+
     D.bindMeaning();
   };
 
   D.bindMeaning = function () {
     var ex = D._meaningQuiz;
-    var card = w.$("#meaning-card");
+    var q = ex.mc[D.mi];
 
-    if (ex.graded) {
-      w.$("#meaning-again").onclick = function () { D._meaningQuiz = D.buildMeaningQuiz(); D.renderMeaning(); };
-      return;
-    }
+    w.$$("#meaning-card [data-pick]").forEach(function (b) {
+      b.onclick = function () {
+        if (q.shown) return;
+        var v = b.dataset.pick;
+        q.given = v;
+        q.ok = v === q.answer;
+        q.shown = true;
+        D.renderMeaning();
+        if (q.ok) w.Speech.speakWord(q.term);
 
-    card.onclick = function (e) {
-      var opt = e.target.closest("[data-mc]");
-      if (!opt) return;
-      var qi = +opt.dataset.mc;
-      ex.mc[qi].given = opt.dataset.opt;
-      w.$$('[data-mc="' + qi + '"]', card).forEach(function (b2) {
-        b2.classList.toggle("sel", b2 === opt);
-      });
-    };
-    w.$("#meaning-submit").onclick = function () { D.submitMeaning(); };
+        if (q.ok) {
+          clearTimeout(D._autoNextMeaning);
+          D._autoNextMeaning = setTimeout(function () {
+            if (D.mi < ex.mc.length - 1) { D.mi++; D.renderMeaning(); }
+          }, 1100);
+        }
+      };
+    });
+    var p = w.$("#mn-prev"), n = w.$("#mn-next"), s = w.$("#meaning-submit");
+    if (p) p.onclick = function () { clearTimeout(D._autoNextMeaning); D.mi--; D.renderMeaning(); };
+    if (n) n.onclick = function () { clearTimeout(D._autoNextMeaning); D.mi++; D.renderMeaning(); };
+    if (s) s.onclick = function () { D.submitMeaning(); };
+  };
+
+  D.meaningResultHtml = function (ex) {
+    var passed = ex.score >= PASS_MARK;
+    return '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
+        '<div class="score">' + ex.score + "%</div>" +
+        '<div class="verdict">' + (passed ? "✅ Nhớ nghĩa tốt!" : "🙂 Luyện thêm cho quen") + "</div>" +
+        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu · phần này chỉ để luyện, không tính vào chu kỳ ôn</div>" +
+      "</div>";
+  };
+  D.meaningResultActionsHtml = function () {
+    return '<div class="exam-actions">' +
+      '<button class="btn-soft" id="meaning-again">🔁 Làm lại</button>' +
+      '<button class="btn-primary" id="meaning-back">← Về danh sách Block</button>' +
+    "</div>";
+  };
+  D.bindMeaningResult = function () {
+    w.$("#meaning-again").onclick = function () { D._meaningQuiz = D.buildMeaningQuiz(); D.mi = 0; D.renderMeaning(); };
+    w.$("#meaning-back").onclick = function () { D.close(); w.App.renderBlocks(); };
   };
 
   D.submitMeaning = async function () {
@@ -1069,15 +1186,41 @@
       /* Trước đây gọi renderPassage(true) không "await" nên toast "Đã tạo
          đoạn văn mới" hiện ra NGAY LẬP TỨC dù AI (mất vài giây) còn đang
          chạy phía sau — nhìn như app không làm gì rồi mới đổi. Giờ chờ
-         xong hẳn mới báo, và khoá nút lại tránh bấm chồng nhiều lần. */
+         xong hẳn mới báo, và khoá nút lại tránh bấm chồng nhiều lần.
+         Chỉ tạo lại đúng khe (Dễ/Vừa/Khó) đang mở, không đụng 2 khe kia. */
       var btn = this;
       w.Speech.stop();
       btn.disabled = true;
       var oldText = btn.textContent;
       btn.textContent = "⏳ Đang tạo...";
       try {
-        await D.renderPassage(true);
+        await D.generatePassageSlot();
         w.toast("Đã tạo đoạn văn mới");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
+    };
+    w.$("#passage-slots").addEventListener("click", function (e) {
+      var btn = e.target.closest(".pslot");
+      if (!btn) return;
+      w.Speech.stop();
+      D.showPassageSlot(Number(btn.dataset.slot));
+    });
+    w.$("#btn-use-pasted").onclick = async function () {
+      var text = (w.$("#passage-paste").value || "").trim();
+      if (!text) { w.toast("Dán bài vào ô trước đã nhé", "err"); return; }
+      await D.usePastedPassage(text);
+      w.$("#passage-paste").value = "";
+      w.toast("Đã lưu bài đọc");
+    };
+    w.$("#btn-ai-write").onclick = async function () {
+      var btn = this;
+      btn.disabled = true;
+      var oldText = btn.textContent;
+      btn.textContent = "⏳ Đang tạo...";
+      try {
+        await D.generatePassageSlot();
       } finally {
         btn.disabled = false;
         btn.textContent = oldText;

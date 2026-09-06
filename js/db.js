@@ -543,13 +543,17 @@
     return true;
   };
 
-  DB.saveContext = async function (blockId, text) {
+  /* field: "context_passage" (mặc định, khe Dễ) | "context_passage_2" (Vừa)
+     | "context_passage_3" (Khó) — 3 khe độc lập, đổi qua lại được. */
+  DB.saveContext = async function (blockId, text, field) {
+    field = field || "context_passage";
     if (DB.mode === "local") {
       var b = local().blocks.find(function (r) { return r.id === blockId; });
-      if (b) { b.context_passage = text; saveLocal(); }
+      if (b) { b[field] = text; saveLocal(); }
       return true;
     }
-    var r = await DB.sb.from("blocks").update({ context_passage: text }).eq("id", blockId);
+    var patch = {}; patch[field] = text;
+    var r = await DB.sb.from("blocks").update(patch).eq("id", blockId);
     if (r.error) throw r.error;
     return true;
   };
