@@ -49,6 +49,20 @@
     return S.batches.filter(function (b) { return b.page_id === pageId; })
       .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
   }
+  App.batchesOf = batchesOfPage;
+
+  /* Đổi Batch đang chọn (dùng bởi nút Batch trước/sau trong tab Bài học của
+     màn Chi tiết Block) — không tự renderBlocks() ở đây vì lúc gọi hàm này
+     thường sẽ mở luôn 1 Block cụ thể ngay sau, gọi renderBlocks() thừa. */
+  App.selectBatch = function (batchId) {
+    var b = S.batches.find(function (x) { return x.id === batchId; });
+    if (!b) return;
+    S.batchId = batchId;
+    S.pageId = b.page_id;
+    saveSel();
+    renderCrumb();
+    renderBatches();
+  };
   function pagesOfSection(sectionId) {
     return S.pages.filter(function (p) { return p.section_id === sectionId; })
       .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
@@ -989,6 +1003,63 @@
     w.$("#sidebar-right").classList.remove("flyout");
   }
 
+  /* ══════════════ KÉO GIÃN ĐỘ RỘNG CỘT NOTEBOOKS / PAGES ══════════════
+     Kéo thanh #resizer-left / #resizer-right bằng chuột. Nhớ độ rộng
+     riêng cho từng cột trong máy. Bấm đúp vào thanh kéo -> về 210px. */
+  var LS_WIDTH = "tjwl_sidebarw_v1";
+  var SW_MIN = 160, SW_MAX = 480, SW_DEFAULT = 210;
+
+  function readWidths() {
+    try {
+      var v = JSON.parse(localStorage.getItem(LS_WIDTH)) || {};
+      return { left: v.left || SW_DEFAULT, right: v.right || SW_DEFAULT };
+    } catch (e) { return { left: SW_DEFAULT, right: SW_DEFAULT }; }
+  }
+  var widths = readWidths();
+
+  function applyWidths() {
+    document.documentElement.style.setProperty("--sidebar-w-left", widths.left + "px");
+    document.documentElement.style.setProperty("--sidebar-w-right", widths.right + "px");
+  }
+
+  function saveWidths() {
+    try { localStorage.setItem(LS_WIDTH, JSON.stringify(widths)); } catch (e) {}
+  }
+
+  function bindResizer(id, side) {
+    var el = w.$(id);
+    if (!el) return;
+
+    el.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      var startX = e.clientX, startW = widths[side];
+      el.classList.add("dragging");
+      document.body.classList.add("resizing-" + side);
+
+      function onMove(ev) {
+        var dx = ev.clientX - startX;
+        var next = side === "left" ? startW + dx : startW - dx;
+        widths[side] = Math.max(SW_MIN, Math.min(SW_MAX, next));
+        applyWidths();
+      }
+      function onUp() {
+        el.classList.remove("dragging");
+        document.body.classList.remove("resizing-" + side);
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        saveWidths();
+      }
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+
+    el.addEventListener("dblclick", function () {
+      widths[side] = SW_DEFAULT;
+      applyWidths();
+      saveWidths();
+    });
+  }
+
   /* ══════════════ ĐIỀU HƯỚNG MOBILE ══════════════ */
   function openDrawer(side) {
     var left = w.$("#sidebar-left"), right = w.$("#sidebar-right");
@@ -1268,6 +1339,11 @@
     w.$("#pin-right").onclick = function (e) { e.stopPropagation(); togglePin("right"); };
     w.$("#name-left").onclick = function (e) { e.stopPropagation(); toggleFlyout("left"); };
     w.$("#name-right").onclick = function (e) { e.stopPropagation(); toggleFlyout("right"); };
+
+    /* --- kéo giãn độ rộng cột --- */
+    applyWidths();
+    bindResizer("#resizer-left", "left");
+    bindResizer("#resizer-right", "right");
     /* Không dùng stopPropagation trên cột — làm vậy sẽ chặn luôn sự kiện
        lên tới document, khiến nút ⋯ trong cột không mở được bảng thao tác.
        Thay vào đó chỉ cần bỏ qua khi cú bấm nằm trong cột. */

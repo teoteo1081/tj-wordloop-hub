@@ -91,6 +91,9 @@
     </div>
   </aside>
 
+  <!-- Kéo ngang để chỉnh độ rộng cột Notebooks. Bấm đúp = về mặc định. -->
+  <div class="resizer" id="resizer-left" title="Kéo để đổi độ rộng · bấm đúp để về mặc định"></div>
+
   <!-- ---------- GIỮA: WORKSPACE ---------- -->
   <main class="workspace" id="workspace">
 
@@ -167,6 +170,14 @@
 
       <!-- TAB 1: BÀI HỌC -->
       <div class="tab-pane active" id="pane-study">
+        <!-- Chuyển sang Batch kế / trước trong cùng Page — học liên tục
+             không phải quay ra cột Pages bấm lại. Ẩn khi Page chỉ có 1 batch. -->
+        <div class="batch-nav" id="batch-nav" hidden>
+          <button class="btn-soft" id="bn-prev">← Batch trước</button>
+          <span class="bn-pos" id="bn-pos"></span>
+          <button class="btn-soft" id="bn-next">Batch sau →</button>
+        </div>
+
         <div class="card">
           <div class="card-title-row">
             <div class="card-title">📘 1. Danh sách từ vựng cần học</div>
@@ -307,6 +318,9 @@
   </div>
 </aside>
 
+  <!-- Kéo ngang để chỉnh độ rộng cột Pages. Bấm đúp = về mặc định. -->
+  <div class="resizer" id="resizer-right" title="Kéo để đổi độ rộng · bấm đúp để về mặc định"></div>
+
   <!-- ---------- CỘT PHẢI: PAGES ---------- -->
   <aside class="sidebar sidebar-right" id="sidebar-right">
     <div class="sidebar-scroll">
@@ -439,6 +453,10 @@ mitigate | giảm nhẹ"></textarea>
 <!-- ══════════════════ 4. SCRIPTS ══════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
+<!-- keys.local.js: key OpenAI cá nhân, KHÔNG có trong git (.gitignore) — nếu
+     thiếu file này (máy khác / clone lại repo) thì trình duyệt chỉ log lỗi
+     404 rồi bỏ qua, app tự dùng bài đọc mẫu, không vỡ chức năng nào khác. -->
+<script src="js/keys.local.js"></script>
 <script src="js/util.js"></script>
 <script src="js/srs.js"></script>
 <script src="js/context.js"></script>

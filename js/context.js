@@ -120,7 +120,14 @@
          textWithGap : câu có {{GAP}}
          term        : từ đúng
          meaningVi   : nghĩa tiếng Việt của từ (không có thì dùng chính từ) */
-    translate: function (textWithGap, term, meaningVi) {
+    translate: function (textWithGap, term, meaningVi, viMap) {
+      /* Bài đọc do AI sinh: đã có sẵn bản dịch từng câu theo từ (viMap),
+         dùng thẳng, không cần dò khớp mẫu câu. */
+      if (viMap) {
+        var hit = viMap[String(term || "").toLowerCase()];
+        if (hit) return hit;
+      }
+
       var t = String(textWithGap || "").trim();
       var slot = meaningVi ? ("« " + meaningVi + " »") : ("« " + term + " »");
 
@@ -132,6 +139,115 @@
         if (gapForm(MIDDLES[i]) === t) return fill(MIDDLES_VI[i] || "", slot);
       }
       return "";     /* câu lạ (đoạn văn cũ / tự sửa) -> không dịch bừa */
+    },
+
+    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (OpenAI) ═══════════
+       Cần window.APP_CONFIG.OPENAI_API_KEY (đặt trong js/keys.local.js,
+       KHÔNG commit lên git). Gọi thẳng từ trình duyệt — không có backend.
+       Trả về CHUỖI để lưu y hệt chỗ dùng Context.generate(): văn bản có
+       [đánh dấu] + một khối JSON ẩn phía sau (ngăn bởi META_SEP) chứa
+       bản dịch từng câu + tiêu đề + nguồn, để đọc lại đúng như lúc sinh. */
+    META_SEP: "\n<<<TJWL_META>>>\n",
+
+    parseMeta: function (raw) {
+      var s = String(raw || "");
+      var i = s.indexOf(w.Context.META_SEP);
+      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false };
+      var meta = {};
+      try { meta = JSON.parse(s.slice(i + w.Context.META_SEP.length)) || {}; } catch (e) { meta = {}; }
+      return {
+        marked: s.slice(0, i),
+        vi: meta.vi || null,
+        title: meta.title || null,
+        source: meta.source || null,
+        ai: !!meta.ai
+      };
+    },
+
+    /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta) */
+    generateAI: async function (words, cfg) {
+      var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
+      if (!terms.length) throw new Error("Block chưa có từ vựng");
+      if (!cfg || !cfg.OPENAI_API_KEY) throw new Error("chưa có OPENAI_API_KEY");
+
+      var wordList = words.map(function (x) {
+        return "- " + x.term +
+          (x.meaning_vi ? " (nghĩa: " + x.meaning_vi + ")" : "") +
+          (x.def_en ? " — " + x.def_en : "");
+      }).join("\n");
+
+      var sys = "Bạn là trợ lý viết bài đọc tiếng Anh ngắn để luyện từ vựng cho người Việt học " +
+        "tiếng Anh. Luôn trả lời DUY NHẤT một object JSON đúng schema được yêu cầu, không thêm " +
+        "chữ nào khác, không dùng markdown code fence.";
+      var user =
+        "Viết một bài đọc tiếng Anh TỰ NHIÊN, có mạch truyện/bối cảnh xuyên suốt do bạn TỰ CHỌN " +
+        "(đừng lúc nào cũng là họp hành văn phòng — hãy đa dạng theo đúng chủ đề của nhóm từ bên " +
+        "dưới: có thể là một chuyến đi, chuyện gia đình, dự án học tập, thể thao, công nghệ…), " +
+        "dùng ĐÚNG các từ sau, mỗi từ xuất hiện trong ĐÚNG MỘT câu riêng, theo thứ tự cho sẵn:\n\n" +
+        wordList +
+        "\n\nYêu cầu bắt buộc:\n" +
+        "- Mỗi câu tiếng Anh khoảng 12–22 từ, câu sau nối mạch với câu trước (cùng bối cảnh/nhân vật).\n" +
+        "- Từ vựng phải xuất hiện NGUYÊN VĂN trong câu, không chia động từ, không đổi số ít/nhiều.\n" +
+        "- Kèm bản dịch tiếng Việt tự nhiên cho từng câu.\n" +
+        "- Đặt 1 tiêu đề tiếng Anh ngắn (5–8 từ) và 1 dòng mô tả nguồn bằng tiếng Việt.\n" +
+        "- Thêm 1 câu kết bằng tiếng Anh khuyến khích ôn lại theo phương pháp lặp lại ngắt quãng.\n\n" +
+        "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
+        '{"title":"...", "source_vi":"...", ' +
+        '"sentences":[{"term":"...","en":"...","vi":"..."}], "closing_en":"..."}';
+
+      var res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + cfg.OPENAI_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: cfg.OPENAI_MODEL || "gpt-4o-mini",
+          temperature: 0.9,
+          response_format: { type: "json_object" },
+          messages: [{ role: "system", content: sys }, { role: "user", content: user }]
+        })
+      });
+
+      if (!res.ok) {
+        var errText = await res.text().catch(function () { return ""; });
+        throw new Error("OpenAI HTTP " + res.status + ": " + errText.slice(0, 180));
+      }
+      var data = await res.json();
+      var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!raw) throw new Error("OpenAI trả về rỗng");
+      var parsed = JSON.parse(raw);
+      if (!parsed.sentences || !parsed.sentences.length) throw new Error("Thiếu 'sentences' trong JSON trả về");
+
+      var viMap = {}, paras = [], bucket = [], take = 4;
+      parsed.sentences.forEach(function (s, i) {
+        /* Ưu tiên đúng từ trong kho (đề phòng AI viết sai chính tả từ),
+           chỉ dùng s.term khi không khớp vị trí nào trong danh sách gốc. */
+        var term = terms[i] != null ? terms[i] : (s.term || "");
+        var en = String(s.en || "");
+        var idx = en.toLowerCase().indexOf(String(term).toLowerCase());
+        var marked;
+        if (idx >= 0) {
+          marked = en.slice(0, idx) + "[" + en.slice(idx, idx + term.length) + "]" + en.slice(idx + term.length);
+        } else {
+          /* AI lỡ chia động từ / đổi dạng từ -> vẫn tự chèn nguyên bản từ
+             vào cuối câu để không vỡ cơ chế điền từ & bài thi cuối bài. */
+          marked = en.replace(/[.!?]*$/, "") + " (" + "[" + term + "]" + ").";
+        }
+        if (s.vi) viMap[term.toLowerCase()] = s.vi;
+        bucket.push(marked);
+        if (bucket.length >= take) { paras.push(bucket.join(" ")); bucket = []; take = 3; }
+      });
+      if (bucket.length) paras.push(bucket.join(" "));
+      if (parsed.closing_en) paras.push(String(parsed.closing_en));
+
+      var meta = {
+        ai: true,
+        vi: viMap,
+        title: parsed.title || "",
+        source: parsed.source_vi || "Bài đọc do AI sinh riêng cho Block này."
+      };
+      return paras.join("\n\n") + w.Context.META_SEP + JSON.stringify(meta);
     },
 
     /* Lấy các câu trong đoạn văn, mỗi câu chứa 1 từ vựng, để dựng đề điền từ.

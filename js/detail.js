@@ -29,6 +29,50 @@
     D.renderStats();
     D.renderStudy();
     D.renderProgress();
+    D.renderBatchNav();
+  };
+
+  /* ══════════════ CHUYỂN BATCH TRƯỚC / SAU (trong tab Bài học) ══════════════
+     Cho học liên tục hết Batch này sang Batch khác trong cùng Page mà không
+     phải quay ra cột Pages bấm lại — mở luôn Block đầu (Batch sau) hoặc
+     Block cuối (Batch trước) của Batch kế tiếp. */
+  function batchNavInfo() {
+    var b = block();
+    if (!b) return null;
+    var curBatch = S().batches.find(function (x) { return x.id === b.batch_id; });
+    if (!curBatch) return null;
+    var list = w.App.batchesOf(curBatch.page_id);
+    var idx = list.findIndex(function (x) { return x.id === curBatch.id; });
+    return { list: list, idx: idx, curBatch: curBatch };
+  }
+
+  D.renderBatchNav = function () {
+    var nav = w.$("#batch-nav");
+    if (!nav) return;
+    var info = batchNavInfo();
+    if (!info || info.list.length <= 1) { nav.hidden = true; return; }
+
+    nav.hidden = false;
+    w.$("#bn-prev").disabled = info.idx <= 0;
+    w.$("#bn-next").disabled = info.idx < 0 || info.idx >= info.list.length - 1;
+    w.$("#bn-pos").textContent = "Batch " + (info.idx + 1) + "/" + info.list.length + " · " + info.curBatch.name;
+  };
+
+  D.gotoAdjacentBatch = function (dir) {
+    var info = batchNavInfo();
+    if (!info || info.idx < 0) return;
+    var target = info.list[info.idx + dir];
+    if (!target) {
+      w.toast(dir > 0 ? "Đây là Batch cuối cùng trong Page này" : "Đây là Batch đầu tiên trong Page này", "err");
+      return;
+    }
+    var blocks = w.App.blocksOf(target.id);
+    if (!blocks.length) { w.toast(target.name + " chưa có Block nào", "err"); return; }
+
+    w.App.selectBatch(target.id);
+    /* Batch sau -> mở Block ĐẦU (học tiếp từ đầu); Batch trước -> mở Block
+       CUỐI (đúng chỗ mình vừa học dở trước đó). */
+    D.open(dir > 0 ? blocks[0].id : blocks[blocks.length - 1].id);
   };
 
   D.close = function () {
@@ -127,18 +171,36 @@
     if (!b) return;
 
     if (forceNew || !b.context_passage) {
-      b.context_passage = w.Context.generate(ws, forceNew ? Math.floor(Math.random() * 997) : (b.global_index || 1) * 7);
+      var cfg2 = w.APP_CONFIG || {};
+      var madeWithAI = false;
+      /* Có key OpenAI (js/keys.local.js) -> nhờ AI viết văn thật, mỗi lần
+         một bối cảnh khác nhau, không còn trùng khuôn mẫu. Lỗi mạng / hết
+         credit / chưa cấu hình key -> tự rơi về bộ mẫu câu có sẵn, không
+         chặn người học. */
+      if (cfg2.OPENAI_API_KEY) {
+        try {
+          b.context_passage = await w.Context.generateAI(ws, cfg2);
+          madeWithAI = true;
+        } catch (e) {
+          console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
+          w.toast("Không gọi được AI (" + (e.message || "lỗi mạng") + ") — dùng bài đọc mẫu", "err");
+        }
+      }
+      if (!madeWithAI) {
+        b.context_passage = w.Context.generate(ws, forceNew ? Math.floor(Math.random() * 997) : (b.global_index || 1) * 7);
+      }
       try { await w.DB.saveContext(b.id, b.context_passage); } catch (e) { /* offline vẫn hiển thị được */ }
       /* đoạn văn đổi thì đề thi cũ không còn khớp nữa — chỉ huỷ ở đây,
          không huỷ ở mỗi lần vẽ lại (nếu không sẽ mất bài đang chấm) */
       D._exam = null;
     }
 
+    var meta = w.Context.parseMeta(b.context_passage);
     var seed = (b.global_index || 1) * 3;
-    w.$("#passage-title").textContent = w.Context.titleFor(seed);
-    w.$("#passage-src").textContent = w.Context.sourceFor(seed);
+    w.$("#passage-title").textContent = meta.title || w.Context.titleFor(seed);
+    w.$("#passage-src").textContent = meta.source || w.Context.sourceFor(seed);
 
-    var built = w.Context.build(b.context_passage);
+    var built = w.Context.build(meta.marked);
     D._passagePlain = built.plain;
     w.$("#passage").innerHTML = built.html;
 
@@ -298,10 +360,10 @@
 
   /* ══════════════ TAB — BÀI THI CUỐI BÀI ══════════════
      Dạng phiếu bài tập, giống bộ tài liệu giấy:
-       Phần A — điền từ vào chỗ trống, câu lấy NGUYÊN VĂN từ đoạn văn đã học.
-                Word bank dính trên đầu khi cuộn, bấm chip để điền, bấm lại
-                (hoặc bấm ✕) để bỏ chọn và chọn từ khác.
-       Phần B — chọn nghĩa tiếng Việt đúng.
+       Phần A — trắc nghiệm 4 lựa chọn: chọn đúng từ điền vào chỗ trống,
+                câu lấy NGUYÊN VĂN từ đoạn văn đã học, 3 phương án nhiễu
+                lấy ngẫu nhiên trong chính các từ của Block.
+       Phần B — chọn nghĩa tiếng Việt đúng (cũng trắc nghiệm 4 lựa chọn).
      Đúng >= 80% mới tính là hoàn thành Block và mới đẩy chu kỳ SRS. */
   var PASS_MARK = 80;
   D.PASS_MARK = PASS_MARK;
@@ -321,9 +383,19 @@
 
     var byTerm = {};
     ws.forEach(function (x) { byTerm[x.term.toLowerCase()] = x; });
+    var allTerms = ws.map(function (x) { return x.term; });
 
-    var gaps = w.Context.gapSentences(b.context_passage)
-      .filter(function (g) { return byTerm[g.term.toLowerCase()]; });
+    /* Phần A giờ là trắc nghiệm 4 lựa chọn (đúng 1 từ + 3 từ nhiễu lấy
+       trong chính Block), không còn word bank kéo-thả liệt kê hết từ. */
+    var passageText = w.Context.parseMeta(b.context_passage).marked;
+    var gaps = w.Context.gapSentences(passageText)
+      .filter(function (g) { return byTerm[g.term.toLowerCase()]; })
+      .map(function (g) {
+        var wrong = shuffle(allTerms.filter(function (t) {
+          return w.normalizeAnswer(t) !== w.normalizeAnswer(g.term);
+        })).slice(0, 3);
+        return { term: g.term, text: g.text, given: null, options: shuffle([g.term].concat(wrong)) };
+      });
     if (!gaps.length) return null;
 
     var withVi = ws.filter(function (x) { return x.meaning_vi; });
@@ -339,7 +411,6 @@
     return {
       gaps: shuffle(gaps),
       mc: mc,
-      bank: shuffle(ws.map(function (x) { return x.term; })),
       total: gaps.length + mc.length,
       graded: false
     };
@@ -350,7 +421,7 @@
     var ws = words();
     var bp = S().bp[D.blockId] || {};
     var b = block() || {};
-    var gapN = w.Context.gapSentences(b.context_passage || "").length;
+    var gapN = w.Context.gapSentences(w.Context.parseMeta(b.context_passage || "").marked).length;
     var mcN = Math.min(5, ws.filter(function (x) { return x.meaning_vi; }).length);
 
     var rows = ws.map(function (x) {
@@ -368,7 +439,7 @@
           '<span class="prep-note">Xem lại một lượt, bấm vào từ để nghe — rồi hãy vào kiểm tra</span>' +
         "</div>" +
         '<div class="prep-list">' + rows + "</div>" +
-        '<div class="pass-rule">Phần A: điền ' + gapN + " từ · Phần B: " + mcN +
+        '<div class="pass-rule">Phần A: ' + gapN + " câu chọn từ đúng · Phần B: " + mcN +
           " câu chọn nghĩa · cần đúng ≥ " + PASS_MARK + "% mới hoàn thành Block</div>" +
         '<button class="btn-primary btn-big" id="f-start">Hiểu rồi, vào kiểm tra →</button>' +
         (bp.last_exam_at
@@ -430,41 +501,31 @@
       return;
     }
 
-    /* ---- WORD BANK: dính trên đầu khi cuộn ---- */
-    if (!ex.graded) {
-      html += '<div class="wordbank" id="wordbank">' +
-        '<div class="wb-head">' +
-          '<span class="wb-title">Word bank</span>' +
-          '<span class="wb-left" id="wb-left"></span>' +
-          '<button class="wb-clear" id="wb-clear">Xoá hết</button>' +
-        "</div>" +
-        '<div class="wb-items">' +
-          ex.bank.map(function (t) {
-            return '<button class="wb-chip" data-bank="' + w.esc(t) + '">' + w.esc(t) + "</button>";
-          }).join("") +
-        "</div></div>";
-    }
-
-    /* ---- Phần A ---- */
+    /* ---- Phần A: trắc nghiệm 4 lựa chọn, mỗi câu 1 chỗ trống ---- */
     html += '<div class="exam-part">';
-    html += '<div class="exam-part-title">Phần A — Điền từ vào chỗ trống (theo bài đọc)</div>';
+    html += '<div class="exam-part-title">Phần A — Chọn từ đúng điền vào chỗ trống (theo bài đọc)</div>';
     html += ex.gaps.map(function (g, i) {
       var parts = g.text.split("{{GAP}}");
-      var slot;
-      if (!ex.graded) {
-        slot = '<span class="slot' + (g.given ? " filled" : "") + '" data-gap="' + i + '">' +
-                 '<span class="slot-text">' + (g.given ? w.esc(g.given) : "&nbsp;") + "</span>" +
-                 (g.given ? '<button class="slot-x" data-clear="' + i + '" title="Bỏ chọn">✕</button>' : "") +
-               "</span>";
-      } else {
-        slot = '<span class="slot ' + (g.ok ? "right" : "wrong") + '">' +
-                 '<span class="slot-text">' + w.esc(g.given || "(bỏ trống)") + "</span></span>" +
-               (g.ok ? "" : '<span class="gap-fix">→ ' + w.esc(g.term) + "</span>");
-      }
+      var blank = '<span class="blank' + (g.given ? " has" : "") +
+                    (ex.graded ? (g.ok ? " ok" : " no") : "") + '">' +
+                    (g.given ? w.esc(g.given) : "_ _ _") + "</span>";
+      var sentence = w.esc(parts[0] || "") + blank + w.esc(parts[1] || "");
+
+      var opts = g.options.map(function (o, j) {
+        var cls = "opt";
+        if (!ex.graded) { if (g.given === o) cls += " sel"; }
+        else if (o === g.term) cls += " right";
+        else if (g.given === o) cls += " wrong";
+        else cls += " dim";
+        return '<button class="' + cls + '" data-gap="' + i + '" data-opt="' + w.esc(o) + '"' +
+               (ex.graded ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) + ".</span>" +
+               w.esc(o) + "</button>";
+      }).join("");
+
       /* chấm xong thì kèm nghĩa của từ và bản dịch cả câu, đúng hay sai đều có */
       var note = ex.graded ? D.answerNote(g.term, g.text) : "";
-      return '<div class="ex-q"><b class="qn">' + (i + 1) + '.</b><span class="qtext">' +
-             w.esc(parts[0] || "") + slot + w.esc(parts[1] || "") + note + "</span></div>";
+      return '<div class="mc-q"><div class="mc-ask"><b class="qn">' + (i + 1) + ".</b> " + sentence + "</div>" +
+             '<div class="opt-list">' + opts + "</div>" + note + "</div>";
     }).join("");
     html += "</div>";
 
@@ -511,7 +572,9 @@
       return w.normalizeAnswer(y.term) === w.normalizeAnswer(term);
     })[0];
     var vi = x && x.meaning_vi ? x.meaning_vi : "";
-    var trans = w.Context.translate(textWithGap, term, vi);
+    var b = block();
+    var viMap = w.Context.parseMeta((b && b.context_passage) || "").vi;
+    var trans = w.Context.translate(textWithGap, term, vi, viMap);
 
     return '<div class="ans-note">' +
       '<div class="an-word"><b>' + w.esc(term) + "</b>" +
@@ -592,9 +655,10 @@
           "</div>" +
         "</div>" +
         '<div class="opt-list">' +
-          ex.bank.map(function (t) {
+          cur.ref.options.map(function (t, j) {
             return '<button class="' + optClass(t) + '" data-pick="' + w.esc(t) + '"' +
-                   (shown ? " disabled" : "") + ">" + w.esc(t) + "</button>";
+                   (shown ? " disabled" : "") + '><span class="mk">' + "ABCD".charAt(j) +
+                   ".</span>" + w.esc(t) + "</button>";
           }).join("") +
         "</div>";
     } else {
@@ -681,85 +745,22 @@
     w.$("#f-quit").onclick = function () { D._exam = null; D.renderFinalIntro(); };
     w.$("#f-submit").onclick = function () { D.submitFinal(); };
 
-    /* ô trống đang được chọn để điền */
-    function activeSlot() {
-      return card.querySelector(".slot.active");
-    }
-    function setActive(el) {
-      w.$$(".slot", card).forEach(function (s) { s.classList.toggle("active", s === el); });
-    }
-    function firstEmpty() {
-      return w.$$(".slot", card).filter(function (s) { return !ex.gaps[+s.dataset.gap].given; })[0];
-    }
-    function refresh() {
-      /* chip nào đã dùng thì mờ đi; đếm số ô còn trống */
-      var used = {};
-      ex.gaps.forEach(function (g) { if (g.given) used[w.normalizeAnswer(g.given)] = 1; });
-      w.$$("[data-bank]", card).forEach(function (c) {
-        c.classList.toggle("used", !!used[w.normalizeAnswer(c.dataset.bank)]);
-      });
-      var left = ex.gaps.filter(function (g) { return !g.given; }).length;
-      var el = w.$("#wb-left");
-      if (el) el.textContent = left ? "còn " + left + " chỗ trống" : "đã điền đủ ✓";
-    }
-
-    function fill(term) {
-      var slot = activeSlot() || firstEmpty();
-      if (!slot) return;
-      ex.gaps[+slot.dataset.gap].given = term;
-      redrawSlots();
-      /* điền xong thì tự nhảy sang ô trống kế tiếp, khỏi phải bấm lại */
-      var next = firstEmpty();
-      if (next) setActive(next); else setActive(null);
-    }
-    function clearGap(i) {
-      ex.gaps[i].given = null;
-      redrawSlots();
-    }
-    function redrawSlots() {
-      w.$$(".slot", card).forEach(function (s) {
-        var i = +s.dataset.gap, g = ex.gaps[i];
-        s.classList.toggle("filled", !!g.given);
-        s.querySelector(".slot-text").innerHTML = g.given ? w.esc(g.given) : "&nbsp;";
-        var x = s.querySelector(".slot-x");
-        if (g.given && !x) {
-          var btn = document.createElement("button");
-          btn.className = "slot-x"; btn.dataset.clear = i; btn.title = "Bỏ chọn"; btn.textContent = "✕";
-          s.appendChild(btn);
-        } else if (!g.given && x) { x.remove(); }
-      });
-      refresh();
-    }
-
     /* onclick (không phải addEventListener): bindFinal chạy lại sau MỖI lần
-       vẽ, dùng addEventListener thì handler chồng lên nhau — một cú bấm chip
-       chạy 2-3 lần, điền rồi tự xoá, ô nhảy loạn. onclick thì luôn chỉ có một. */
+       vẽ, dùng addEventListener thì handler chồng lên nhau. onclick thì
+       luôn chỉ có một, bấm lại vào phương án khác là đổi đáp án ngay. */
     card.onclick = function (e) {
-      /* bỏ chọn bằng nút ✕ */
-      var x = e.target.closest("[data-clear]");
-      if (x) { e.stopPropagation(); clearGap(+x.dataset.clear); return; }
-
-      /* bấm vào ô trống -> chọn ô đó để điền */
-      var slot = e.target.closest(".slot[data-gap]");
-      if (slot) {
-        if (ex.gaps[+slot.dataset.gap].given) clearGap(+slot.dataset.gap);
-        setActive(slot);
-        return;
-      }
-
-      /* bấm chip: đã dùng -> gỡ ra; chưa dùng -> điền vào ô đang chọn */
-      var chip = e.target.closest("[data-bank]");
-      if (chip) {
-        var term = chip.dataset.bank;
-        var hit = -1;
-        ex.gaps.forEach(function (g, i) {
-          if (hit < 0 && g.given && w.normalizeAnswer(g.given) === w.normalizeAnswer(term)) hit = i;
+      /* Phần A — chọn từ đúng điền vào chỗ trống */
+      var gapOpt = e.target.closest("[data-gap]");
+      if (gapOpt) {
+        var gi = +gapOpt.dataset.gap;
+        ex.gaps[gi].given = gapOpt.dataset.opt;
+        w.$$('[data-gap="' + gi + '"]', card).forEach(function (b2) {
+          b2.classList.toggle("sel", b2 === gapOpt);
         });
-        if (hit >= 0) clearGap(hit); else fill(term);
         return;
       }
 
-      /* phần B */
+      /* Phần B — chọn nghĩa tiếng Việt đúng */
       var opt = e.target.closest("[data-mc]");
       if (opt) {
         var qi = +opt.dataset.mc;
@@ -769,16 +770,6 @@
         });
       }
     };
-
-    w.$("#wb-clear").onclick = function () {
-      ex.gaps.forEach(function (g) { g.given = null; });
-      redrawSlots();
-    };
-
-    /* mặc định chọn sẵn ô đầu tiên còn trống */
-    var f = firstEmpty();
-    if (f) setActive(f);
-    refresh();
   };
 
   /* ---------- Chấm điểm ---------- */
@@ -890,6 +881,9 @@
     w.Reader.bind();
     w.$("#btn-back").onclick = function () { D.close(); w.App.renderBlocks(); };
 
+    w.$("#bn-prev").onclick = function () { D.gotoAdjacentBatch(-1); };
+    w.$("#bn-next").onclick = function () { D.gotoAdjacentBatch(1); };
+
     w.$$(".dtab").forEach(function (t) {
       t.onclick = function () { D.showTab(t.dataset.tab); };
     });
@@ -925,11 +919,14 @@
       w.$("#btn-read").textContent = "🎧 Nghe US";
     };
 
-    /* nút cuối Glossary -> sang thẳng bài kiểm tra */
+    /* nút cuối Glossary -> vào THẲNG bài kiểm tra, không dừng lại ở màn
+       hình chuẩn bị (màn đó lặp lại đúng bảng từ vừa đọc xong ở tab Bài
+       học nên thừa) — chỉ tạo đề rồi hiện luôn. */
     w.$("#btn-go-exam").onclick = function () {
       D._autoRead = false;
       w.Speech.stop();
       D.showTab("final");
+      D.startFinal();
       w.$("#workspace").scrollTop = 0;
     };
     w.$("#btn-regen").onclick = function () {
