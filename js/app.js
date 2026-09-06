@@ -746,8 +746,9 @@
       { act: "top", icon: "⏫", text: "Lên đầu", off: pos <= 0 },
       { act: "bottom", icon: "⏬", text: "Xuống cuối", off: pos < 0 || pos >= list.length - 1 }
     ];
-    /* Notebook chuyển sang Hub khác · Page chuyển sang Section khác · Batch chuyển sang Page khác */
+    /* Notebook chuyển Hub · Section chuyển Notebook · Page chuyển Section · Batch chuyển Page */
     if (table === "notebooks" && S.hubs.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Hub khác" });
+    if (table === "sections" && S.notebooks.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Notebook khác" });
     if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
     if (table === "batches" && S.pages.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Page khác" });
     items.push({ act: "sep" });
@@ -817,6 +818,9 @@
         if (table === "notebooks") {
           opts = S.hubs.filter(function (h) { return h.id !== row.hub_id; });
           field = "hub_id";
+        } else if (table === "sections") {
+          opts = S.notebooks.filter(function (n) { return n.id !== row.notebook_id; });
+          field = "notebook_id";
         } else if (table === "pages") {
           opts = S.sections.filter(function (s) { return s.id !== row.section_id; });
           field = "section_id";
