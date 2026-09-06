@@ -3,3 +3,6 @@ js/keys.local.js
 
 # Local Netlify folder
 .netlify
+
+# Backup snapshots tự tạo trước khi sửa dữ liệu (xem CLAUDE.md)
+*.bak-*
