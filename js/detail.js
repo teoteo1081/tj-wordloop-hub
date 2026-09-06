@@ -182,8 +182,11 @@
           b.context_passage = await w.Context.generateAI(ws, cfg2);
           madeWithAI = true;
         } catch (e) {
+          /* Lỗi chi tiết ghi ra console cho lúc cần soi; toast chỉ báo nhẹ
+             là đã tự dùng bài mẫu — tránh giật mình mỗi lần mở Block mới
+             trong lúc key OpenAI chưa có credit / mất mạng. */
           console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
-          w.toast("Không gọi được AI (" + (e.message || "lỗi mạng") + ") — dùng bài đọc mẫu", "err");
+          w.toast("AI chưa sẵn sàng — đang dùng bài đọc mẫu", "ok");
         }
       }
       if (!madeWithAI) {

@@ -198,24 +198,36 @@
     if (!inRange.length) return;
 
     var totalChars = inRange.reduce(function (a, sp) { return a + sp.dataset.w.length; }, 0) || 1;
-    /* ~ 12 ký tự / giây ở tốc độ 1.0 */
-    var totalMs = (totalChars / 12) * 1000 / (S.rate || 1);
-    var i = 0, acc = 0;
+    /* ~ 14.5 ký tự / giây ở tốc độ 1.0 (ước theo tốc độ nói tiếng Anh
+       trung bình ~150 từ/phút, mỗi từ ~5.7 ký tự kể cả khoảng trắng) */
+    var totalMs = (totalChars / 14.5) * 1000 / (S.rate || 1);
 
+    /* Mốc [0..1] TÍCH LUỸ theo ĐỘ DÀI TỪNG TỪ — từ dài giữ đèn sáng lâu
+       hơn từ ngắn. Trước đây chia đều theo SỐ TỪ dù totalMs tính theo
+       tổng ký tự, nên từ vựng dài (thường chính là từ đang học) tắt đèn
+       sớm trước khi đọc xong, càng lệch rõ khi đổi tốc độ đọc. */
+    var marks = [], acc = 0;
+    inRange.forEach(function (sp) {
+      acc += sp.dataset.w.length;
+      marks.push(acc / totalChars);
+    });
+
+    var i = -1;
     if (S._timer) clearInterval(S._timer);
     var t0 = Date.now();
     S._timer = setInterval(function () {
       if (S._boundaryFired) { clearInterval(S._timer); S._timer = null; return; }
       var elapsed = Date.now() - t0;
-      var target = Math.min(Math.floor((elapsed / totalMs) * inRange.length), inRange.length - 1);
+      var frac = elapsed / totalMs;
+      var target = marks.findIndex(function (m) { return frac <= m; });
+      if (target < 0) target = inRange.length - 1;
       if (target !== i) {
         i = target;
         clearOn();
         inRange[i].classList.add("on");
       }
       if (elapsed > totalMs) { clearInterval(S._timer); S._timer = null; }
-      acc = acc; // giữ biến cho dễ debug
-    }, 90);
+    }, 60);
   }
 
   /* ---------- cắt đoạn văn thành câu, giữ vị trí ký tự gốc ---------- */
