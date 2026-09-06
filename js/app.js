@@ -578,6 +578,44 @@
     }
   }
 
+  /* ══════════════ "THỬ TẢI TỪ LINK" — best effort, không đảm bảo ══════════════
+     Đa số trang báo CHẶN fetch() từ web khác (CORS) — cái này chỉ thành
+     công với số ít trang tình cờ mở cổng đọc công khai. Thất bại thì báo
+     rõ ràng, không âm thầm im lặng, và luôn có đường lùi: dán tay. */
+  async function tryFetchArticle(url) {
+    var res = await fetch(url);
+    if (!res.ok) throw new Error("Trang trả về lỗi HTTP " + res.status);
+    var html = await res.text();
+    var doc = new DOMParser().parseFromString(html, "text/html");
+
+    ["script", "style", "nav", "header", "footer", "aside", "form", "noscript", "iframe", "svg"]
+      .forEach(function (tag) {
+        doc.querySelectorAll(tag).forEach(function (el) { el.remove(); });
+      });
+
+    var ps = Array.prototype.slice.call(doc.querySelectorAll("p"))
+      .filter(function (p) { return p.textContent.trim().length >= 40; });
+    if (!ps.length) throw new Error("Tải được trang nhưng không thấy đoạn văn nào đủ dài để coi là nội dung chính");
+
+    /* Gom các <p> theo cha gần nhất; cha nào có TỔNG chữ nhiều nhất coi
+       là khối nội dung chính — cách làm đơn giản kiểu Readability, không
+       cần thư viện ngoài. */
+    var groups = new Map();
+    ps.forEach(function (p) {
+      var parent = p.parentElement;
+      if (!parent) return;
+      var g = groups.get(parent) || { total: 0, ps: [] };
+      g.total += p.textContent.trim().length;
+      g.ps.push(p);
+      groups.set(parent, g);
+    });
+    var best = null;
+    groups.forEach(function (g) { if (!best || g.total > best.total) best = g; });
+    if (!best) throw new Error("Không tách được nội dung chính trên trang này");
+
+    return best.ps.map(function (p) { return p.textContent.trim(); }).filter(Boolean).join("\n\n");
+  }
+
   function previewPaste() {
     var parsed = w.parseVocabText(w.$("#paste-input").value);
     var per = cfg.WORDS_PER_BLOCK || 10;
@@ -1343,6 +1381,25 @@
       setTimeout(function () { w.$("#extract-input").focus(); }, 50);
     };
     w.$("#btn-do-extract").onclick = doPasteExtract;
+    w.$("#btn-fetch-url").onclick = async function () {
+      var url = w.$("#extract-url").value.trim();
+      if (!url) { w.toast("Dán link vào trước đã", "err"); return; }
+      var btn = this;
+      btn.disabled = true;
+      var oldText = btn.textContent;
+      btn.textContent = "⏳ Đang tải...";
+      try {
+        var text = await tryFetchArticle(url);
+        w.$("#extract-input").value = text;
+        var nWords = text.trim() ? text.trim().split(/\s+/).length : 0;
+        w.toast("Đã tải được bài (~" + nWords + " từ) — xem lại rồi bấm Trích từ vựng", "ok");
+      } catch (e) {
+        w.toast("Không tải được từ link này (" + (e.message || "trang chặn CORS") +
+                ") — mở link đó, copy nguyên văn bài rồi dán tay vào ô bên dưới nhé", "err");
+      } finally {
+        btn.disabled = false; btn.textContent = oldText;
+      }
+    };
 
     /* --- đóng modal chung --- */
     w.$$("[data-close]").forEach(function (b) {

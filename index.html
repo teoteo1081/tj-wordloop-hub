@@ -418,7 +418,13 @@ mitigate | giảm nhẹ"></textarea>
     <div class="wp-lbl">Tên Batch (tuỳ chọn)</div>
     <input type="text" id="extract-name" class="text-input" autocomplete="off" placeholder="Ví dụ: Báo VnExpress 06/09">
 
-    <div class="wp-lbl mt">Dán bài vào đây</div>
+    <div class="wp-lbl mt">Hoặc dán LINK bài báo — thử tải tự động (không phải trang nào cũng được, nhiều báo chặn)</div>
+    <div class="extract-url-row">
+      <input type="url" id="extract-url" class="text-input" autocomplete="off" placeholder="https://...">
+      <button class="btn-soft" id="btn-fetch-url">🔗 Thử tải</button>
+    </div>
+
+    <div class="wp-lbl mt">Dán bài vào đây (hoặc để nút Thử tải tự điền)</div>
     <textarea id="extract-input" spellcheck="false" placeholder="Dán bài báo / đoạn văn / transcript vào đây… (tối đa ~12.000 ký tự)"></textarea>
 
     <div class="modal-actions">
