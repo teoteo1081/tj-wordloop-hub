@@ -200,14 +200,18 @@
   D.renderPassage = async function (forceNew) {
     var b = block(), ws = words();
     if (!b) return;
+    var myBlockId = b.id;    /* chụp lại — sau mỗi await phải so sánh với
+                                 D.blockId hiện tại, phòng khi người dùng
+                                 đã chuyển sang Block khác trong lúc chờ */
 
     if (forceNew || !b.context_passage) {
       var cfg2 = w.APP_CONFIG || {};
       var madeWithAI = false;
       var willTryAI = !!(cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY);
 
-      /* AI mất vài giây (bài ~500 từ) — báo ngay để khỏi tưởng app đứng. */
-      if (willTryAI) {
+      /* AI mất vài giây (bài ~500 từ) — báo ngay để khỏi tưởng app đứng.
+         Chỉ vẽ tạm lên màn hình nếu vẫn đang đứng ở đúng Block này. */
+      if (willTryAI && D.blockId === myBlockId) {
         w.$("#passage-title").textContent = "Đang nhờ AI viết bài đọc mới…";
         w.$("#passage").innerHTML = '<p style="color:var(--text-3);font-style:italic">⏳ Đang sinh bài đọc bằng AI, chờ vài giây…</p>';
         w.$("#passage-glossary").innerHTML = "";
@@ -226,6 +230,9 @@
              là đã tự dùng bài mẫu — tránh giật mình mỗi lần mở Block mới
              trong lúc key OpenAI chưa có credit / mất mạng. */
           console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
+          /* Người dùng có thể đã rời Block này để xem Block khác trong lúc
+             chờ AI — toast lỗi vẫn báo bình thường (không sao), nhưng đừng
+             ghi đè DOM của Block họ đang xem ở bước dưới. */
           w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — đang dùng bài đọc mẫu", "err");
         }
       }
@@ -233,10 +240,15 @@
         b.context_passage = w.Context.generate(ws, forceNew ? Math.floor(Math.random() * 997) : (b.global_index || 1) * 7);
       }
       try { await w.DB.saveContext(b.id, b.context_passage); } catch (e) { /* offline vẫn hiển thị được */ }
-      /* đoạn văn đổi thì đề thi cũ không còn khớp nữa — chỉ huỷ ở đây,
-         không huỷ ở mỗi lần vẽ lại (nếu không sẽ mất bài đang chấm) */
-      D._exam = null;
+
+      /* Lưu bài đọc vào state THÌ VẪN LÀM (đúng Block, không phụ thuộc
+         đang xem Block nào) — chỉ riêng việc ghi đè DOM và huỷ đề thi
+         đang làm dở là phải đúng Block đang hiển thị mới được đụng vào. */
+      if (D.blockId !== myBlockId) return;
+      D._exam = null;   /* đoạn văn đổi thì đề thi cũ không còn khớp nữa */
     }
+
+    if (D.blockId !== myBlockId) return;   /* đã chuyển Block trong lúc await saveContext ở trên */
 
     var meta = w.Context.parseMeta(b.context_passage);
     var seed = (b.global_index || 1) * 3;
@@ -849,7 +861,12 @@
     function fill(term) {
       var slot = activeSlot() || firstEmpty();
       if (!slot) return;
-      ex.gaps[+slot.dataset.gap].given = term;
+      var g = ex.gaps[+slot.dataset.gap];
+      g.given = term;
+      /* Reset trạng thái "đã chấm" của chế độ Từng câu — nếu không, đổi
+         đáp án ở đây rồi quay lại Từng câu sẽ vẫn hiện kết quả ĐÚNG/SAI
+         cũ (tính từ đáp án trước khi sửa), không khớp với given hiện tại. */
+      g.shown = false; g.ok = undefined;
       redrawSlots();
       /* điền xong thì tự nhảy sang ô trống kế tiếp, khỏi phải bấm lại */
       var next = firstEmpty();
@@ -857,6 +874,7 @@
     }
     function clearGap(i) {
       ex.gaps[i].given = null;
+      ex.gaps[i].shown = false; ex.gaps[i].ok = undefined;
       redrawSlots();
     }
     function redrawSlots() {
@@ -907,6 +925,7 @@
       if (opt) {
         var qi = +opt.dataset.mc;
         ex.mc[qi].given = opt.dataset.opt;
+        ex.mc[qi].shown = false; ex.mc[qi].ok = undefined;   /* cùng lý do như fill()/clearGap() ở Phần A */
         w.$$('[data-mc="' + qi + '"]', card).forEach(function (b2) {
           b2.classList.toggle("sel", b2 === opt);
         });

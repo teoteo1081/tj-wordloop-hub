@@ -228,7 +228,14 @@
       var text = String(passageText || "");
       var claimed = [], matches = [];
 
-      terms.forEach(function (term) {
+      /* Duyệt từ DÀI XUỐNG NGẮN — không phải theo thứ tự trong mảng gốc.
+         Nếu 1 từ đơn (vd "cost") match trước 1 cụm dài chứa nó (vd
+         "irreversible cost") theo đúng thứ tự trong danh sách vocab, nó
+         sẽ chiếm mất đúng đoạn ký tự đó, khiến cụm dài bị coi là overlap
+         rồi bị đẩy ra câu phụ ở cuối bài thay vì nằm tự nhiên trong câu. */
+      var byLenDesc = terms.slice().sort(function (a, b) { return String(b).length - String(a).length; });
+
+      byLenDesc.forEach(function (term) {
         var re;
         try { re = new RegExp("\\b" + w.Context._reEsc(term) + "\\b", "i"); }
         catch (e) { return; }
@@ -366,15 +373,17 @@
         "XUẤT HIỆN NGUYÊN VĂN trong đoạn văn bên dưới, mỗi từ chỉ liệt kê 1 lần (không lặp các " +
         "dạng gần giống nhau của cùng 1 từ).\n\n" +
         'ĐOẠN VĂN:\n"""\n' + raw + '\n"""\n\n' +
-        "Với mỗi từ, ghi lại:\n" +
+        "Với mỗi từ, ghi lại ĐẦY ĐỦ, KHÔNG ĐƯỢC bỏ trống trường nào:\n" +
         "- term: đúng NGUYÊN VĂN dạng xuất hiện trong đoạn văn (giữ nguyên chia động từ/số nhiều)\n" +
         "- level: cấp độ CEFR (B1/B2/C1/C2)\n" +
         "- pos: loại từ (Verb/Noun/Adjective/Adverb/Phrase…)\n" +
+        "- ipa: phiên âm quốc tế (IPA) của TỪ GỐC (dạng từ điển, ví dụ /ˈlevərɪdʒ/), kể cả khi " +
+        "term trong bài đang chia động từ/số nhiều\n" +
         "- def_en: định nghĩa tiếng Anh ngắn gọn\n" +
         "- meaning_vi: nghĩa tiếng Việt\n" +
         "- sentence_vi: bản dịch tiếng Việt của ĐÚNG câu chứa từ đó trong đoạn văn\n\n" +
         "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
-        '{"words":[{"term":"...","level":"...","pos":"...","def_en":"...","meaning_vi":"...","sentence_vi":"..."}]}';
+        '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","sentence_vi":"..."}]}';
 
       var raw2 = cfg.GEMINI_API_KEY
         ? await w.Context._callGemini(cfg, sys, user)
@@ -394,13 +403,76 @@
       return words;
     },
 
+    /* ═══════════ TỰ ĐIỀN CÁC CỘT CÒN THIẾU CHO 1 DANH SÁCH TỪ ═══════════
+       Dùng khi người dùng dán vào chỉ có term (+ có thể vài cột khác),
+       thiếu level/pos/ipa/def_en/meaning_vi. CHỈ điền vào chỗ ĐANG RỖNG —
+       không bao giờ ghi đè lên dữ liệu đã có sẵn (dù AI gợi ý khác), để
+       không phá dữ liệu đã được biên soạn/sửa tay từ trước.
+       words: [{term, level?, pos?, ipa?, def_en?, meaning_vi?}] — SỬA
+       TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}. */
+    enrichWords: async function (words, cfg) {
+      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
+        throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
+      }
+      var needy = (words || []).filter(function (x) {
+        return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi);
+      });
+      if (!needy.length) return { words: words, filled: 0 };
+
+      var BATCH = 25;
+      var filled = 0;
+
+      for (var i = 0; i < needy.length; i += BATCH) {
+        var chunk = needy.slice(i, i + BATCH);
+        var listText = chunk.map(function (x, j) {
+          var known = [];
+          if (x.meaning_vi) known.push("nghĩa VI đã biết: " + x.meaning_vi);
+          if (x.def_en) known.push("định nghĩa EN đã biết: " + x.def_en);
+          if (x.level) known.push("cấp độ đã biết: " + x.level);
+          if (x.pos) known.push("loại từ đã biết: " + x.pos);
+          return (j + 1) + '. "' + x.term + '"' + (known.length ? " (" + known.join("; ") + ")" : "");
+        }).join("\n");
+
+        var sys = "Bạn là từ điển Anh-Việt cho người học tiếng Anh. Trả lời DUY NHẤT 1 object JSON " +
+          "đúng schema được yêu cầu, không thêm chữ nào khác, không dùng markdown code fence.";
+        var user =
+          "Với ĐÚNG " + chunk.length + " từ/cụm từ tiếng Anh sau (đã đánh số thứ tự), cho biết đầy " +
+          "đủ: cấp độ CEFR (A1/A2/B1/B2/C1/C2), loại từ (Verb/Noun/Adjective/Adverb/Phrase…), phiên " +
+          "âm IPA kiểu từ điển (có dấu / /), định nghĩa tiếng Anh ngắn gọn, và nghĩa tiếng Việt. " +
+          "Trả về ĐÚNG THEO THỨ TỰ đã đánh số, đủ " + chunk.length + " mục, không bỏ mục nào, không " +
+          "gộp/tách mục:\n\n" + listText + "\n\n" +
+          "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
+          '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"..."}]}';
+
+        var raw = cfg.GEMINI_API_KEY
+          ? await w.Context._callGemini(cfg, sys, user)
+          : await w.Context._callOpenAI(cfg, sys, user);
+        var parsed = JSON.parse(raw);
+        var got = parsed.words || [];
+
+        for (var k = 0; k < chunk.length; k++) {
+          var orig = chunk[k], suggestion = got[k];
+          if (!suggestion) continue;
+          if (!orig.level && suggestion.level) { orig.level = suggestion.level; filled++; }
+          if (!orig.pos && suggestion.pos) { orig.pos = suggestion.pos; filled++; }
+          if (!orig.ipa && suggestion.ipa) { orig.ipa = suggestion.ipa; filled++; }
+          if (!orig.def_en && suggestion.def_en) { orig.def_en = suggestion.def_en; filled++; }
+          if (!orig.meaning_vi && suggestion.meaning_vi) { orig.meaning_vi = suggestion.meaning_vi; filled++; }
+        }
+      }
+      return { words: words, filled: filled };
+    },
+
     /* Lấy các câu trong đoạn văn, mỗi câu chứa 1 từ vựng, để dựng đề điền từ.
        Trả về [{term, text}] với text có dấu {{GAP}} ở đúng chỗ cần điền.
        Đây chính là chỗ nối "bài thi cuối bài" với "đoạn văn đã gen". */
     gapSentences: function (marked) {
-      var out = [], seen = {}, re = /[^.!?\n]+[.!?]+/g, m;
-      while ((m = re.exec(String(marked || ""))) !== null) {
-        var s = m[0].trim();
+      var text = String(marked || "");
+      var out = [], seen = {}, re = /[^.!?\n]+[.!?]+/g, m, lastEnd = 0;
+
+      function processSentence(raw) {
+        var s = String(raw || "").trim();
+        if (!s) return;
         /* 1 câu có thể chứa NHIỀU hơn 1 từ đánh dấu — văn AI tự sinh thì
            luôn tách mỗi từ 1 câu riêng nên trước đây lấy match đầu tiên là
            đủ, nhưng bài do người dùng TỰ DÁN thì 2 từ khó rơi chung 1 câu
@@ -408,16 +480,28 @@
            nếu không từ thứ 2 trở đi bị rớt khỏi bài thi mà không báo lỗi. */
         var termRe = /\[([^\]]+)\]/g, hit, termsInSentence = [];
         while ((hit = termRe.exec(s)) !== null) termsInSentence.push(hit[1]);
-        if (!termsInSentence.length) continue;
+        if (!termsInSentence.length) return;
 
         termsInSentence.forEach(function (term) {
           if (seen[term.toLowerCase()]) return;
           seen[term.toLowerCase()] = 1;
-          var text = s.replace("[" + term + "]", "{{GAP}}")
-                      .replace(/\[([^\]]+)\]/g, "$1");
-          out.push({ term: term, text: text });
+          var t = s.replace("[" + term + "]", "{{GAP}}")
+                   .replace(/\[([^\]]+)\]/g, "$1");
+          out.push({ term: term, text: t });
         });
       }
+
+      while ((m = re.exec(text)) !== null) {
+        processSentence(m[0]);
+        lastEnd = re.lastIndex;
+      }
+      /* Câu/đoạn CUỐI không có dấu chấm câu kết thúc (transcript bị cắt
+         ngang, bài báo dán qua "Thử tải" bị cắt đoạn giữa chừng…) trước
+         đây bị regex trên bỏ qua hoàn toàn -> từ vựng rơi vào đó biến
+         mất khỏi đề thi mà không có cảnh báo gì. Xử lý nốt phần dư này,
+         tách theo dòng phòng khi dư nhiều đoạn chưa có dấu câu. */
+      text.slice(lastEnd).split(/\n+/).forEach(processSentence);
+
       return out;
     },
 

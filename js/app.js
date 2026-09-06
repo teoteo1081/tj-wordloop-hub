@@ -486,6 +486,27 @@
     btn.disabled = true; btn.textContent = "Đang tạo…";
 
     try {
+      /* Dán chỉ có term (hoặc thiếu vài cột) mà có sẵn key AI -> tự tra từ
+         điển AI điền nốt level/pos/ipa/def_en/meaning_vi còn thiếu, không
+         đụng tới cột nào đã có sẵn dữ liệu. Không có key thì bỏ qua bước
+         này, tạo Block như cũ (để trống cột thiếu, không chặn ai cả). */
+      var cfg2 = w.APP_CONFIG || {};
+      if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
+        var needy = parsed.filter(function (x) {
+          return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
+        });
+        if (needy.length) {
+          btn.textContent = "⏳ Đang tra từ điển AI...";
+          try {
+            var r = await w.Context.enrichWords(parsed, cfg2);
+            if (r.filled) w.toast("AI đã tự điền " + r.filled + " ô còn thiếu", "ok");
+          } catch (e) {
+            console.warn("enrichWords thất bại, vẫn tạo Block với dữ liệu đang có:", e);
+          }
+          btn.textContent = "Đang tạo…";
+        }
+      }
+
       var name = "Batch " + (batchesOfPage(S.pageId).length + 1);
       var res = await w.DB.addBatchFromWords(S.pageId, parsed, name, nextGlobalIndex());
 
@@ -532,7 +553,7 @@
       var cleanText = w.Context.stripPasteNoise(rawInput);
 
       var parsedWords = extracted.map(function (x) {
-        return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "" };
+        return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "" };
       });
       var name = w.$("#extract-name").value.trim() || ("Batch " + (batchesOfPage(S.pageId).length + 1));
       var res = await w.DB.addBatchFromWords(S.pageId, parsedWords, name, nextGlobalIndex());
@@ -614,6 +635,48 @@
     if (!best) throw new Error("Không tách được nội dung chính trên trang này");
 
     return best.ps.map(function (p) { return p.textContent.trim(); }).filter(Boolean).join("\n\n");
+  }
+
+  /* ══════════════ DỌN TỪ VỰNG RÁC (DÒNG TIÊU ĐỀ LẪN VÀO) ══════════════
+     Thư viện gốc có nhiều chỗ bị lẫn dòng tiêu đề bảng (vd "Vocabulary",
+     "Thuật ngữ"...) vào làm 1 từ vựng thật — lỗi từ lúc biên soạn dữ liệu,
+     không phải do app tạo ra. File data/starter.json đã được dọn, nhưng
+     dữ liệu ĐÃ NHẬP vào máy (localStorage) không tự dọn theo khi "cập
+     nhật thư viện" (cơ chế merge giữ nguyên id không có trong bản mới,
+     coi là "của người dùng tự thêm"), nên cần dọn thẳng ở đây. */
+  var JUNK_TERMS = {
+    "vocabulary": 1, "term": 1, "thuật ngữ": 1, "phiên âm": 1, "ipa": 1,
+    "định nghĩa": 1, "định nghĩa (anh)": 1, "nghĩa": 1, "loại từ": 1,
+    "pos": 1, "level": 1, "cấp độ": 1, "word form": 1, "phonetic": 1,
+    "english definition": 1, "vietnamese meaning": 1
+  };
+
+  async function cleanupJunkWords() {
+    var junk = S.words.filter(function (x) {
+      return JUNK_TERMS[String(x.term || "").trim().toLowerCase()];
+    });
+    if (!junk.length) { w.toast("Không có dòng rác nào cần dọn ✔", "ok"); return; }
+
+    var ok = await App.askConfirm({
+      title: "Dọn " + junk.length + " dòng rác",
+      desc: "Tìm thấy " + junk.length + " từ vựng trông như dòng tiêu đề bị lẫn vào (ví dụ \"Vocabulary\", " +
+            "\"Thuật ngữ\"...), không phải từ thật. Xoá hết những dòng này? Không ảnh hưởng các từ khác."
+    });
+    if (!ok) return;
+
+    var failed = 0;
+    for (var i = 0; i < junk.length; i++) {
+      try { await w.DB.remove("words", junk[i].id); }
+      catch (e) { failed++; }
+    }
+    var junkIds = {};
+    junk.forEach(function (x) { junkIds[x.id] = 1; });
+    S.words = S.words.filter(function (x) { return !junkIds[x.id]; });
+
+    App.renderBlocks();
+    w.toast(failed
+      ? "Đã dọn " + (junk.length - failed) + "/" + junk.length + " dòng rác (" + failed + " lỗi)"
+      : "Đã dọn " + junk.length + " dòng rác ✔", failed ? "err" : "ok");
   }
 
   function previewPaste() {
@@ -1481,6 +1544,10 @@
 
     /* --- xuất PDF --- */
     w.$("#mi-print").onclick = function () { menu.hidden = true; w.Export.openModal(); };
+    w.$("#mi-cleanup").onclick = async function () {
+      menu.hidden = true;
+      await cleanupJunkWords();
+    };
 
     /* --- sao lưu / phục hồi --- */
     w.$("#mi-export").onclick = function () {
