@@ -125,6 +125,7 @@
     <!-- Thanh Batch -->
     <div class="batches-bar">
       <div class="batch-tabs" id="batch-tabs"><!-- JS --></div>
+      <button class="btn-soft" id="btn-paste-extract" title="Dán bài báo / transcript — AI tự trích từ B1+ và tạo Block">✨ Dán bài, tự trích từ</button>
       <button class="btn-primary" id="btn-paste-new">+ Paste từ mới</button>
     </div>
 
@@ -399,6 +400,30 @@ mitigate | giảm nhẹ"></textarea>
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-paste">Hủy</button>
       <button class="btn-primary" id="btn-do-paste">Tạo Batch &amp; Block</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dán 1 đoạn văn/bài báo/transcript có sẵn -> AI tự trích từ B1+ -->
+<div class="modal-overlay" id="modal-extract" hidden>
+  <div class="modal-box wide">
+    <h3>✨ Dán bài, tự trích từ vựng B1+</h3>
+    <p class="modal-desc">
+      Dán 1 bài báo, đoạn văn, hoặc transcript video (YouTube: bấm <b>"Hiện bản ghi"</b> dưới
+      video rồi copy toàn bộ; Yglish: copy phần lời thoại) — AI sẽ tự tìm các từ vựng cấp độ
+      <b>B1 trở lên</b>, chia thành Block 10 từ để học, và giữ NGUYÊN chính bài bạn dán làm bài
+      đọc (không sinh bài khác). Cần đã có key Gemini/OpenAI trong <code>js/keys.local.js</code>.
+    </p>
+
+    <div class="wp-lbl">Tên Batch (tuỳ chọn)</div>
+    <input type="text" id="extract-name" class="text-input" autocomplete="off" placeholder="Ví dụ: Báo VnExpress 06/09">
+
+    <div class="wp-lbl mt">Dán bài vào đây</div>
+    <textarea id="extract-input" spellcheck="false" placeholder="Dán bài báo / đoạn văn / transcript vào đây… (tối đa ~12.000 ký tự)"></textarea>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-extract">Hủy</button>
+      <button class="btn-primary" id="btn-do-extract">✨ Trích từ vựng &amp; tạo Block</button>
     </div>
   </div>
 </div>

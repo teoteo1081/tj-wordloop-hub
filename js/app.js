@@ -507,6 +507,77 @@
     }
   }
 
+  /* ══════════════ DÁN BÀI CÓ SẴN -> AI TỰ TRÍCH TỪ B1+ ══════════════
+     Khác "+ Paste từ mới": ở đây người dùng dán CẢ MỘT BÀI (báo/transcript),
+     không tự gõ sẵn danh sách từ | nghĩa. AI đọc bài, tự chấm cấp độ từng
+     từ, chỉ giữ B1 trở lên, rồi mới cắt Block 10 từ như bình thường. Bài
+     đọc của Block không sinh mới — dùng ĐÚNG bài người dùng vừa dán, chỉ
+     đánh dấu đúng 10 từ thuộc Block đó (Block khác trong cùng lần dán vẫn
+     thấy nguyên bài, chỉ khác từ nào được tô). */
+  async function doPasteExtract() {
+    if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
+    var cfg2 = w.APP_CONFIG || {};
+    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
+      w.toast("Cần key Gemini/OpenAI trong js/keys.local.js để dùng tính năng này", "err");
+      return;
+    }
+    var rawInput = w.$("#extract-input").value;
+    if (!rawInput.trim()) { w.toast("Chưa dán bài nào", "err"); return; }
+
+    var btn = w.$("#btn-do-extract");
+    btn.disabled = true; btn.textContent = "⏳ Đang phân tích...";
+
+    try {
+      var extracted = await w.Context.extractVocab(rawInput, cfg2);
+      var cleanText = w.Context.stripPasteNoise(rawInput);
+
+      var parsedWords = extracted.map(function (x) {
+        return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "" };
+      });
+      var name = w.$("#extract-name").value.trim() || ("Batch " + (batchesOfPage(S.pageId).length + 1));
+      var res = await w.DB.addBatchFromWords(S.pageId, parsedWords, name, nextGlobalIndex());
+
+      /* mỗi Block dùng lại CHÍNH bài đã dán, chỉ đánh dấu đúng từ của nó */
+      var viByTerm = {};
+      extracted.forEach(function (x) { if (x.sentence_vi) viByTerm[x.term.toLowerCase()] = x.sentence_vi; });
+
+      for (var i = 0; i < res.blocks.length; i++) {
+        var blk = res.blocks[i];
+        var terms = res.words.filter(function (x) { return x.block_id === blk.id; })
+                              .map(function (x) { return x.term; });
+        var marked = w.Context._markTerms(cleanText, terms);
+        var viMap = {};
+        terms.forEach(function (t) {
+          var hit = viByTerm[t.toLowerCase()];
+          if (hit) viMap[t.toLowerCase()] = hit;
+        });
+        var meta = {
+          ai: true, vi: viMap, title: name,
+          source: "Bài đọc do bạn dán vào — AI trích " + terms.length + " từ B1+ trong đó."
+        };
+        var storable = marked + w.Context.META_SEP + JSON.stringify(meta);
+        blk.context_passage = storable;
+        try { await w.DB.saveContext(blk.id, storable); } catch (e) { /* offline vẫn hiển thị được */ }
+      }
+
+      S.batches.push(res.batch);
+      S.blocks = S.blocks.concat(res.blocks);
+      S.words = S.words.concat(res.words);
+      S.batchId = res.batch.id;
+      saveSel();
+
+      w.$("#modal-extract").hidden = true;
+      w.$("#extract-input").value = "";
+      w.$("#extract-name").value = "";
+      renderBatches(); renderPages(); App.renderBlocks();
+      w.toast("Đã trích " + parsedWords.length + " từ B1+ → " + res.blocks.length + " block ✔", "ok");
+    } catch (e) {
+      w.toast("Lỗi: " + (e.message || e), "err");
+    } finally {
+      btn.disabled = false; btn.textContent = "✨ Trích từ vựng & tạo Block";
+    }
+  }
+
   function previewPaste() {
     var parsed = w.parseVocabText(w.$("#paste-input").value);
     var per = cfg.WORDS_PER_BLOCK || 10;
@@ -1266,6 +1337,12 @@
     };
     w.$("#paste-input").addEventListener("input", previewPaste);
     w.$("#btn-do-paste").onclick = doPaste;
+
+    w.$("#btn-paste-extract").onclick = function () {
+      w.$("#modal-extract").hidden = false;
+      setTimeout(function () { w.$("#extract-input").focus(); }, 50);
+    };
+    w.$("#btn-do-extract").onclick = doPasteExtract;
 
     /* --- đóng modal chung --- */
     w.$$("[data-close]").forEach(function (b) {

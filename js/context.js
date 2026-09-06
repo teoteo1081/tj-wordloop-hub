@@ -320,6 +320,80 @@
       return marked + w.Context.META_SEP + JSON.stringify(meta);
     },
 
+    /* Dọn nhiễu trước khi phân tích/hiển thị — để dán được nhiều nguồn:
+         · Bài báo: thường dính link, quảng cáo, "Read more", "Share"...
+           -> phần này để AI tự bỏ qua (nêu rõ trong prompt), khó lọc bằng
+           regex vì không có mẫu cố định.
+         · Transcript YouTube/Yglish: MỖI DÒNG hay có mốc thời gian kiểu
+           "0:12", "[00:12]", "(1:23:45)" đứng đầu -> lọc được bằng regex,
+           làm sạch để bài đọc không lộ số thời gian lung tung khi hiển thị. */
+    stripPasteNoise: function (text) {
+      return String(text || "")
+        .replace(/^[ \t]*[\[(]?\d{1,2}:\d{2}(?::\d{2})?[\])]?[ \t]*[-–—]?[ \t]*/gm, "")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    },
+
+    /* ═══════════ DÁN 1 ĐOẠN VĂN CÓ SẴN -> TRÍCH TỪ B1+ ═══════════
+       Không có sẵn từ điển CEFR offline trong app này, nên nhờ AI đọc
+       đoạn văn và tự chấm cấp độ từng từ. Trả về mảng
+       [{term, level, pos, def_en, meaning_vi, sentence_vi}] — term LUÔN
+       là chuỗi con thật sự có trong đoạn văn gốc (lọc bỏ từ AI bịa thêm
+       không có trong bài, để bước đánh dấu [..] sau này luôn tìm thấy).
+       Nhận nhiều nguồn: bài báo dán nguyên trang, transcript YouTube/
+       Yglish (còn dính mốc thời gian), ghi chú tự gõ… */
+    extractVocab: async function (text, cfg) {
+      var raw = w.Context.stripPasteNoise(text);
+      if (!raw) throw new Error("Chưa dán đoạn văn nào");
+      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
+        throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
+      }
+      if (raw.length > 12000) {
+        throw new Error("Đoạn văn dài " + raw.length + " ký tự, quá giới hạn 12000 (~1 bài báo dài / ~15 phút transcript) — cắt bớt rồi dán lại");
+      }
+
+      var sys = "Bạn là trợ lý phân tích văn bản tiếng Anh để giúp người Việt học từ vựng. " +
+        "Luôn trả lời DUY NHẤT một object JSON đúng schema được yêu cầu, không thêm chữ nào khác, " +
+        "không dùng markdown code fence.";
+      var user =
+        "Đoạn văn bên dưới có thể là bài báo dán nguyên trang, transcript video (YouTube/Yglish), " +
+        "hoặc văn bản thường — có thể còn sót link, quảng cáo, tên người dẫn lặp lại, câu chào mở " +
+        "đầu không liên quan nội dung chính. HÃY BỎ QUA những phần nhiễu đó, chỉ phân tích PHẦN NỘI " +
+        "DUNG CHÍNH.\n\n" +
+        "Liệt kê các TỪ/CỤM TỪ có cấp độ CEFR TỪ B1 TRỞ LÊN " +
+        "(B1, B2, C1, C2 — bỏ qua từ A1/A2 quá cơ bản như 'the', 'go', 'happy'...) THỰC SỰ " +
+        "XUẤT HIỆN NGUYÊN VĂN trong đoạn văn bên dưới, mỗi từ chỉ liệt kê 1 lần (không lặp các " +
+        "dạng gần giống nhau của cùng 1 từ).\n\n" +
+        'ĐOẠN VĂN:\n"""\n' + raw + '\n"""\n\n' +
+        "Với mỗi từ, ghi lại:\n" +
+        "- term: đúng NGUYÊN VĂN dạng xuất hiện trong đoạn văn (giữ nguyên chia động từ/số nhiều)\n" +
+        "- level: cấp độ CEFR (B1/B2/C1/C2)\n" +
+        "- pos: loại từ (Verb/Noun/Adjective/Adverb/Phrase…)\n" +
+        "- def_en: định nghĩa tiếng Anh ngắn gọn\n" +
+        "- meaning_vi: nghĩa tiếng Việt\n" +
+        "- sentence_vi: bản dịch tiếng Việt của ĐÚNG câu chứa từ đó trong đoạn văn\n\n" +
+        "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
+        '{"words":[{"term":"...","level":"...","pos":"...","def_en":"...","meaning_vi":"...","sentence_vi":"..."}]}';
+
+      var raw2 = cfg.GEMINI_API_KEY
+        ? await w.Context._callGemini(cfg, sys, user)
+        : await w.Context._callOpenAI(cfg, sys, user);
+      var parsed = JSON.parse(raw2);
+      var lower = raw.toLowerCase();
+      var seen = {};
+      var words = (parsed.words || []).filter(function (x) {
+        if (!x || !x.term) return false;
+        var t = String(x.term).toLowerCase();
+        if (seen[t]) return false;                       /* AI lỡ liệt kê trùng */
+        if (lower.indexOf(t) < 0) return false;           /* AI bịa từ không có trong bài -> bỏ */
+        seen[t] = 1;
+        return true;
+      });
+      if (!words.length) throw new Error("Không tìm thấy từ B1+ nào trong đoạn văn này");
+      return words;
+    },
+
     /* Lấy các câu trong đoạn văn, mỗi câu chứa 1 từ vựng, để dựng đề điền từ.
        Trả về [{term, text}] với text có dấu {{GAP}} ở đúng chỗ cần điền.
        Đây chính là chỗ nối "bài thi cuối bài" với "đoạn văn đã gen". */
@@ -327,14 +401,22 @@
       var out = [], seen = {}, re = /[^.!?\n]+[.!?]+/g, m;
       while ((m = re.exec(String(marked || ""))) !== null) {
         var s = m[0].trim();
-        var hit = s.match(/\[([^\]]+)\]/);
-        if (!hit) continue;
-        var term = hit[1];
-        if (seen[term.toLowerCase()]) continue;
-        seen[term.toLowerCase()] = 1;
-        var text = s.replace("[" + term + "]", "{{GAP}}")
-                    .replace(/\[([^\]]+)\]/g, "$1");
-        out.push({ term: term, text: text });
+        /* 1 câu có thể chứa NHIỀU hơn 1 từ đánh dấu — văn AI tự sinh thì
+           luôn tách mỗi từ 1 câu riêng nên trước đây lấy match đầu tiên là
+           đủ, nhưng bài do người dùng TỰ DÁN thì 2 từ khó rơi chung 1 câu
+           là chuyện thường -> phải lặp qua HẾT, không chỉ lấy match đầu,
+           nếu không từ thứ 2 trở đi bị rớt khỏi bài thi mà không báo lỗi. */
+        var termRe = /\[([^\]]+)\]/g, hit, termsInSentence = [];
+        while ((hit = termRe.exec(s)) !== null) termsInSentence.push(hit[1]);
+        if (!termsInSentence.length) continue;
+
+        termsInSentence.forEach(function (term) {
+          if (seen[term.toLowerCase()]) return;
+          seen[term.toLowerCase()] = 1;
+          var text = s.replace("[" + term + "]", "{{GAP}}")
+                      .replace(/\[([^\]]+)\]/g, "$1");
+          out.push({ term: term, text: text });
+        });
       }
       return out;
     },
