@@ -37,7 +37,6 @@
     D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
     D.si = null;
     D.mi = null;
-    D._passageSlot = 1;   /* luôn mở lại ở bài Dễ khi vào Block */
     var b = block();
     if (!b) return;
 
@@ -220,46 +219,17 @@
     D.renderPassage();
   };
 
-  /* 3 khe bài đọc độc lập trên mỗi Block: khe 1 = Dễ, 2 = Vừa, 3 = Khó.
-     Khe 1 vẫn dùng đúng field "context_passage" cũ (dữ liệu có sẵn từ
-     trước không bị mất), khe 2/3 dùng field mới "context_passage_2/3". */
-  var SLOT_DIFF = { 1: "easy", 2: "medium", 3: "hard" };
-  function slotField(slot) { return slot === 1 ? "context_passage" : "context_passage_" + slot; }
-
-  /* Cập nhật chấm xanh (có bài) trên 3 nút chuyển khe + nút đang chọn */
-  function renderSlotButtons(b) {
-    var bar = w.$("#passage-slots");
-    if (!bar) return;
-    [1, 2, 3].forEach(function (s) {
-      var btn = bar.querySelector('[data-slot="' + s + '"]');
-      if (!btn) return;
-      btn.classList.toggle("active", (D._passageSlot || 1) === s);
-      btn.classList.toggle("has-content", !!b[slotField(s)]);
-    });
-  }
-
-  /* Chuyển sang khe khác — KHÔNG tự sinh gì cả, chỉ vẽ lại đúng khe đó
-     (trống thì hiện khối "dán bài của bạn / nhờ AI viết"). */
-  D.showPassageSlot = function (slot) {
-    D._passageSlot = slot;
-    D._exam = null;   /* đề thi cũ gắn với khe cũ, không còn khớp nữa */
-    D.renderPassage();
-  };
-
   D.renderPassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
-    var slot = D._passageSlot || 1;
-    var field = slotField(slot);
-    renderSlotButtons(b);
 
-    var raw = b[field];
+    var raw = b.context_passage;
     var emptyBox = w.$("#passage-empty");
     var contentBox = w.$("#passage-content-block");
     var readModes = w.$("#read-modes");
 
     if (!raw) {
-      /* Khe này còn trống — để trống thật sự, không tự sinh gì hết, chờ
+      /* Chưa có bài đọc — để trống thật sự, không tự sinh gì hết, chờ
          người dùng dán bài của mình hoặc bấm nhờ AI viết. */
       if (emptyBox) emptyBox.hidden = false;
       if (contentBox) contentBox.hidden = true;
@@ -276,7 +246,7 @@
     if (readModes) readModes.hidden = false;
 
     var meta = w.Context.parseMeta(raw);
-    var seed = (b.global_index || 1) * 3 + slot;
+    var seed = (b.global_index || 1) * 3;
     w.$("#passage-title").textContent = meta.title || w.Context.titleFor(seed);
     w.$("#passage-src").textContent = meta.source || w.Context.sourceFor(seed);
     /* Nhãn nhỏ để BIẾT NGAY bài đang xem là AI sinh, tự dán, hay bài mẫu
@@ -316,15 +286,12 @@
     w.Reader.applyMode();
   };
 
-  /* Nhờ AI viết bài cho ĐÚNG khe đang chọn (độ khó tương ứng easy/medium/
-     hard). Lỗi mạng / hết credit / chưa cấu hình key -> tự rơi về bộ mẫu
-     câu có sẵn, không chặn người học. */
-  D.generatePassageSlot = async function () {
+  /* Nhờ AI viết bài mới (hoặc tạo lại bài mẫu nếu chưa có key AI). Lỗi
+     mạng / hết credit -> tự rơi về bộ mẫu câu có sẵn, không chặn học. */
+  D.generatePassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
     var myBlockId = b.id;
-    var slot = D._passageSlot || 1;
-    var field = slotField(slot);
 
     var cfg2 = w.APP_CONFIG || {};
     var madeWithAI = false;
@@ -341,7 +308,7 @@
     var newPassage;
     if (willTryAI) {
       try {
-        newPassage = await w.Context.generateAI(ws, cfg2, SLOT_DIFF[slot]);
+        newPassage = await w.Context.generateAI(ws, cfg2);
         madeWithAI = true;
       } catch (e) {
         console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
@@ -352,16 +319,17 @@
       newPassage = w.Context.generate(ws, Math.floor(Math.random() * 997));
     }
 
-    b[field] = newPassage;
-    try { await w.DB.saveContext(b.id, newPassage, field); } catch (e) { /* offline vẫn hiển thị được */ }
+    b.context_passage = newPassage;
+    try { await w.DB.saveContext(b.id, newPassage); } catch (e) { /* offline vẫn hiển thị được */ }
 
     if (D.blockId !== myBlockId) return;   /* đã chuyển Block trong lúc chờ */
     D._exam = null;
     await D.renderPassage();
   };
 
-  /* Dùng bài người dùng tự dán cho khe đang chọn — tự bôi [ngoặc] đúng
-     các từ của Block, không cần AI, không cần mạng. */
+  /* Dùng bài người dùng tự dán — tự bôi [ngoặc] đúng các từ của Block,
+     không cần AI, không cần mạng. Dán rồi thì lưu lại, lần sau mở Block
+     vẫn thấy đúng bài đó (không tự sinh lại). */
   D.usePastedPassage = async function (text) {
     var b = block(), ws = words();
     if (!b) return;
@@ -370,10 +338,8 @@
     var meta = { ai: false, pasted: true, vi: {}, title: "", source: "Bài đọc do bạn tự dán vào." };
     var val = marked + w.Context.META_SEP + JSON.stringify(meta);
 
-    var slot = D._passageSlot || 1;
-    var field = slotField(slot);
-    b[field] = val;
-    try { await w.DB.saveContext(b.id, val, field); } catch (e) { /* offline vẫn hiển thị được */ }
+    b.context_passage = val;
+    try { await w.DB.saveContext(b.id, val); } catch (e) { /* offline vẫn hiển thị được */ }
     D._exam = null;
     await D.renderPassage();
   };
@@ -1221,27 +1187,20 @@
       /* Trước đây gọi renderPassage(true) không "await" nên toast "Đã tạo
          đoạn văn mới" hiện ra NGAY LẬP TỨC dù AI (mất vài giây) còn đang
          chạy phía sau — nhìn như app không làm gì rồi mới đổi. Giờ chờ
-         xong hẳn mới báo, và khoá nút lại tránh bấm chồng nhiều lần.
-         Chỉ tạo lại đúng khe (Dễ/Vừa/Khó) đang mở, không đụng 2 khe kia. */
+         xong hẳn mới báo, và khoá nút lại tránh bấm chồng nhiều lần. */
       var btn = this;
       w.Speech.stop();
       btn.disabled = true;
       var oldText = btn.textContent;
       btn.textContent = "⏳ Đang tạo...";
       try {
-        await D.generatePassageSlot();
+        await D.generatePassage();
         w.toast("Đã tạo đoạn văn mới");
       } finally {
         btn.disabled = false;
         btn.textContent = oldText;
       }
     };
-    w.$("#passage-slots").addEventListener("click", function (e) {
-      var btn = e.target.closest(".pslot");
-      if (!btn) return;
-      w.Speech.stop();
-      D.showPassageSlot(Number(btn.dataset.slot));
-    });
     w.$("#btn-use-pasted").onclick = async function () {
       var text = (w.$("#passage-paste").value || "").trim();
       if (!text) { w.toast("Dán bài vào ô trước đã nhé", "err"); return; }
@@ -1255,7 +1214,7 @@
       var oldText = btn.textContent;
       btn.textContent = "⏳ Đang tạo...";
       try {
-        await D.generatePassageSlot();
+        await D.generatePassage();
       } finally {
         btn.disabled = false;
         btn.textContent = oldText;

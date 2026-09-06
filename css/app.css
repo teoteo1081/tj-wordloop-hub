@@ -658,17 +658,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .rm-btn:hover{color:var(--text);border-color:var(--text-3);}
 .rm-btn.active{background:var(--blue-sub);color:var(--blue-l);border-color:var(--blue);}
 
-/* ═══════════ 3 BÀI ĐỌC ĐỔI QUA LẠI (dễ → khó) ═══════════ */
-.passage-slots{display:flex;gap:.4rem;margin-bottom:.7rem;flex-wrap:wrap;}
-.pslot{
-  background:var(--bg-soft);border:1px solid var(--border);color:var(--text-2);
-  padding:.4rem .85rem;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;
-  display:flex;align-items:center;gap:.35rem;
-}
-.pslot:hover{color:var(--text);border-color:var(--text-3);}
-.pslot.active{background:var(--amber-sub,var(--blue-sub));color:var(--amber-l,var(--blue-l));border-color:var(--amber,var(--blue));}
-.pslot .pslot-dot{width:.4rem;height:.4rem;border-radius:50%;background:var(--border);}
-.pslot.has-content .pslot-dot{background:var(--green,#22c55e);}
+/* ═══════════ BÀI ĐỌC TRỐNG — dán bài của bạn hoặc nhờ AI viết ═══════════ */
 .passage-empty{
   border:1px dashed var(--border);border-radius:10px;padding:1rem;
   display:flex;flex-direction:column;gap:.7rem;
