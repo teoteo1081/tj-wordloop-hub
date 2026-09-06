@@ -1,2 +1,5 @@
 # Bí mật cá nhân — KHÔNG đưa lên git/GitHub dưới bất kỳ hình thức nào
 js/keys.local.js
+
+# Local Netlify folder
+.netlify
