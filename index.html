@@ -26,6 +26,7 @@
   <button class="tab-add hub-add" id="btn-add-hub" title="Thêm hub">+</button>
 
   <div class="topbar-right">
+    <button class="theme-btn" id="btn-journey" title="Hành trình học — thống kê theo ngày">📊</button>
     <button class="theme-btn" id="theme-btn" title="Đổi giao diện sáng / tối">🌙</button>
     <span class="mode-pill" id="mode-pill" title="Chế độ lưu dữ liệu">…</span>
 
@@ -333,6 +334,32 @@
       </div>
     </section>
 
+    <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày ===== -->
+    <section id="screen-journey" hidden>
+      <button class="btn-ghost" id="btn-journey-back">← Về học tiếp</button>
+
+      <div class="card journey-overview">
+        <div class="card-title">📊 Tổng quan</div>
+        <div class="journey-stats-row">
+          <div class="jstat"><div class="jstat-num" id="j-words">0</div><div class="jstat-label">Đã thuộc / Tổng từ</div></div>
+          <div class="jstat"><div class="jstat-num" id="j-blocks">0</div><div class="jstat-label">Block đã xong</div></div>
+          <div class="jstat overdue"><div class="jstat-num" id="j-overdue">0</div><div class="jstat-label">Từ đang quá hạn ôn</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title">🗓️ Lịch học</div>
+          <div class="journey-legend">
+            <span><i class="jdot learn"></i> Có học</span>
+            <span><i class="jdot due"></i> Quá hạn</span>
+            <span><i class="jdot both"></i> Cả hai</span>
+          </div>
+        </div>
+        <div class="journey-cal" id="journey-cal"><!-- JS --></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Bảng nghĩa: khi GHIM thì nằm hẳn trong bố cục, đẩy bài đọc hẹp lại,
@@ -590,6 +617,7 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/reader.js"></script>
 <script src="js/detail.js"></script>
 <script src="js/export.js"></script>
+<script src="js/journey.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

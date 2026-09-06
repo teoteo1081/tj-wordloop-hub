@@ -97,12 +97,22 @@ create table if not exists block_progress (
   user_id uuid not null references auth.users(id) on delete cascade,
   block_id text not null references blocks(id) on delete cascade,
   best_score integer default 0,
-  passed boolean default false,
+  passed boolean default false,       -- đạt Phiếu đầy đủ/Từng câu (đẩy chu kỳ ôn Tony Buzan)
+  meaning_passed boolean default false, -- đạt thẻ Nghĩa (KHÔNG đẩy chu kỳ ôn, chỉ tính "Done")
+  meaning_best integer default 0,
   cycle integer default 0,
   next_review_at bigint,
   last_reviewed_at bigint,
   last_exam_at bigint,
   primary key (user_id, block_id)
+);
+
+-- ---------- NHẬT KÝ HỌC THEO NGÀY (màn Journey) ----------
+create table if not exists daily_log (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  date text not null,             -- "YYYY-MM-DD" theo giờ máy người học
+  learned integer default 0,      -- số từ đạt ≥ 80% ở 1 trong 3 thẻ bài tập hôm đó
+  primary key (user_id, date)
 );
 
 -- ---------- HỒ SƠ NGƯỜI DÙNG (đăng nhập Cloud) ----------
@@ -124,6 +134,7 @@ alter table blocks          enable row level security;
 alter table words           enable row level security;
 alter table word_progress   enable row level security;
 alter table block_progress  enable row level security;
+alter table daily_log       enable row level security;
 alter table profiles        enable row level security;
 
 -- Kho từ vựng: mở cho cả khách (anon) lẫn người đã đăng nhập —
@@ -148,6 +159,11 @@ create policy "own_progress" on word_progress
 
 drop policy if exists "own_progress" on block_progress;
 create policy "own_progress" on block_progress
+  for all to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "own_progress" on daily_log;
+create policy "own_progress" on daily_log
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 

@@ -15,7 +15,13 @@
   var LS_DB = "tjwl_db_v1";
   var LS_VER = "tjwl_starter_ver_v1";   /* vân tay thư viện đang giữ trong máy */
   var LS_DELETED = "tjwl_deleted_ids_v1";   /* "mộ bia" — id đã xoá hẳn, đừng bao giờ hồi sinh lại */
+  var LS_DAILY = "tjwl_daily_log_v1";   /* {"YYYY-MM-DD": {learned: n}} — cho màn Journey */
   var cfg = w.APP_CONFIG || {};
+
+  function todayStr(ts) {
+    var d = ts ? new Date(ts) : new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
 
   function readDeletedSet() {
     try { return JSON.parse(localStorage.getItem(LS_DELETED)) || {}; } catch (e) { return {}; }
@@ -634,6 +640,108 @@
     if (blockIds.length) await wipe("block_progress", "block_id", blockIds);
     if (wordIds.length) await wipe("word_progress", "word_id", wordIds);
     return true;
+  };
+
+  /* ══════════════ JOURNEY — nhật ký học theo ngày + tổng quan toàn app ══════════════
+     Khác với S.blocks/S.words (chỉ gồm Notebook đang mở), 2 hàm dưới đây
+     nhìn xuyên suốt MỌI Hub/Notebook — để có con số tổng thật sự. */
+  DB.todayStr = todayStr;
+
+  /* Cộng dồn số từ "đã học" hôm nay — gọi khi 1 trong 3 thẻ bài tập
+     (Phiếu đầy đủ / Từng câu / Nghĩa) đạt ≥ 80%. */
+  DB.bumpLearnedToday = async function (userId, n) {
+    if (!n) return;
+    var k = todayStr();
+    if (progressLocal()) {
+      var log = {};
+      try { log = JSON.parse(localStorage.getItem(LS_DAILY)) || {}; } catch (e) {}
+      log[k] = { learned: ((log[k] && log[k].learned) || 0) + n };
+      try { localStorage.setItem(LS_DAILY, JSON.stringify(log)); } catch (e) {}
+      return;
+    }
+    try {
+      var cur = await DB.sb.from("daily_log").select("learned").eq("user_id", userId).eq("date", k).maybeSingle();
+      var curN = (cur.data && cur.data.learned) || 0;
+      await DB.sb.from("daily_log").upsert(
+        { user_id: userId, date: k, learned: curN + n },
+        { onConflict: "user_id,date" }
+      );
+    } catch (e) { /* offline/lỗi mạng -> bỏ qua, không chặn việc học */ }
+  };
+
+  DB.getDailyLog = async function (userId) {
+    if (progressLocal()) {
+      try { return JSON.parse(localStorage.getItem(LS_DAILY)) || {}; } catch (e) { return {}; }
+    }
+    try {
+      var r = await DB.sb.from("daily_log").select("date,learned").eq("user_id", userId);
+      var out = {};
+      (r.data || []).forEach(function (row) { out[row.date] = { learned: row.learned }; });
+      return out;
+    } catch (e) { return {}; }
+  };
+
+  /* Tổng quan toàn app cho màn Journey: tổng từ, đã thuộc, block đã xong,
+     và số từ đang quá hạn ôn tập — kèm ngày quá hạn (để tô đỏ lịch). */
+  DB.getJourneySummary = async function (userId) {
+    if (progressLocal()) {
+      var d = local();
+      var wpByUser = d.word_progress.filter(function (r) { return r.user_id === userId; });
+      var bpByUser = d.block_progress.filter(function (r) { return r.user_id === userId; });
+      var wordsByBlock = {};
+      d.words.forEach(function (x) { wordsByBlock[x.block_id] = (wordsByBlock[x.block_id] || 0) + 1; });
+
+      var overdueByDate = {}, overdueWords = 0;
+      bpByUser.forEach(function (bp) {
+        var st = w.SRS.state(bp);
+        if (st.started && st.due && bp.next_review_at) {
+          var n = wordsByBlock[bp.block_id] || 0;
+          overdueWords += n;
+          var key = todayStr(bp.next_review_at);
+          overdueByDate[key] = (overdueByDate[key] || 0) + n;
+        }
+      });
+
+      return {
+        totalWords: d.words.length,
+        mastered: wpByUser.filter(function (r) { return r.mastered; }).length,
+        totalBlocks: d.blocks.length,
+        blocksDone: bpByUser.filter(function (r) { return r.passed || r.meaning_passed; }).length,
+        overdueWords: overdueWords,
+        overdueByDate: overdueByDate
+      };
+    }
+
+    /* Cloud: đếm bằng count query — chưa có số từ chính xác theo từng
+       block nên tạm coi mỗi block quá hạn là 10 từ (chuẩn WORDS_PER_BLOCK). */
+    try {
+      var perBlock = (w.APP_CONFIG && w.APP_CONFIG.WORDS_PER_BLOCK) || 10;
+      var qWords = await DB.sb.from("words").select("id", { count: "exact", head: true });
+      var qBlocks = await DB.sb.from("blocks").select("id", { count: "exact", head: true });
+      var qMastered = await DB.sb.from("word_progress").select("word_id", { count: "exact", head: true })
+        .eq("user_id", userId).eq("mastered", true);
+      var qDone = await DB.sb.from("block_progress").select("block_id", { count: "exact", head: true })
+        .eq("user_id", userId).or("passed.eq.true,meaning_passed.eq.true");
+      var qBp = await DB.sb.from("block_progress").select("block_id,cycle,next_review_at,passed").eq("user_id", userId).eq("passed", true);
+
+      var overdueByDate2 = {}, overdueWords2 = 0;
+      (qBp.data || []).forEach(function (bp) {
+        var st = w.SRS.state(bp);
+        if (st.started && st.due && bp.next_review_at) {
+          overdueWords2 += perBlock;
+          var key2 = todayStr(bp.next_review_at);
+          overdueByDate2[key2] = (overdueByDate2[key2] || 0) + perBlock;
+        }
+      });
+
+      return {
+        totalWords: qWords.count || 0, mastered: qMastered.count || 0,
+        totalBlocks: qBlocks.count || 0, blocksDone: qDone.count || 0,
+        overdueWords: overdueWords2, overdueByDate: overdueByDate2
+      };
+    } catch (e) {
+      return { totalWords: 0, mastered: 0, totalBlocks: 0, blocksDone: 0, overdueWords: 0, overdueByDate: {} };
+    }
   };
 
   /* ══════════════ SAO LƯU / PHỤC HỒI (chỉ chế độ local) ══════════════ */

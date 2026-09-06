@@ -204,7 +204,8 @@
     var totalWords = 0, doneBlocks = 0;
     list.forEach(function (b) {
       totalWords += App.wordsOf(b.id).length;
-      if (S.bp[b.id] && S.bp[b.id].passed) doneBlocks++;
+      var bpx = S.bp[b.id];
+      if (bpx && (bpx.passed || bpx.meaning_passed)) doneBlocks++;
     });
     w.$("#batch-sub").innerHTML =
       "<b>" + list.length + " block</b> • " + doneBlocks + "/" + list.length +
@@ -239,12 +240,14 @@
       var st = w.SRS.state(S.bp[b.id]);
       var mastered = ws.filter(function (x) { return S.wp[x.id] && S.wp[x.id].mastered; }).length;
 
-      /* "Done" = đã qua bài thi cuối bài với >= 80%, không phải chỉ học lướt qua */
+      /* "Done" = 1 trong 3 thẻ bài tập (Phiếu đầy đủ/Từng câu chung 1 kết
+         quả, hoặc Nghĩa riêng) đạt >= 80%, không phải chỉ học lướt qua. */
+      var bestOfAny = Math.max(bp.best_score || 0, bp.meaning_best || 0);
       var badge, badgeCls;
-      if (bp.passed) {
-        badge = "✓ Done · " + (bp.best_score || 0) + "%"; badgeCls = "";
-      } else if (bp.best_score) {
-        badge = "Chưa đạt · " + bp.best_score + "%"; badgeCls = " warn";
+      if (bp.passed || bp.meaning_passed) {
+        badge = "✓ Done · " + bestOfAny + "%"; badgeCls = "";
+      } else if (bestOfAny) {
+        badge = "Chưa đạt · " + bestOfAny + "%"; badgeCls = " warn";
       } else {
         badge = "Chưa thi"; badgeCls = " pending";
       }

@@ -813,7 +813,12 @@
         '<div class="single-explain">' + explainHtml + "</div>" +
       "</div>";
 
+    /* Câu cuối: KHÔNG cần bấm "Nộp bài" — trả lời xong (đúng hay sai) là
+       tự động chấm và hiện kết quả luôn, xem bindSingle(). */
     var last = D.si >= list.length - 1;
+    var lastActionHtml = last
+      ? (shown ? '<span class="exam-grading">⏳ Đang chấm điểm…</span>' : "")
+      : '<button class="btn-primary" id="sg-next">Câu tiếp →</button>';
     w.$("#single-card").innerHTML =
       '<div class="exam-bar-row">' +
         '<span class="exam-idx">CÂU ' + (D.si + 1) + " / " + list.length + "</span>" +
@@ -823,10 +828,17 @@
       body +
       '<div class="exam-actions">' +
         '<button class="btn-soft" id="sg-prev"' + (D.si === 0 ? " disabled" : "") + ">← Trước</button>" +
-        (last
-          ? '<button class="btn-primary" id="single-submit">Nộp bài</button>'
-          : '<button class="btn-primary" id="sg-next">Câu tiếp →</button>') +
+        lastActionHtml +
       "</div>";
+
+    /* Đã trả lời câu cuối (dù vừa chọn xong hay quay lại xem lại) ->
+       luôn có đúng 1 hẹn giờ đang chờ tự chấm điểm — đặt ở đây (mỗi lần
+       render) thay vì chỉ trong lúc bấm chọn, để bấm "← Trước" rồi quay
+       lại câu cuối vẫn tự chấm được, không bị kẹt ở "Đang chấm điểm". */
+    clearTimeout(D._autoNext);
+    if (last && shown) {
+      D._autoNext = setTimeout(function () { D.submitFinal(); }, g.ok ? 1100 : 1700);
+    }
 
     D.bindSingle();
   };
@@ -845,7 +857,7 @@
         D.renderSingle();
         if (g.ok) w.Speech.speakWord(g.term);
 
-        if (g.ok) {
+        if (D.si < ex.gaps.length - 1 && g.ok) {
           clearTimeout(D._autoNext);
           D._autoNext = setTimeout(function () {
             if (D.si < ex.gaps.length - 1) { D.si++; D.renderSingle(); }
@@ -853,10 +865,9 @@
         }
       };
     });
-    var p = w.$("#sg-prev"), n = w.$("#sg-next"), s = w.$("#single-submit");
+    var p = w.$("#sg-prev"), n = w.$("#sg-next");
     if (p) p.onclick = function () { clearTimeout(D._autoNext); D.si--; D.renderSingle(); };
     if (n) n.onclick = function () { clearTimeout(D._autoNext); D.si++; D.renderSingle(); };
-    if (s) s.onclick = function () { D.submitFinal(); };
   };
 
   D.singleResultActionsHtml = function () {
@@ -938,6 +949,9 @@
       try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
     }
 
+    /* Đạt ≥ 80% -> tính vào "số từ học hôm nay" cho màn Journey. */
+    if (passed) { try { await w.DB.bumpLearnedToday(w.Auth.user.id, ex.total); } catch (e) {} }
+
     D.renderSheet();
     D.renderSingle();
     D.renderStats();
@@ -997,7 +1011,12 @@
         '<div class="single-explain">' + explainHtml + "</div>" +
       "</div>";
 
+    /* Câu cuối: KHÔNG cần bấm "Nộp bài" — trả lời xong (đúng hay sai) là
+       tự động chấm và hiện kết quả luôn, xem bindMeaning(). */
     var last = D.mi >= ex.mc.length - 1;
+    var lastActionHtml = last
+      ? (shown ? '<span class="exam-grading">⏳ Đang chấm điểm…</span>' : "")
+      : '<button class="btn-primary" id="mn-next">Câu tiếp →</button>';
     w.$("#meaning-card").innerHTML =
       '<div class="exam-bar-row">' +
         '<span class="exam-idx">CÂU ' + (D.mi + 1) + " / " + ex.mc.length + "</span>" +
@@ -1007,10 +1026,15 @@
       body +
       '<div class="exam-actions">' +
         '<button class="btn-soft" id="mn-prev"' + (D.mi === 0 ? " disabled" : "") + ">← Trước</button>" +
-        (last
-          ? '<button class="btn-primary" id="meaning-submit">Nộp bài</button>'
-          : '<button class="btn-primary" id="mn-next">Câu tiếp →</button>') +
+        lastActionHtml +
       "</div>";
+
+    /* Giống Từng câu: đặt hẹn giờ tự chấm mỗi lần render nếu câu cuối đã
+       trả lời — để bấm "← Trước" rồi quay lại câu cuối vẫn tự chấm được. */
+    clearTimeout(D._autoNextMeaning);
+    if (last && shown) {
+      D._autoNextMeaning = setTimeout(function () { D.submitMeaning(); }, q.ok ? 1100 : 1700);
+    }
 
     D.bindMeaning();
   };
@@ -1029,7 +1053,7 @@
         D.renderMeaning();
         if (q.ok) w.Speech.speakWord(q.term);
 
-        if (q.ok) {
+        if (D.mi < ex.mc.length - 1 && q.ok) {
           clearTimeout(D._autoNextMeaning);
           D._autoNextMeaning = setTimeout(function () {
             if (D.mi < ex.mc.length - 1) { D.mi++; D.renderMeaning(); }
@@ -1037,10 +1061,9 @@
         }
       };
     });
-    var p = w.$("#mn-prev"), n = w.$("#mn-next"), s = w.$("#meaning-submit");
+    var p = w.$("#mn-prev"), n = w.$("#mn-next");
     if (p) p.onclick = function () { clearTimeout(D._autoNextMeaning); D.mi--; D.renderMeaning(); };
     if (n) n.onclick = function () { clearTimeout(D._autoNextMeaning); D.mi++; D.renderMeaning(); };
-    if (s) s.onclick = function () { D.submitMeaning(); };
   };
 
   D.meaningResultHtml = function (ex) {
@@ -1089,6 +1112,18 @@
       };
       S().wp[x.id] = Object.assign({}, prev, wpatch, { user_id: w.Auth.user.id, word_id: x.id });
       try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
+    }
+
+    /* Đạt ≥ 80% -> tính vào "số từ học hôm nay" cho màn Journey, y hệt
+       Phiếu đầy đủ / Từng câu — mỗi thẻ bài tập đều có giá trị như nhau.
+       Không đụng SRS/bp.passed (không đẩy chu kỳ ôn), nhưng vẫn đánh dấu
+       riêng "meaning_passed" — chỉ 1 trong 3 thẻ đạt 80% là Block đã Done. */
+    if (ex.score >= PASS_MARK) {
+      try { await w.DB.bumpLearnedToday(w.Auth.user.id, ex.total); } catch (e) {}
+      var bp0 = S().bp[D.blockId] || {};
+      var bpatch = { meaning_passed: true, meaning_best: Math.max(bp0.meaning_best || 0, ex.score) };
+      S().bp[D.blockId] = Object.assign({}, bp0, bpatch, { user_id: w.Auth.user.id, block_id: D.blockId });
+      try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, bpatch); } catch (e) {}
     }
 
     D.renderMeaning();
