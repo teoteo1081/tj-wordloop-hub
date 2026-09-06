@@ -271,15 +271,16 @@
               <button class="btn-primary" id="btn-use-pasted">✅ Dùng bài này</button>
               <button class="btn-soft" id="btn-ai-write">✨ Nhờ AI viết</button>
             </div>
+          </div>
 
-            <!-- Claude viết sẵn 3 bài khác nhau cho Block này (nếu có) —
-                 chọn 1 cái xem thử rồi mới quyết định dùng. -->
-            <div class="claude-picks" id="claude-picks" hidden>
-              <div class="claude-picks-label">✍️ Claude đã viết sẵn:</div>
-              <div class="claude-picks-tabs" id="claude-picks-tabs"></div>
-              <div class="claude-preview" id="claude-preview"></div>
-              <button class="btn-primary" id="btn-use-claude" hidden>✅ Dùng bài này</button>
-            </div>
+          <!-- Claude viết sẵn tối đa 3 bài khác nhau cho Block này (nếu có)
+               — LUÔN hiện khi có, kể cả khi bài đọc chính đã có sẵn (bạn tự
+               dán/AI sinh), để còn đổi qua bài Claude viết nếu muốn. -->
+          <div class="claude-picks" id="claude-picks" hidden>
+            <div class="claude-picks-label">✍️ Claude đã viết sẵn:</div>
+            <div class="claude-picks-tabs" id="claude-picks-tabs"></div>
+            <div class="claude-preview" id="claude-preview"></div>
+            <button class="btn-primary" id="btn-use-claude" hidden>✅ Dùng bài này</button>
           </div>
 
           <div class="glossary" id="passage-glossary"></div>

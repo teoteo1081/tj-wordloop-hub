@@ -252,6 +252,9 @@
     if (emptyBox) emptyBox.hidden = true;
     if (contentBox) contentBox.hidden = false;
     if (readModes) readModes.hidden = false;
+    /* Có bài đọc chính rồi vẫn hiện khu chọn Claude nếu Block có sẵn —
+       để đổi qua bài Claude viết ngay cả khi đang dùng bài tự dán/AI. */
+    D.renderClaudePicks(b);
 
     var meta = w.Context.parseMeta(raw);
     /* Chỉ hiện tiêu đề/nguồn khi bài đọc THẬT SỰ có (AI sinh, Claude viết,
