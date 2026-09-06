@@ -161,23 +161,36 @@
      Lỗi cũ: so vị trí của từ với khung đoạn văn (chứ không phải vùng nhìn
      thấy), nên gần như từ nào cũng gọi scrollIntoView("smooth") -> trang
      giật liên tục và cướp thao tác kéo chuột. Giờ:
-       · so với đúng khung cuộn (#workspace)
+       · tự dò khung CUỘN GẦN NHẤT chứa từ đó (bảng từ / đoạn văn giờ có
+         khung cuộn riêng, không còn chắc chắn là #workspace nữa)
        · chỉ cuộn khi từ đó THỰC SỰ ra khỏi tầm mắt
        · người dùng vừa tự cuộn trong 1,5 giây thì nhường, không cuộn      */
   var lastUserScroll = 0;
   S.noteUserScroll = function () { lastUserScroll = Date.now(); };
 
+  function scrollBoxOf(el) {
+    var node = el.parentElement;
+    while (node && node !== document.body) {
+      var cs = getComputedStyle(node);
+      if ((cs.overflowY === "auto" || cs.overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return document.getElementById("workspace");
+  }
+
   S.followWord = function (el) {
     if (!el) return;
     if (Date.now() - lastUserScroll < 1500) return;      /* đang tự kéo -> nhường */
 
-    var box = document.getElementById("workspace");
+    var box = scrollBoxOf(el);
     if (!box) return;
     var r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
     /* phần tử đang bị ẩn (chế độ từng câu/từng đoạn) có kích thước 0 —
        cuộn theo nó là trang nhảy loạn */
     if (r.height === 0 && r.width === 0) return;
-    var pad = 48;
+    var pad = Math.min(48, b.height / 3);
     if (r.top >= b.top + pad && r.bottom <= b.bottom - pad) return;   /* còn trong tầm mắt */
 
     /* cuộn thẳng, không "smooth" — smooth gọi liên tiếp là sinh ra giật */

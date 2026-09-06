@@ -486,9 +486,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .audio-toolbar{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;}
 .mini-select{background:var(--bg-raise);border:1px solid var(--border-hi);color:var(--text);border-radius:7px;padding:.38rem .5rem;font-size:.75rem;font-weight:600;}
 
-.table-wrap{overflow-x:auto;}
+/* Bảng từ vựng: bo trong 1 khung cao tối đa cố định, tự cuộn dọc riêng
+   (không kéo dài cả trang theo số từ) — tiêu đề cột dính lại khi cuộn
+   bên trong khung. Trên điện thoại bỏ giới hạn vì bảng đã đổi thành
+   danh sách thẻ đứng, cuộn chung cả trang tự nhiên hơn. */
+.table-wrap{overflow-x:auto;overflow-y:auto;max-height:420px;}
 .vocab-table{width:100%;border-collapse:collapse;font-size:.8rem;text-align:left;min-width:520px;}
-.vocab-table th{background:var(--bg-soft);color:var(--text-2);padding:.5rem .55rem;font-size:.7rem;border-bottom:1px solid var(--border);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+.vocab-table th{background:var(--bg-soft);color:var(--text-2);padding:.5rem .55rem;font-size:.7rem;border-bottom:1px solid var(--border);font-weight:700;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;z-index:1;}
 .vocab-table td{padding:.5rem .55rem;border-bottom:1px solid var(--border-soft);color:var(--text-1);vertical-align:top;}
 .vocab-table tr:last-child td{border-bottom:none;}
 .term-cell{display:flex;align-items:center;gap:.4rem;}
@@ -539,9 +543,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .vocab-table tbody tr:hover{background:var(--bg-raise);}
 .glossary b{color:var(--amber-l);}
 
-/* Passage + karaoke */
+/* Passage + karaoke — bo trong khung cao tối đa cố định, tự cuộn dọc
+   riêng thay vì kéo cả trang dài ra theo độ dài bài đọc. Tiêu đề/nguồn
+   (.src-tag, .piece) đứng trước và nút Trước/Sau (.read-nav) đứng sau đều
+   là anh em cùng cấp với .passage trong index.html nên tự nhiên nằm
+   NGOÀI vùng cuộn này — luôn thấy được, không cần sửa HTML gì thêm. */
 .passage{
   line-height:2;font-size:.92rem;color:var(--text-1);
+  max-height:420px;overflow-y:auto;padding-right:.5rem;
 }
 .passage p{margin:0 0 .8rem;}
 .passage p:last-child{margin-bottom:0;}
@@ -971,7 +980,11 @@ textarea:focus{border-color:var(--blue);}
      Trên điện thoại, bảng 5 cột bắt người học kéo ngang mới thấy
      cột "Nghĩa tiếng Việt" — đúng cột quan trọng nhất. Nên mỗi dòng
      được xếp lại thành một thẻ đứng, có nhãn ở đầu mỗi ô.          */
-  .table-wrap{overflow-x:visible;}
+  /* Điện thoại đã có card-list riêng bên dưới + cuộn chung cả trang —
+     khỏi lồng thêm 1 khung cuộn dọc nữa, dễ gây "cuộn trong cuộn" khó
+     điều khiển bằng ngón tay. Đoạn văn cũng vậy, để cuộn chung cả trang. */
+  .table-wrap{overflow-x:visible;overflow-y:visible;max-height:none;}
+  .passage{max-height:none;overflow-y:visible;padding-right:0;}
   .vocab-table{min-width:0;display:block;}
   .vocab-table thead{display:none;}
   .vocab-table tbody{display:block;}

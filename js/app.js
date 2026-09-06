@@ -1306,8 +1306,11 @@
       e.target.value = "";
     };
 
-    /* người dùng tự cuộn thì karaoke nhường, khỏi giật */
-    w.$("#workspace").addEventListener("scroll", function () { w.Speech.noteUserScroll(); }, { passive: true });
+    /* người dùng tự cuộn thì karaoke nhường, khỏi giật. Bắt ở PHA CAPTURE
+       để nghe được cả sự kiện "scroll" xảy ra bên trong khung con (bảng
+       từ / đoạn văn giờ tự cuộn riêng) — "scroll" không nổi bọt lên cha
+       như wheel/touchstart, phải bắt lúc nó đi xuống mới thấy được. */
+    w.$("#workspace").addEventListener("scroll", function () { w.Speech.noteUserScroll(); }, { passive: true, capture: true });
     w.$("#workspace").addEventListener("wheel", function () { w.Speech.noteUserScroll(); }, { passive: true });
     w.$("#workspace").addEventListener("touchstart", function () { w.Speech.noteUserScroll(); }, { passive: true });
 
