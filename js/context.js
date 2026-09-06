@@ -267,16 +267,30 @@
       return out;
     },
 
+    /* Mô tả độ khó cho 3 khe bài đọc — chữ trong đoạn văn XUNG QUANH từ
+       vựng khó/dễ khác nhau, còn số lượng/chọn từ vựng thì luôn giữ
+       nguyên (đề bài yêu cầu — không đổi cấp độ chính các từ đang học). */
+    DIFFICULTY: {
+      easy:   "DỄ (A2-B1): câu ngắn 10-15 từ, cấu trúc đơn giản, từ xung quanh (ngoài từ vựng đang học) đều là từ cơ bản thường gặp",
+      medium: "TRUNG BÌNH (B1-B2): câu 15-20 từ, có thể dùng mệnh đề phụ, từ xung quanh ở mức thông dụng-khá",
+      hard:   "KHÓ (B2-C1): câu dài 20-28 từ, dùng cấu trúc phức tạp (mệnh đề quan hệ, đảo ngữ, câu ghép nhiều vế), từ xung quanh nâng cao hơn"
+    },
+
     /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta).
        Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. Sinh
        MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
-       câu rời" — từ vựng chỉ là điểm neo xen giữa văn xuôi tự nhiên. */
-    generateAI: async function (words, cfg) {
+       câu rời" — từ vựng chỉ là điểm neo xen giữa văn xuôi tự nhiên.
+       difficulty: "easy" | "medium" | "hard" (mặc định "medium") — chỉ
+       ảnh hưởng ĐỘ KHÓ CÂU/TỪ XUNG QUANH, số từ vẫn ~500, vẫn đủ hết từ
+       vựng của Block như nhau ở cả 3 mức. */
+    generateAI: async function (words, cfg, difficulty) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
       if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
         throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
       }
+      var diffKey = w.Context.DIFFICULTY[difficulty] ? difficulty : "medium";
+      var diffDesc = w.Context.DIFFICULTY[diffKey];
 
       var wordList = words.map(function (x) {
         return "- " + x.term +
@@ -292,6 +306,8 @@
         "đoạn văn (ngăn cách bằng 1 dòng trống), có mạch truyện/chủ đề xuyên suốt do bạn TỰ CHỌN " +
         "theo đúng chủ đề của nhóm từ bên dưới (đừng lúc nào cũng là họp hành văn phòng — có thể " +
         "là một chuyến đi, chuyện gia đình, dự án học tập, thể thao, công nghệ, khoa học…).\n\n" +
+        "ĐỘ KHÓ của câu văn xung quanh (không phải độ khó của từ vựng cần học bên dưới, cái đó " +
+        "giữ nguyên): " + diffDesc + ".\n\n" +
         "Bài đọc PHẢI chứa TẤT CẢ các từ sau, mỗi từ xuất hiện ĐÚNG MỘT LẦN, NGUYÊN VĂN (không " +
         "chia động từ, không đổi số ít/nhiều), xen kẽ tự nhiên trong bài — KHÔNG dồn hết vào 1 " +
         "câu, KHÔNG viết kiểu mỗi từ 1 câu tách rời nhau, mà để bài đọc trôi chảy như văn viết " +
