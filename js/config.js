@@ -10,8 +10,8 @@
    Lấy 2 giá trị này ở: Supabase Dashboard > Project Settings > API
    ============================================================ */
 window.APP_CONFIG = {
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  SUPABASE_URL: "https://pqarpszsipbdugrumhfy.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxYXJwc3pzaXBiZHVncnVtaGZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDc0NTcsImV4cCI6MjEwNDI4MzQ1N30.zB6uvPPt-vQ78TVwPUTMmfulbFVz-lNz9F5RJF9owwc",
 
   APP_NAME: "TJ WordLoop Hub",
   WORDS_PER_BLOCK: 10,        // chuẩn 10 từ / block
