@@ -152,6 +152,16 @@
       throw new Error("File thư viện rỗng");
     }
 
+    /* Cột "cha" (tổ chức cây) của mỗi bảng — người dùng có thể tự CHUYỂN
+       (Notebook sang Hub khác, Section sang Notebook khác…) qua menu "⋯".
+       Trước đây trùng id là lấy NGUYÊN bản mới, xoá sạch chỗ người dùng
+       vừa chuyển tới — chuyển hub xong, gặp đúng lúc thư viện có bản mới
+       (như lần này), bấm Cập nhật là bay mất, tưởng đâu mất dữ liệu. */
+    var PARENT_FIELD = {
+      notebooks: "hub_id", sections: "notebook_id", pages: "section_id",
+      batches: "page_id", blocks: "batch_id", words: "block_id"
+    };
+
     var old = local();
     var inSeed = {};
     LIB.forEach(function (t) {
@@ -159,8 +169,26 @@
       var have = {};
       fresh.forEach(function (row) { have[row.id] = 1; });
       inSeed[t] = have;
+
+      var oldById = {};
+      (old[t] || []).forEach(function (row) { oldById[row.id] = row; });
+      var pField = PARENT_FIELD[t];
+
+      var merged = fresh.map(function (row) {
+        var localRow = oldById[row.id];
+        if (localRow && pField && localRow[pField] !== row[pField]) {
+          /* Người dùng đã tự chuyển mục này đi chỗ khác — giữ nguyên chỗ
+             họ đã chuyển tới, chỉ lấy nội dung mới (tên, định nghĩa,
+             phiên âm…) từ bản thư viện cho các cột còn lại. */
+          var r = Object.assign({}, row);
+          r[pField] = localRow[pField];
+          return r;
+        }
+        return row;
+      });
+
       var mine = (old[t] || []).filter(function (row) { return !have[row.id]; });
-      old[t] = fresh.concat(mine);          /* của tôi xếp sau, không mất */
+      old[t] = merged.concat(mine);          /* của tôi xếp sau, không mất */
     });
 
     /* Dọn xác của bản thư viện CŨ. Bản cũ để lại những Notebook / Section
