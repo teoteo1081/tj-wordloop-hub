@@ -192,7 +192,7 @@
 
     /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey) */
     _callGemini: async function (cfg, sys, user) {
-      var model = cfg.GEMINI_MODEL || "gemini-2.0-flash";
+      var model = cfg.GEMINI_MODEL || "gemini-3.6-flash";
       var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model +
                 ":generateContent?key=" + encodeURIComponent(cfg.GEMINI_API_KEY);
       var res = await fetch(url, {
