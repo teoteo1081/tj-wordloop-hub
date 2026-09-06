@@ -917,15 +917,12 @@
     return new Promise(function (resolve) {
       var m = w.$("#modal-pick");
       w.$("#pick-title").textContent = opts.title || "Chọn";
-      w.$("#pick-list").innerHTML = opts.options.map(function (o) {
-        return '<button class="user-row" data-pick="' + o.id + '">' + w.esc(o.name) + "</button>";
+      w.$("#pick-select").innerHTML = opts.options.map(function (o) {
+        return '<option value="' + w.esc(o.id) + '">' + w.esc(o.name) + "</option>";
       }).join("");
       m.hidden = false;
       function done(v) { m.hidden = true; resolve(v); }
-      w.$("#pick-list").onclick = function (e) {
-        var b = e.target.closest("[data-pick]");
-        if (b) done(b.dataset.pick);
-      };
+      w.$("#pick-ok").onclick = function () { done(w.$("#pick-select").value || null); };
       m.querySelector("[data-close]").onclick = function () { done(null); };
     });
   }
