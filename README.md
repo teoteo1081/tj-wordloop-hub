@@ -115,5 +115,5 @@ Icon 📊 trên thanh trên cùng, trước nút đổi giao diện. Nhìn xuyê
 
 ## Việc còn dang dở
 - **Đăng nhập thật (magic link) để đồng bộ tiến trình học** (đã thuộc từ nào, streak Journey) giữa các thiết bị — hiện chỉ kho từ vựng/bài đọc đồng bộ qua Supabase, tiến trình vẫn theo từng máy.
-- **Viết bài đọc tay cho các Block còn lại** của notebook "TJ HUB TEST" (mới xong Block 102, 106 — làm mẫu) — theo yêu cầu: mỗi Block 3 bài ~500 từ khác nhau (không phải phân theo độ khó), lưu vào `context_passage_candidates`, KHÔNG tự động áp dụng, để người dùng chọn qua nút "Claude 1/2/3".
+- **Viết bài đọc tay cho các Block còn lại** của notebook **"TOEIC_COLOCATION"** (đổi tên từ "TJ HUB TEST", section id `nb_toeic_s2`, 60 Block đã renumber lại **Block 1 → Block 60**; mới xong **Block 1** và **Block 5** — làm mẫu) — theo yêu cầu: mỗi Block 3 bài ~500 từ khác nhau (không phải phân theo độ khó), lưu vào `context_passage_candidates`, KHÔNG tự động áp dụng, để người dùng chọn qua nút "Claude 1/2/3".
 - **Data quality**: `data/starter.json` (kho mẫu ban đầu) đã được 1 subagent rà soát và sửa 4 notebook bị lỗi xáo trộn cột — còn vài quyết định treo (gán CEFR cho 600 collocation TOEIC, xử lý các dòng "bảng tham chiếu" lẫn trong bảng words) cần người dùng tự quyết, xem log commit tương ứng.
