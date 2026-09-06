@@ -93,6 +93,9 @@
 
 *{box-sizing:border-box;}
 html,body{height:100%;}
+/* Cỡ chữ toàn app: đa số CSS ở đây dùng rem (ăn theo font-size của html),
+   nên chỉnh 1 chỗ này là cả app to/nhỏ theo, không cần sửa từng nơi. */
+html{font-size:calc(16px * var(--font-scale, 1));}
 body{
   margin:0;padding:0;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -166,6 +169,29 @@ button{font-family:inherit;}
 }
 .menu-item:hover{background:var(--bg-deep);color:var(--text);}
 .menu-item.danger:hover{color:var(--red-l);}
+
+/* Cỡ chữ + màu nhấn — nằm ngay trong menu người dùng */
+.menu-sec-title{
+  font-size:.66rem;font-weight:800;color:var(--text-3);text-transform:uppercase;
+  letter-spacing:.06em;padding:.3rem .55rem .1rem;
+}
+.menu-row{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  padding:.35rem .55rem;font-size:.82rem;color:var(--text-2);
+}
+.font-ctl{display:flex;align-items:center;gap:.4rem;}
+.font-pct{font-size:.72rem;font-weight:700;color:var(--text-3);min-width:2.6em;text-align:center;}
+.accent-dots{display:flex;gap:.4rem;}
+.accent-dot{
+  width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;
+  background:var(--dot-blue,#3b82f6);
+}
+.accent-dot[data-accent="green"]{background:#10b981;}
+.accent-dot[data-accent="purple"]{background:#8b5cf6;}
+.accent-dot[data-accent="orange"]{background:#f97316;}
+.accent-dot[data-accent="pink"]{background:#ec4899;}
+.accent-dot:hover{transform:scale(1.12);}
+.accent-dot.on{border-color:var(--text);}
 
 /* ═══════════ LAYOUT ═══════════ */
 .app-container{flex:1;display:flex;overflow:hidden;min-height:0;}
@@ -935,6 +961,11 @@ textarea:focus{border-color:var(--blue);}
   padding:.65rem .8rem;border-radius:8px;font-size:.9rem;outline:none;
 }
 .text-input:focus{border-color:var(--blue);}
+/* Hộp xuất PDF */
+.export-size-row{display:flex;gap:1rem;flex-wrap:wrap;font-size:.85rem;color:var(--text-2);}
+.export-size-row label{display:flex;align-items:center;gap:.35rem;cursor:pointer;}
+#export-scope-list .user-row{cursor:pointer;}
+#export-scope-list .user-row input{margin-right:.2rem;}
 .emoji-row{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem;}
 .emoji-row[hidden]{display:none;}
 .emoji-pick{
@@ -1117,4 +1148,46 @@ textarea:focus{border-color:var(--blue);}
   .mobile-nav button span{font-size:.62rem;font-weight:700;}
   .mobile-nav button.active{color:var(--blue-l);}
   .toast-wrap{bottom:4.5rem;}
+}
+
+/* ═══════════ IN PDF (window.print, xem js/export.js) ═══════════
+   #print-root ẩn lúc xem thường ([hidden] mặc định của trình duyệt).
+   Lúc in: hiện nó lên, ẩn HẾT mọi thứ khác của trang — chỉ còn đúng nội
+   dung sạch, chữ to, giấy trắng chữ đen (không theo theme sáng/tối đang
+   chọn trên web, in giấy thì luôn cần tương phản cao). */
+@media print{
+  @page{margin:1.6cm;}
+  html{font-size:16px;}   /* bỏ qua cỡ chữ đang chỉnh trên web, in theo cỡ chuẩn */
+  body > *:not(#print-root){display:none !important;}
+  #print-root{
+    display:block !important;
+    background:#fff;color:#111;
+    font-family:Georgia,"Times New Roman",serif;
+    line-height:1.65;
+  }
+  #print-root.print-normal{font-size:13pt;}
+  #print-root.print-large{font-size:17pt;}
+  #print-root.print-xl{font-size:21pt;}
+
+  .pv-cover{text-align:center;padding:3em 0 2em;border-bottom:2px solid #333;margin-bottom:1.5em;}
+  .pv-cover h1{font-size:2em;margin:0 0 .3em;}
+  .pv-cover-sub{font-size:.75em;color:#555;}
+
+  .pv-block{page-break-after:always;}
+  .pv-block:last-child{page-break-after:auto;}
+  .pv-block h2{font-size:1.5em;border-bottom:1px solid #999;padding-bottom:.25em;margin:0 0 .7em;}
+
+  .pv-table{width:100%;border-collapse:collapse;margin:0 0 1.4em;font-size:.72em;}
+  .pv-table th,.pv-table td{border:1px solid #999;padding:.4em .55em;text-align:left;vertical-align:top;}
+  .pv-table th{background:#eee;}
+
+  .pv-passage-title{font-size:1.2em;margin:0 0 .5em;}
+  .pv-passage p{margin:0 0 1em;orphans:3;widows:3;}
+
+  .pv-glossary{margin-top:1.2em;padding-top:.8em;border-top:1px dashed #999;font-size:.8em;}
+  .pv-glossary-title{
+    font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+    font-size:.85em;margin-bottom:.5em;color:#555;
+  }
+  .pv-glossary div{margin-bottom:.4em;}
 }

@@ -766,6 +766,7 @@
       m.querySelector("[data-close]").onclick = function () { done(false); };
     });
   }
+  App.askConfirm = askConfirm;   /* export.js cũng cần dùng hộp xác nhận này */
 
   /* ══════════════ ĐÁNH LẠI SỐ THỨ TỰ ══════════════
      Đổi chỗ hai giá trị `sort` chỉ đúng khi mọi mục đều có sort riêng biệt.
@@ -1001,6 +1002,70 @@
   function closeFlyouts() {
     w.$("#sidebar-left").classList.remove("flyout");
     w.$("#sidebar-right").classList.remove("flyout");
+  }
+
+  /* ══════════════ CỠ CHỮ TOÀN APP ══════════════
+     Đổi font-size của <html> — hầu hết CSS trong app dùng đơn vị rem nên
+     ăn theo cái này, không cần sửa từng chỗ. */
+  var LS_FONT = "tjwl_fontscale_v1";
+  var FONT_MIN = 0.85, FONT_MAX = 1.4, FONT_STEP = 0.1;
+
+  function readFontScale() {
+    try { return parseFloat(localStorage.getItem(LS_FONT)) || 1; } catch (e) { return 1; }
+  }
+  var fontScale = readFontScale();
+
+  function applyFontScale() {
+    document.documentElement.style.setProperty("--font-scale", fontScale.toFixed(2));
+    var pct = w.$("#font-pct");
+    if (pct) pct.textContent = Math.round(fontScale * 100) + "%";
+  }
+
+  function stepFont(delta) {
+    fontScale = Math.max(FONT_MIN, Math.min(FONT_MAX, +(fontScale + delta).toFixed(2)));
+    try { localStorage.setItem(LS_FONT, fontScale); } catch (e) {}
+    applyFontScale();
+  }
+
+  /* ══════════════ MÀU NHẤN (ACCENT) ══════════════
+     Đổi 4 biến --blue* ở gốc :root bằng style inline — thắng mọi rule
+     trong stylesheet (kể cả bản sáng/tối riêng), nên đổi 1 chỗ là toàn
+     app đổi theo, không phải sửa lại theme. "Mặc định" = gỡ inline style,
+     app tự dùng lại màu gốc của từng theme. */
+  var LS_ACCENT = "tjwl_accent_v1";
+  var ACCENTS = {
+    blue:   { c: "#3b82f6", l: "#60a5fa", hi: "#2563eb", sub: "rgba(59,130,246,.15)" },
+    green:  { c: "#10b981", l: "#34d399", hi: "#059669", sub: "rgba(16,185,129,.15)" },
+    purple: { c: "#8b5cf6", l: "#a78bfa", hi: "#7c3aed", sub: "rgba(139,92,246,.15)" },
+    orange: { c: "#f97316", l: "#fb923c", hi: "#ea580c", sub: "rgba(249,115,22,.15)" },
+    pink:   { c: "#ec4899", l: "#f472b6", hi: "#db2777", sub: "rgba(236,72,153,.15)" }
+  };
+
+  function readAccent() {
+    try { return localStorage.getItem(LS_ACCENT) || "blue"; } catch (e) { return "blue"; }
+  }
+  var accent = readAccent();
+
+  function applyAccent() {
+    var root = document.documentElement.style;
+    var a = ACCENTS[accent];
+    if (!a || accent === "blue") {
+      /* "blue" trùng mặc định của cả 2 theme -> gỡ override cho sạch */
+      root.removeProperty("--blue"); root.removeProperty("--blue-l");
+      root.removeProperty("--blue-hi"); root.removeProperty("--blue-sub");
+    } else {
+      root.setProperty("--blue", a.c); root.setProperty("--blue-l", a.l);
+      root.setProperty("--blue-hi", a.hi); root.setProperty("--blue-sub", a.sub);
+    }
+    w.$$(".accent-dot").forEach(function (d) {
+      d.classList.toggle("on", d.dataset.accent === accent);
+    });
+  }
+
+  function setAccent(name) {
+    accent = ACCENTS[name] ? name : "blue";
+    try { localStorage.setItem(LS_ACCENT, accent); } catch (e) {}
+    applyAccent();
   }
 
   /* ══════════════ KÉO GIÃN ĐỘ RỘNG CỘT NOTEBOOKS / PAGES ══════════════
@@ -1280,6 +1345,9 @@
       }
     };
 
+    /* --- xuất PDF --- */
+    w.$("#mi-print").onclick = function () { menu.hidden = true; w.Export.openModal(); };
+
     /* --- sao lưu / phục hồi --- */
     w.$("#mi-export").onclick = function () {
       menu.hidden = true;
@@ -1347,6 +1415,15 @@
     applyWidths();
     bindResizer("#resizer-left", "left");
     bindResizer("#resizer-right", "right");
+
+    /* --- cỡ chữ + màu nhấn (trong menu người dùng) --- */
+    applyFontScale();
+    applyAccent();
+    w.$("#font-dec").onclick = function () { stepFont(-FONT_STEP); };
+    w.$("#font-inc").onclick = function () { stepFont(FONT_STEP); };
+    w.$$(".accent-dot").forEach(function (d) {
+      d.onclick = function () { setAccent(d.dataset.accent); };
+    });
     /* Không dùng stopPropagation trên cột — làm vậy sẽ chặn luôn sự kiện
        lên tới document, khiến nút ⋯ trong cột không mở được bảng thao tác.
        Thay vào đó chỉ cần bỏ qua khi cú bấm nằm trong cột. */
