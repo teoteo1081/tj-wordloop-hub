@@ -475,7 +475,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .tab-pane.active{display:flex;}
 
 /* Điều hướng Batch trước/sau ngay trong tab Bài học */
-.batch-nav{display:flex;align-items:center;gap:.6rem;}
+/* Dính lại khi cuộn xuống bài đọc dài — khỏi phải kéo lên đầu mới bấm
+   được Block trước/sau. Nền đặc trùng màu nền trang nên không lộ viền
+   khi dính (2 bên vốn đã cùng màu với phần đệm của #workspace). */
+.batch-nav{
+  display:flex;align-items:center;gap:.6rem;
+  position:sticky;top:0;z-index:6;background:var(--bg-main);
+  padding:.5rem 0 .6rem;margin-bottom:-.2rem;
+}
 .batch-nav .bn-pos{flex:1;text-align:center;font-size:.78rem;font-weight:700;color:var(--text-2);}
 .batch-nav .btn-soft:disabled{opacity:.4;cursor:default;}
 
@@ -527,12 +534,27 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   background:var(--bg-soft);border:1.5px dashed var(--border-hi);border-radius:12px;padding:1rem 1.2rem;
 }
 .src-tag{display:block;font-size:.72rem;color:var(--text-3);font-style:italic;margin-bottom:.5rem;}
-.piece{font-size:1rem;font-weight:800;color:var(--amber-l);margin:0 0 .6rem;}
+.piece-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:0 0 .6rem;}
+.piece{font-size:1rem;font-weight:800;color:var(--amber-l);margin:0;}
+/* Cho biết ngay bài đang xem là AI sinh hay bài mẫu có sẵn — trước đây
+   chỉ khác ở câu chữ nhỏ trong .src-tag, rất dễ lướt qua không để ý. */
+.ai-badge{font-size:.64rem;font-weight:800;padding:.1rem .5rem;border-radius:999px;border:1px solid var(--border-hi);color:var(--text-2);white-space:nowrap;}
+.ai-badge:empty{display:none;}
+.ai-badge.ai{color:var(--green-l);border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.1);}
+.ai-badge.tpl{color:var(--amber-l);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.1);}
 .glossary{
   background:var(--bg-hover);border:1px solid var(--border-soft);border-radius:8px;
   padding:.75rem 1rem;margin-top:.7rem;font-size:.8rem;line-height:1.65;
 }
-.glossary .g-title{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:.4rem;}
+.glossary .g-title-row{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.4rem;}
+.glossary .g-title{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);}
+/* Copy kiểu code-block: nút nhỏ ở góc, copy nguyên khối glossary */
+.g-copy{
+  background:transparent;border:1px solid var(--border);color:var(--text-2);
+  font-size:.66rem;font-weight:700;padding:.15rem .55rem;border-radius:6px;cursor:pointer;flex-shrink:0;
+}
+.g-copy:hover{color:var(--text);border-color:var(--border-hi);}
+.g-copy.done{color:var(--green-l);border-color:rgba(16,185,129,.4);}
 /* cả dòng đều bấm được để mở bảng tra từ */
 .glossary div.g-row{
   margin-bottom:.15rem;color:var(--text-2);cursor:pointer;

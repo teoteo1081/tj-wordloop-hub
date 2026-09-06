@@ -187,11 +187,20 @@
     if (forceNew || !b.context_passage) {
       var cfg2 = w.APP_CONFIG || {};
       var madeWithAI = false;
+      var willTryAI = !!(cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY);
+
+      /* AI mất vài giây (bài ~500 từ) — báo ngay để khỏi tưởng app đứng. */
+      if (willTryAI) {
+        w.$("#passage-title").textContent = "Đang nhờ AI viết bài đọc mới…";
+        w.$("#passage").innerHTML = '<p style="color:var(--text-3);font-style:italic">⏳ Đang sinh bài đọc bằng AI, chờ vài giây…</p>';
+        w.$("#passage-glossary").innerHTML = "";
+      }
+
       /* Có key Gemini hoặc OpenAI (js/keys.local.js) -> nhờ AI viết văn
          thật, mỗi lần một bối cảnh khác nhau, không còn trùng khuôn mẫu.
          Lỗi mạng / hết credit / chưa cấu hình key -> tự rơi về bộ mẫu câu
          có sẵn, không chặn người học. */
-      if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
+      if (willTryAI) {
         try {
           b.context_passage = await w.Context.generateAI(ws, cfg2);
           madeWithAI = true;
@@ -200,7 +209,7 @@
              là đã tự dùng bài mẫu — tránh giật mình mỗi lần mở Block mới
              trong lúc key OpenAI chưa có credit / mất mạng. */
           console.warn("Sinh bài đọc bằng AI thất bại, dùng mẫu có sẵn:", e);
-          w.toast("AI chưa sẵn sàng — đang dùng bài đọc mẫu", "ok");
+          w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — đang dùng bài đọc mẫu", "err");
         }
       }
       if (!madeWithAI) {
@@ -216,15 +225,24 @@
     var seed = (b.global_index || 1) * 3;
     w.$("#passage-title").textContent = meta.title || w.Context.titleFor(seed);
     w.$("#passage-src").textContent = meta.source || w.Context.sourceFor(seed);
+    /* Nhãn nhỏ để BIẾT NGAY bài đang xem là AI sinh hay bài mẫu có sẵn —
+       trước đây chỉ khác nhau ở câu chữ nhỏ trong .src-tag, rất dễ bỏ qua. */
+    var badge = w.$("#passage-ai-badge");
+    if (badge) {
+      badge.textContent = meta.ai ? "✨ AI" : "📄 Mẫu có sẵn";
+      badge.className = "ai-badge" + (meta.ai ? " ai" : " tpl");
+    }
 
     var built = w.Context.build(meta.marked);
     D._passagePlain = built.plain;
     w.$("#passage").innerHTML = built.html;
 
-    /* Glossary cuối bài đọc — lấy thẳng định nghĩa tiếng Anh thật của từ */
+    /* Glossary cuối bài đọc — lấy thẳng định nghĩa tiếng Anh thật của từ.
+       Có nút Copy kiểu code-block để copy nguyên khối ra dán chỗ khác. */
     var withDef = ws.filter(function (x) { return x.def_en; });
     w.$("#passage-glossary").innerHTML = withDef.length
-      ? '<div class="g-title">Glossary — từ khoá trong bài</div>' +
+      ? '<div class="g-title-row"><span class="g-title">Glossary — từ khoá trong bài</span>' +
+          '<button class="g-copy" id="glossary-copy" title="Copy glossary">📋 Copy</button></div>' +
         withDef.map(function (x) {
           return '<div class="g-row"><b>' + w.esc(x.term) + "</b> — " + w.esc(x.def_en) +
                  (x.meaning_vi ? " <i>(" + w.esc(x.meaning_vi) + ")</i>" : "") + "</div>";
@@ -1035,10 +1053,23 @@
       D.startFinal();
       w.$("#workspace").scrollTop = 0;
     };
-    w.$("#btn-regen").onclick = function () {
+    w.$("#btn-regen").onclick = async function () {
+      /* Trước đây gọi renderPassage(true) không "await" nên toast "Đã tạo
+         đoạn văn mới" hiện ra NGAY LẬP TỨC dù AI (mất vài giây) còn đang
+         chạy phía sau — nhìn như app không làm gì rồi mới đổi. Giờ chờ
+         xong hẳn mới báo, và khoá nút lại tránh bấm chồng nhiều lần. */
+      var btn = this;
       w.Speech.stop();
-      D.renderPassage(true);
-      w.toast("Đã tạo đoạn văn mới");
+      btn.disabled = true;
+      var oldText = btn.textContent;
+      btn.textContent = "⏳ Đang tạo...";
+      try {
+        await D.renderPassage(true);
+        w.toast("Đã tạo đoạn văn mới");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
     };
     w.$("#speed-select").onchange = function (e) { w.Speech.setRate(e.target.value); };
 
@@ -1092,6 +1123,24 @@
       if (b) w.Reader.open(b.textContent.trim(), "");
     });
     w.$("#passage-glossary").addEventListener("click", function (e) {
+      var copyBtn = e.target.closest("#glossary-copy");
+      if (copyBtn) {
+        var text = w.$$("#passage-glossary .g-row").map(function (r) {
+          return r.textContent.replace(/\s+/g, " ").trim();
+        }).join("\n");
+        var done = function () {
+          copyBtn.textContent = "✓ Đã copy"; copyBtn.classList.add("done");
+          setTimeout(function () { copyBtn.textContent = "📋 Copy"; copyBtn.classList.remove("done"); }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            w.toast("Trình duyệt chặn copy tự động", "err");
+          });
+        } else {
+          w.toast("Trình duyệt này không hỗ trợ copy tự động", "err");
+        }
+        return;
+      }
       var row = e.target.closest(".g-row");
       if (!row) return;
       var b = row.querySelector("b");
