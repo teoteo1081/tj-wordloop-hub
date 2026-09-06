@@ -14,7 +14,15 @@
 
   var LS_DB = "tjwl_db_v1";
   var LS_VER = "tjwl_starter_ver_v1";   /* vân tay thư viện đang giữ trong máy */
+  var LS_DELETED = "tjwl_deleted_ids_v1";   /* "mộ bia" — id đã xoá hẳn, đừng bao giờ hồi sinh lại */
   var cfg = w.APP_CONFIG || {};
+
+  function readDeletedSet() {
+    try { return JSON.parse(localStorage.getItem(LS_DELETED)) || {}; } catch (e) { return {}; }
+  }
+  function saveDeletedSet(set) {
+    try { localStorage.setItem(LS_DELETED, JSON.stringify(set)); } catch (e) {}
+  }
 
   var DB = {
     mode: "local",     // "local" | "cloud"  -> kho từ vựng nằm ở đâu
@@ -142,6 +150,7 @@
 
   /* Nạp thư viện mới nhưng KHÔNG xoá công sức của người học:
        · bảng tiến trình (word_progress, block_progress) giữ nguyên
+       · mục nào đã bị người dùng XOÁ HẲN (có "mộ bia") thì không hồi sinh lại
        · mục nào người dùng tự tạo (id không có trong bản mới) cũng giữ lại
        · mục nào trùng id thì lấy bản mới (tên bài, từ vựng đã sửa lại) */
   DB.applyStarter = async function () {
@@ -162,10 +171,11 @@
       batches: "page_id", blocks: "batch_id", words: "block_id"
     };
 
+    var tomb = readDeletedSet();   /* id nào bạn đã tự xoá thì đừng bao giờ hồi sinh lại */
     var old = local();
     var inSeed = {};
     LIB.forEach(function (t) {
-      var fresh = Array.isArray(seed[t]) ? seed[t] : [];
+      var fresh = (Array.isArray(seed[t]) ? seed[t] : []).filter(function (row) { return !tomb[row.id]; });
       var have = {};
       fresh.forEach(function (row) { have[row.id] = 1; });
       inSeed[t] = have;
@@ -501,10 +511,10 @@
     blocks:    ["words", "block_id"]
   };
 
-  function removeLocalDeep(table, ids) {
+  function removeLocalDeep(table, ids, tomb) {
     var d = local();
     if (!d[table] || !ids.length) return;
-    var set = {}; ids.forEach(function (i) { set[i] = 1; });
+    var set = {}; ids.forEach(function (i) { set[i] = 1; tomb[i] = 1; });
     d[table] = d[table].filter(function (r) { return !set[r.id]; });
 
     var kid = CHILD[table];
@@ -512,12 +522,19 @@
     var childTable = kid[0], fk = kid[1];
     var childIds = (d[childTable] || []).filter(function (r) { return set[r[fk]]; })
                                         .map(function (r) { return r.id; });
-    removeLocalDeep(childTable, childIds);
+    removeLocalDeep(childTable, childIds, tomb);
   }
 
   DB.remove = async function (table, id) {
     if (DB.mode === "local") {
-      removeLocalDeep(table, [id]);
+      /* Ghi "mộ bia" cho id vừa xoá (và mọi con cháu bị xoá theo) — để
+         applyStarter() sau này biết mà KHÔNG hồi sinh lại nếu id đó nằm
+         trong bản thư viện gốc. Không ghi thì: xoá 1 Notebook gốc, sau
+         đó gặp "Thư viện có bản mới" và bấm Đồng ý -> nó sống lại, tưởng
+         đâu app không lưu được thao tác xoá của mình. */
+      var tomb = readDeletedSet();
+      removeLocalDeep(table, [id], tomb);
+      saveDeletedSet(tomb);
       saveLocal();
       return true;
     }
