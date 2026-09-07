@@ -371,6 +371,81 @@
   }
   App.leaveDetail = leaveDetail;
 
+  /* Đưa S (Hub/Notebook đang mở) về đúng Notebook chứa 1 mục nào đó, KHÔNG
+     đổi màn hình hay Section/Page/Batch đang chọn bên trong Notebook đó.
+     Dùng trước khi mở context-menu (App.openMenu/doAction) cho 1 dòng lấy
+     từ nơi khác S (vd cây "🌳 Chi tiết" trong Journey — S chỉ giữ dữ liệu
+     của Notebook ĐANG MỞ, xem quy ước ở đầu app.js) — nếu không đổi S
+     trước, doAction tìm dòng trong S.sections/pages/batches/blocks sẽ ra
+     "không tìm thấy" vì dòng đó thuộc Notebook khác. */
+  App.ensureNotebookContext = async function (hubId, notebookId) {
+    if (hubId && S.hubId !== hubId) {
+      S.hubId = hubId;
+      S.notebooks = await w.DB.getNotebooks(hubId);
+    }
+    if (notebookId && S.notebookId !== notebookId) {
+      S.notebookId = notebookId;
+      await loadNotebook(notebookId);
+    }
+  };
+
+  /* Nhảy thẳng từ bất kỳ đâu (vd cây "🌳 Chi tiết" trong Journey) vào đúng
+     chỗ đó trên màn học chính — tương đương tự bấm qua từng cấp Hub >
+     Notebook > Section > Page > Batch > (mở Block nếu có). Bất kỳ cấp nào
+     bỏ trống thì giữ lựa chọn mặc định (Section/Page/Batch đầu tiên) như
+     lúc mới mở Notebook đó. */
+  App.jumpTo = async function (opts) {
+    opts = opts || {};
+    w.Speech.stop();
+    await App.ensureNotebookContext(opts.hubId, opts.notebookId);
+    /* Nhảy tới 1 Hub mà không chỉ rõ Notebook (vd bấm "↗" ngay ở dòng Hub
+       trong cây Journey) -> mở Notebook ĐẦU TIÊN của Hub đó, giống hệt
+       hành vi bấm thẳng vào tab Hub ở thanh trên. Thiếu bước này thì
+       S.notebookId/sections/pages/batches/blocks vẫn còn của Notebook cũ
+       (có thể thuộc Hub khác) trong khi S.hubId đã đổi -> lệch dữ liệu. */
+    if (opts.hubId && !opts.notebookId) {
+      S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+      if (S.notebookId) await loadNotebook(S.notebookId); else clearContent();
+    }
+    if (opts.sectionId) {
+      S.sectionId = opts.sectionId;
+      var pgs = pagesOfSection(S.sectionId);
+      S.pageId = opts.pageId || (pgs.length ? pgs[0].id : null);
+    }
+    if (opts.pageId) {
+      S.pageId = opts.pageId;
+      var bts = batchesOfPage(S.pageId);
+      S.batchId = opts.batchId || (bts.length ? bts[0].id : null);
+    }
+    if (opts.batchId) S.batchId = opts.batchId;
+
+    saveSel();
+    leaveDetail();
+    renderAll();
+    closeDrawers();
+    w.$("#screen-journey").hidden = true;
+    w.$("#btn-learning").hidden = true;
+
+    if (opts.blockId) w.Detail.open(opts.blockId);
+  };
+
+  /* ══════════════ BỘ ĐẾM TỔNG SỐ TỪ (góc phải thanh trên cùng) ══════════════
+     Luôn hiện, mọi màn hình — không chỉ trong Journey. Chỉ SƠN lại DOM
+     (setWordCounter), việc TRUY VẤN số liệu thật (refreshWordCounter) tách
+     riêng để chỗ nào đã có sẵn summary (vd journey.js) khỏi phải gọi lại. */
+  App.setWordCounter = function (mastered, total) {
+    var el = w.$("#word-counter");
+    if (!el) return;
+    el.textContent = "📚 " + (mastered || 0).toLocaleString("vi-VN") + " / " + (total || 0).toLocaleString("vi-VN");
+  };
+  App.refreshWordCounter = async function () {
+    if (!w.Auth.user) { App.setWordCounter(0, 0); return; }
+    try {
+      var s = await w.DB.getJourneySummary(w.Auth.user.id);
+      App.setWordCounter(s.mastered, s.totalWords);
+    } catch (e) { /* offline/lỗi mạng -> giữ số cũ, không chặn app */ }
+  };
+
   function renderAll() {
     /* chốt chặn: block đang mở mà không còn trong dữ liệu hiện tại thì đóng lại */
     if (w.Detail && w.Detail.blockId &&
@@ -1741,6 +1816,7 @@
     w.Auth.onChange(async function () {
       await loadProgress();
       renderAll();
+      App.refreshWordCounter();
     });
 
     S.hubs = await w.DB.getHubs();
@@ -1755,6 +1831,8 @@
 
     renderAll();
     bind();
+    App.refreshWordCounter();
+    w.$("#word-counter").onclick = function () { w.Journey.open(); };
 
     if (mode === "local") {
       console.info("[TJ WordLoop] Đang chạy CHẾ ĐỘ LOCAL. Muốn dùng chung: điền js/config.js.");

@@ -30,6 +30,7 @@
     <button class="btn-learning" id="btn-learning" title="Quay lại trang đang học" hidden>📖 Learning</button>
     <button class="theme-btn" id="theme-btn" title="Đổi giao diện sáng / tối">🌙</button>
     <span class="mode-pill" id="mode-pill" title="Chế độ lưu dữ liệu">…</span>
+    <span class="word-counter" id="word-counter" title="Tổng số từ đã thuộc / Tổng số từ trong kho — bấm để xem Journey">📚 … / …</span>
 
     <button class="user-chip" id="user-chip" aria-haspopup="true" aria-expanded="false">
       <span class="avatar" id="user-avatar">🐣</span>
@@ -332,22 +333,27 @@
       </div>
     </section>
 
-    <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày ===== -->
+    <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày + cây tiến độ ===== -->
     <section id="screen-journey" hidden>
-      <button class="btn-ghost" id="btn-journey-back">← Về học tiếp</button>
+      <div class="journey-topbar">
+        <button class="btn-ghost" id="btn-journey-back">← Về học tiếp</button>
+        <button class="btn-ghost" id="journey-refresh" title="Tải lại số liệu">⟳ Tải lại</button>
+      </div>
+
+      <div class="journey-crumb" id="journey-crumb"><!-- JS --></div>
 
       <div class="card journey-overview">
-        <div class="card-title">📊 Tổng quan</div>
+        <div class="card-title" id="journey-scope-title">📊 Tổng quan — Toàn bộ</div>
         <div class="journey-stats-row">
-          <div class="jstat"><div class="jstat-num" id="j-words">0</div><div class="jstat-label">Đã thuộc / Tổng từ</div></div>
-          <div class="jstat"><div class="jstat-num" id="j-blocks">0</div><div class="jstat-label">Block đã xong</div></div>
-          <div class="jstat overdue"><div class="jstat-num" id="j-overdue">0</div><div class="jstat-label">Từ đang quá hạn ôn</div></div>
+          <div class="jstat"><div class="jstat-num" id="j-words">0</div><div class="jstat-label" id="j-words-label">Đã thuộc / Tổng từ</div></div>
+          <div class="jstat"><div class="jstat-num" id="j-blocks">0</div><div class="jstat-label">Block đã Done</div></div>
+          <div class="jstat overdue"><div class="jstat-num" id="j-overdue">0</div><div class="jstat-label" id="j-overdue-label">Từ đang quá hạn ôn</div></div>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="journey-cal-card">
         <div class="card-title-row">
-          <div class="card-title">🗓️ Lịch học</div>
+          <div class="card-title">🗓️ Lịch học 28 ngày (toàn app)</div>
           <div class="journey-legend">
             <span><i class="jdot learn"></i> Có học</span>
             <span><i class="jdot due"></i> Quá hạn</span>
@@ -355,6 +361,11 @@
           </div>
         </div>
         <div class="journey-cal" id="journey-cal"><!-- JS --></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="journey-list-title">🗂 Hub</div>
+        <div class="journey-tree" id="journey-tree"><!-- JS --></div>
       </div>
     </section>
 

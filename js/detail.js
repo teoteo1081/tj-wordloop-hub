@@ -118,6 +118,10 @@
     w.$("#screen-blocks").hidden = false;
     w.$("#btn-back").hidden = true;
     D.blockId = null;
+    /* Rời Block là lúc hợp lý nhất để làm mới bộ đếm tổng số từ ở góc
+       phải trên cùng — không cần gắn vào từng chỗ chấm điểm/lưu tiến
+       trình riêng lẻ (nhiều chỗ, dễ sót). */
+    if (w.App && w.App.refreshWordCounter) w.App.refreshWordCounter();
   };
 
   D.showTab = function (name) {

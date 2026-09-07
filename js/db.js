@@ -352,6 +352,63 @@
     });
   }
 
+  /* Giống sbList nhưng đọc HẾT bảng, tự phân trang qua giới hạn 1000
+     dòng/request mặc định của PostgREST (bảng `blocks` đã hơn 1000 dòng).
+     Dùng cho DB.getFullTree — cần TOÀN BỘ cây, không lọc theo notebook. */
+  function sbListAll(table, build) {
+    var PAGE = 1000, out = [];
+    function loop(offset) {
+      var q = DB.sb.from(table).select("*").range(offset, offset + PAGE - 1).order("id");
+      if (build) q = build(q);
+      return q.then(function (r) {
+        if (r.error) throw r.error;
+        var rows = r.data || [];
+        out = out.concat(rows);
+        return rows.length === PAGE ? loop(offset + PAGE) : out;
+      });
+    }
+    return loop(0);
+  }
+
+  /* ══════════════ CÂY TOÀN APP (cho màn Journey > 🌳 Chi tiết) ══════════════
+     Trả về TOÀN BỘ cấu trúc Hub→Notebook→Section→Page→Batch→Block (không kèm
+     Word — không cần tới cấp từ ở đây) + trạng thái Done (bp.passed/
+     meaning_passed) của user, để tính % tiến độ từng cấp mà KHÔNG cần tải
+     riêng từng Notebook như DB.loadNotebook. */
+  DB.getFullTree = async function (userId) {
+    if (DB.mode === "local") {
+      var d = local();
+      var bp = {};
+      d.block_progress.forEach(function (r) {
+        if (r.user_id === userId) bp[r.block_id] = { passed: !!r.passed, meaning_passed: !!r.meaning_passed };
+      });
+      return {
+        hubs: d.hubs.slice().sort(bySort),
+        notebooks: d.notebooks.slice().sort(bySort),
+        sections: d.sections.slice().sort(bySort),
+        pages: d.pages.slice().sort(bySort),
+        batches: d.batches.slice().sort(bySort),
+        blocks: d.blocks.slice().sort(bySort),
+        bp: bp
+      };
+    }
+
+    var hubs = await sbListAll("hubs");
+    var notebooks = await sbListAll("notebooks");
+    var sections = await sbListAll("sections");
+    var pages = await sbListAll("pages");
+    var batches = await sbListAll("batches");
+    var blocks = await sbListAll("blocks", function (q) { return q.select("id,batch_id,name,global_index,sort"); });
+    var bp = {};
+    if (userId) {
+      var bpRows = await sbListAll("block_progress", function (q) {
+        return q.select("block_id,passed,meaning_passed").eq("user_id", userId);
+      });
+      bpRows.forEach(function (r) { bp[r.block_id] = { passed: !!r.passed, meaning_passed: !!r.meaning_passed }; });
+    }
+    return { hubs: hubs, notebooks: notebooks, sections: sections, pages: pages, batches: batches, blocks: blocks, bp: bp };
+  };
+
   /* ══════════════ ĐỌC CÂY DỮ LIỆU ══════════════ */
   DB.getHubs = async function () {
     if (DB.mode === "local") return local().hubs.slice().sort(bySort);
