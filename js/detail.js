@@ -170,22 +170,30 @@
     w.$("#st-mastered").textContent = mastered;
     w.$("#st-recall").textContent = w.pct(correct, attempts) + "%";
 
-    /* Ô thứ 4 giờ là kết quả bài thi cuối bài — thứ quyết định Block xong hay chưa */
+    /* Ô thứ 4: "Done" của Block = 1 TRONG 3 thẻ (Phiếu đầy đủ/Từng câu
+       dùng chung bp.passed, hoặc Nghĩa riêng bp.meaning_passed) đạt ≥80%
+       — ĐÚNG quy ước "✓ Done" đã dùng ở thẻ Block ngoài danh sách
+       (xem app.js renderBlocks). Trước đây ô này CHỈ nhìn bp.passed, nên
+       làm xong thẻ Nghĩa ≥80% vẫn hiện "Chưa thi" ngay trong màn Chi
+       tiết Block — sai lệch với chính badge Done của Block đó. */
+    var bestOfAny = Math.max(bp.best_score || 0, bp.meaning_best || 0);
     var box = w.$("#st-cycle");
-    if (bp.passed) {
-      box.textContent = "✓ Đạt " + (bp.best_score || 0) + "%";
+    if (bp.passed || bp.meaning_passed) {
+      box.textContent = "✓ Done · " + bestOfAny + "%";
       box.className = "stat-num green";
-      box.title = "Đã qua bài thi cuối bài · " + st.label;
-    } else if (bp.best_score) {
-      box.textContent = bp.best_score + "%";
+      box.title = bp.passed
+        ? "Đã qua Phiếu đầy đủ/Từng câu · " + st.label
+        : "Đạt thẻ Nghĩa ≥ " + PASS_MARK + "% — vào chu kỳ ôn Tony Buzan (Lần 1-2...) thì cần làm thêm Phiếu đầy đủ hoặc Từng câu";
+    } else if (bestOfAny) {
+      box.textContent = bestOfAny + "%";
       box.className = "stat-num amber";
-      box.title = "Cần ≥ " + PASS_MARK + "% ở bài thi cuối bài";
+      box.title = "Cần ≥ " + PASS_MARK + "% ở 1 trong 3 bài kiểm tra để Block này Done";
     } else {
       box.textContent = "Chưa thi";
       box.className = "stat-num";
-      box.title = "Làm bài thi cuối bài để hoàn thành Block";
+      box.title = "Làm 1 trong 3 bài kiểm tra (Phiếu đầy đủ / Từng câu / Nghĩa) để hoàn thành Block";
     }
-    w.$("#st-cycle").parentNode.querySelector(".stat-label").textContent = "Bài thi cuối bài";
+    w.$("#st-cycle").parentNode.querySelector(".stat-label").textContent = "Bài tập (1/3 đạt là Done)";
   };
 
   /* ══════════════ TAB 1 — BẢNG 6 CỘT + ĐOẠN VĂN ══════════════

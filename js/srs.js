@@ -57,7 +57,17 @@
        lịch ôn mất hết ý nghĩa. */
     state: function (bp) {
       if (!bp || !bp.passed) {
-        return { started: false, due: false, cycle: 0, label: "Chưa học", nextAt: null };
+        /* "Chưa học" chỉ đúng khi CHƯA đụng gì tới Block. Nếu đã Done qua
+           thẻ Nghĩa (meaning_passed) hoặc đã thử bài thi mà chưa đạt
+           (best_score) thì ghi rõ "chưa vào chu kỳ ôn" — tránh gây hiểu
+           lầm "chưa học" trong khi Block đã hiện ✓ Done ở nơi khác (badge
+           Block card, ô "Bài tập" trong Chi tiết) — chỉ riêng chu kỳ ôn
+           Tony Buzan là chưa bắt đầu (cần đạt Phiếu đầy đủ/Từng câu). */
+        var untouched = !bp || !(bp.meaning_passed || bp.best_score || bp.meaning_best);
+        return {
+          started: false, due: false, cycle: 0, nextAt: null,
+          label: untouched ? "Chưa học" : "Chưa vào chu kỳ ôn"
+        };
       }
       var cycle = bp.cycle | 0;
       var next = bp.next_review_at || null;
