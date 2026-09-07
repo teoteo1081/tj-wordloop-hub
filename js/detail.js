@@ -31,7 +31,31 @@
   }
 
   /* ══════════════ MỞ / ĐÓNG ══════════════ */
-  D.open = function (blockId) {
+  /* Nhớ đúng vị trí đang học (Block nào + tab nào) qua mỗi lần refresh
+     trang — khỏi phải bấm lại từ đầu Notebook > Section > Page > Batch >
+     Block mỗi lần F5. */
+  var LS_LAST_BLOCK = "tjwl_last_block_v1";
+  function saveLastBlock(tab) {
+    try {
+      if (D.blockId) localStorage.setItem(LS_LAST_BLOCK, JSON.stringify({ blockId: D.blockId, tab: tab || "study" }));
+    } catch (e) {}
+  }
+  function clearLastBlock() {
+    try { localStorage.removeItem(LS_LAST_BLOCK); } catch (e) {}
+  }
+  /* Gọi sau khi boot() đã nạp xong Notebook đang chọn — nếu Block đã lưu
+     còn tồn tại trong Notebook đó thì mở lại đúng Block + đúng tab. */
+  D.restoreLast = function () {
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(LS_LAST_BLOCK)); } catch (e) { saved = null; }
+    if (!saved || !saved.blockId) return false;
+    var exists = (S().blocks || []).some(function (b) { return b.id === saved.blockId; });
+    if (!exists) { clearLastBlock(); return false; }
+    D.open(saved.blockId, saved.tab);
+    return true;
+  };
+
+  D.open = function (blockId, tab) {
     D.blockId = blockId;
     D._exam = null;
     D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
@@ -48,7 +72,7 @@
     w.$("#workspace").scrollTop = 0;
     w.$("#detail-title").textContent = "📕 " + b.name + " — Collocation Builder";
 
-    D.showTab("study");
+    D.showTab(tab || "study");
     D.renderStats();
     D.renderStudy();
     D.renderProgress();
@@ -118,6 +142,7 @@
     w.$("#screen-blocks").hidden = false;
     w.$("#btn-back").hidden = true;
     D.blockId = null;
+    clearLastBlock();
     /* Rời Block là lúc hợp lý nhất để làm mới bộ đếm tổng số từ ở góc
        phải trên cùng — không cần gắn vào từng chỗ chấm điểm/lưu tiến
        trình riêng lẻ (nhiều chỗ, dễ sót). */
@@ -148,6 +173,7 @@
       D.renderMeaning();
     }
     if (name !== "study") w.Speech.stop();
+    saveLastBlock(name);
   };
 
   /* ══════════════ 4 Ô THỐNG KÊ ══════════════ */

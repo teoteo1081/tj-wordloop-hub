@@ -1847,6 +1847,11 @@
     App.refreshWordCounter();
     w.$("#word-counter").onclick = function () { w.Journey.open(); };
 
+    /* Mở lại đúng Block + đúng tab đang xem dở trước khi refresh (dựa
+       vào Notebook/Section/Page/Batch vừa được readSel() ở trên khôi
+       phục lại rồi) — khỏi phải bấm lại từ đầu mỗi lần F5. */
+    if (w.Detail && w.Detail.restoreLast) w.Detail.restoreLast();
+
     if (mode === "local") {
       console.info("[TJ WordLoop] Đang chạy CHẾ ĐỘ LOCAL. Muốn dùng chung: điền js/config.js.");
       App.checkLibraryUpdate();       /* không await: để app hiện ra trước */
