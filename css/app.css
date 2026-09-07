@@ -1244,6 +1244,8 @@ textarea:focus{border-color:var(--blue);}
 .jstat-num{font-size:1.5rem;font-weight:800;color:var(--text);}
 .jstat-label{font-size:.72rem;color:var(--text-2);margin-top:.15rem;}
 .jstat.overdue .jstat-num{color:var(--red-l);}
+.jstat.overdue{cursor:pointer;}
+.jstat.overdue:hover{border-color:var(--red);background:rgba(239,68,68,.08);}
 
 .journey-legend{display:flex;gap:.9rem;font-size:.72rem;color:var(--text-2);flex-wrap:wrap;}
 .journey-legend span{display:flex;align-items:center;gap:.3rem;}

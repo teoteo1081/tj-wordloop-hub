@@ -380,7 +380,12 @@
       var d = local();
       var bp = {};
       d.block_progress.forEach(function (r) {
-        if (r.user_id === userId) bp[r.block_id] = { passed: !!r.passed, meaning_passed: !!r.meaning_passed };
+        if (r.user_id === userId) {
+          bp[r.block_id] = {
+            passed: !!r.passed, meaning_passed: !!r.meaning_passed,
+            cycle: r.cycle || 0, next_review_at: r.next_review_at || null
+          };
+        }
       });
       return {
         hubs: d.hubs.slice().sort(bySort),
@@ -402,9 +407,14 @@
     var bp = {};
     if (userId) {
       var bpRows = await sbListAll("block_progress", function (q) {
-        return q.select("block_id,passed,meaning_passed").eq("user_id", userId);
+        return q.select("block_id,passed,meaning_passed,cycle,next_review_at").eq("user_id", userId);
       });
-      bpRows.forEach(function (r) { bp[r.block_id] = { passed: !!r.passed, meaning_passed: !!r.meaning_passed }; });
+      bpRows.forEach(function (r) {
+        bp[r.block_id] = {
+          passed: !!r.passed, meaning_passed: !!r.meaning_passed,
+          cycle: r.cycle || 0, next_review_at: r.next_review_at || null
+        };
+      });
     }
     return { hubs: hubs, notebooks: notebooks, sections: sections, pages: pages, batches: batches, blocks: blocks, bp: bp };
   };

@@ -341,7 +341,31 @@
     J._refreshTimer = setTimeout(function () { J.loadTree(); }, 1500);
   }
 
+  /* "Từ đang quá hạn ôn" -> bấm để nhảy THẲNG vào Block quá hạn gần nhất
+     (đến hạn sớm nhất trước) mà giải quyết luôn, khỏi tự đi tìm trong cây.
+     Chỉ cần bp.cycle/next_review_at (đã có trong J._tree.bp — xem
+     DB.getFullTree) + w.SRS.state() để biết Block nào đang "due". */
+  function overdueBlocksSorted() {
+    if (!J._tree) return [];
+    var out = [];
+    J._tree.blocks.forEach(function (b) {
+      var st = w.SRS.state(J._tree.bp[b.id]);
+      if (st.started && st.due) out.push({ block: b, nextAt: st.nextAt || 0 });
+    });
+    out.sort(function (a, b) { return a.nextAt - b.nextAt; });
+    return out;
+  }
+
+  async function goToNearestOverdue() {
+    if (!J._tree) await J.loadTree();
+    var list = overdueBlocksSorted();
+    if (!list.length) { w.toast("Không có Block nào quá hạn ôn 🎉", "ok"); return; }
+    var anc = ancestorsOf("block", list[0].block.id);
+    await w.App.jumpTo(anc);
+  }
+
   /* ══════════════ GẮN SỰ KIỆN ══════════════ */
+  w.$("#j-overdue-card").onclick = goToNearestOverdue;
   w.$("#btn-journey").onclick = function () { J.open(); };
   w.$("#btn-journey-back").onclick = function () { J.close(); };
   w.$("#btn-learning").onclick = function () { J.close(); };
