@@ -535,9 +535,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    giữ lại tiêu đề cột dính (position:sticky bên dưới) để bảng nào lỡ dài
    hơn 1 màn hình thì đầu cột vẫn thấy được. */
 .table-wrap{overflow-x:auto;}
-/* Thu gọn còn ~3 dòng để nhường chỗ cho bài đọc bên dưới — che phần dư
-   bằng overflow, có dải mờ dần ở đáy để biết còn nội dung bị ẩn. */
-.table-wrap.collapsed{max-height:10.5rem;overflow-y:hidden;position:relative;}
+/* Thu gọn còn ~3 dòng để nhường chỗ cho bài đọc bên dưới — nhưng vẫn
+   overflow:auto (có thanh trượt) chứ không phải hidden: (1) để kéo tay
+   xem hết bảng mà không cần bấm "Mở rộng", và (2) speech.js tự dò khung
+   cuộn GẦN NHẤT (overflowY auto/scroll) để cuộn theo từ đang đọc —
+   overflow:hidden sẽ khiến nó bỏ qua khung này, tưởng cả trang mới là
+   khung cuộn, và không "nhảy" theo từ được nữa. */
+.table-wrap.collapsed{max-height:10.5rem;overflow-y:auto;position:relative;}
 .table-wrap.collapsed::after{
   content:"";position:absolute;left:0;right:0;bottom:0;height:2.2rem;
   background:linear-gradient(to bottom, transparent, var(--bg-card));pointer-events:none;
