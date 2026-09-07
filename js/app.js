@@ -1070,10 +1070,21 @@
 
     try {
       if (act === "rename") {
-        var r = await askText({ title: "✏️ Đổi tên " + meta.label, value: row.name, placeholder: "Tên mới" });
+        /* Notebook có icon riêng (con fox 🦊, quyển sách 📓...) — cho đổi
+           luôn icon lúc đổi tên, y như lúc tạo mới, kẻo chỉ có tạo mới
+           mới chọn được icon còn đổi tên thì thôi. */
+        var withIcon = table === "notebooks";
+        var r = await askText({
+          title: "✏️ Đổi tên " + meta.label, value: row.name, placeholder: "Tên mới",
+          withEmoji: withIcon, emoji: withIcon ? (row.icon || "📓") : undefined
+        });
         if (!r) return;
         row.name = r.text;
         await w.DB.rename(table, id, r.text);
+        if (withIcon && r.emoji && r.emoji !== row.icon) {
+          row.icon = r.emoji;
+          await w.DB.patch(table, id, { icon: r.emoji });
+        }
         w.toast("Đã đổi tên", "ok");
       }
 
