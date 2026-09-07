@@ -434,9 +434,8 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   width:32px;height:30px;border-radius:7px;cursor:pointer;font-size:.95rem;flex-shrink:0;
 }
 
-.screen-head{margin-bottom:.9rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem .6rem;}
-.screen-head h2{margin:0;font-size:1.12rem;font-weight:700;flex:0 0 100%;}
-.screen-head #block-sort-select{margin-left:auto;}
+.screen-head{margin-bottom:.9rem;}
+.screen-head h2{margin:0;font-size:1.12rem;font-weight:700;}
 .muted{font-size:.76rem;color:var(--text-2);margin-top:.2rem;}
 
 /* Alert + chu kỳ */
@@ -458,15 +457,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .time-card:hover{border-left-width:5px;}
 .time-label{
   font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--text-1);
-  display:flex;align-items:center;gap:.35rem;cursor:pointer;
+  display:flex;align-items:center;gap:.35rem;
 }
-.time-label:hover{color:var(--blue-l);}
 .chips-row{display:flex;flex-wrap:wrap;gap:.3rem;max-height:152px;overflow-y:auto;}
-.chips-more{
-  font:inherit;font-size:.68rem;color:var(--text-3);align-self:center;padding:.1rem .3rem;font-style:italic;
-  background:transparent;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px;
-}
-.chips-more:hover{color:var(--blue-l);}
+.chips-more{font-size:.68rem;color:var(--text-3);align-self:center;padding-left:.15rem;font-style:italic;}
 .overdue-chip{
   background:var(--bg-raise);border:1px solid var(--border-hi);color:var(--text-2);
   padding:.15rem .55rem;border-radius:12px;font-size:.7rem;font-weight:600;cursor:pointer;
@@ -474,22 +468,6 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .overdue-chip:hover{background:var(--border);color:var(--text);border-color:var(--border-hi);}
 .overdue-chip.due{border-color:rgba(239,68,68,.5);color:var(--red-l);background:rgba(239,68,68,.1);}
 .chips-empty{font-size:.68rem;color:var(--text-3);font-style:italic;}
-
-/* Số bấm được trong câu cảnh báo (N block chưa học/quá hạn/...) — trông
-   như chữ thường có gạch chân nhẹ, không như nút bấm to, tránh rối câu. */
-.link-filter{
-  font:inherit;color:inherit;background:transparent;border:none;padding:0;cursor:pointer;
-  text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;
-}
-.link-filter:hover{color:var(--blue-l);}
-
-/* Banner báo đang xem dashboard đã LỌC (thay vì xem theo Batch) */
-.block-filter-banner{
-  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;background:var(--blue-sub);
-  border:1px solid var(--blue);border-radius:9px;padding:.5rem .8rem;margin-bottom:.8rem;
-  font-size:.78rem;color:var(--text-1);
-}
-.block-filter-banner .btn-ghost{margin-left:auto;font-size:.74rem;padding:.3rem .6rem;}
 
 /* Block cards */
 .blocks-list{display:flex;flex-direction:column;gap:.75rem;}

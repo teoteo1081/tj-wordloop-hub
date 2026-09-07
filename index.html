@@ -145,10 +145,6 @@
       <div class="screen-head">
         <h2 id="batch-title">Batch 1</h2>
         <div class="muted" id="batch-sub"></div>
-        <select class="mini-select" id="block-sort-select" title="Sắp xếp danh sách Block">
-          <option value="order">🔢 Theo số thứ tự</option>
-          <option value="status">🚦 Theo trạng thái ôn</option>
-        </select>
       </div>
 
       <!-- Ô cảnh báo ôn tập + 4 thẻ chu kỳ -->
@@ -161,27 +157,26 @@
           <button class="btn-warn" id="btn-review-now">Ôn ngay →</button>
         </div>
 
-        <div class="cycle-grid" id="cycle-grid" title="Bấm tên giai đoạn để lọc danh sách Block bên dưới">
+        <div class="cycle-grid">
           <div class="time-card">
-            <div class="time-label" data-filter-group="1"><i class="dot c1"></i> Lần 1–2 · 10p / 24h</div>
+            <div class="time-label"><i class="dot c1"></i> Lần 1–2 · 10p / 24h</div>
             <div class="chips-row" id="chips-g1"></div>
           </div>
           <div class="time-card">
-            <div class="time-label" data-filter-group="2"><i class="dot c2"></i> Lần 3 · 1 Tuần Sau</div>
+            <div class="time-label"><i class="dot c2"></i> Lần 3 · 1 Tuần Sau</div>
             <div class="chips-row" id="chips-g2"></div>
           </div>
           <div class="time-card">
-            <div class="time-label" data-filter-group="3"><i class="dot c3"></i> Lần 4 · 1 Tháng Sau</div>
+            <div class="time-label"><i class="dot c3"></i> Lần 4 · 1 Tháng Sau</div>
             <div class="chips-row" id="chips-g3"></div>
           </div>
           <div class="time-card">
-            <div class="time-label" data-filter-group="4"><i class="dot c4"></i> Lần 5–6 · 3–6 Tháng</div>
+            <div class="time-label"><i class="dot c4"></i> Lần 5–6 · 3–6 Tháng</div>
             <div class="chips-row" id="chips-g4"></div>
           </div>
         </div>
       </div>
 
-      <div class="block-filter-banner" id="block-filter-banner" hidden></div>
       <div class="blocks-list" id="blocks-list"><!-- JS --></div>
     </section>
 
