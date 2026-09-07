@@ -1,10 +1,12 @@
-/* ticker.js — Thanh "đánh máy" chạy các từ ĐÃ HỌC (Block done) trong Page
-   đang mở, để tiện lướt ôn thụ động trong lúc học. Bấm vào chữ đang chạy sẽ
-   nhảy thẳng vào đúng Block chứa từ đó để ôn lại kỹ hơn nếu cần.
+/* ticker.js — Thanh "đánh máy" chạy các từ ĐÃ HỌC (Block done) trong cả
+   Notebook đang mở, để tiện lướt ôn thụ động trong lúc học. Mỗi từ là 1
+   "chip" màu riêng, gõ ra lấp đầy hàng ngang; đầy rồi thì mỗi từ mới gõ
+   ra là cả dải lại trôi (drift) sang trái 1 nhịp để nhường chỗ — kiểu
+   băng chuyền, không xoá sạch làm lại như bảng điện tử thường thấy. Bấm
+   vào 1 chip để nhảy thẳng vào Block chứa từ đó ôn lại kỹ hơn nếu cần.
 
-   - Danh sách từ KHÔNG cache — pool() đọc thẳng w.S mỗi vòng lặp, nên luôn
-     khớp tiến trình mới nhất (Block vừa Done xong là hiện liền, không cần
-     ai gọi "refresh" thủ công ở mọi chỗ lưu điểm).
+   - Danh sách từ KHÔNG cache — pool() đọc thẳng w.S mỗi vòng lặp, nên
+     luôn khớp tiến trình mới nhất.
    - Thứ tự thường (seq) / ngẫu nhiên (rand) — nhớ lựa chọn qua localStorage.
    - Desktop: kéo thả đổi vị trí (nhớ vị trí); Mobile: cố định 1 chỗ (trên
      thanh mobile-nav), không có tay kéo — màn nhỏ kéo thả dễ vướng thao tác. */
@@ -14,12 +16,16 @@
   var LS_VISIBLE = "tjwl_ticker_visible_v1";
   var LS_ORDER = "tjwl_ticker_order_v1";   /* "seq" | "rand" */
   var LS_POS = "tjwl_ticker_pos_v1";       /* {right, bottom} px — chỉ desktop */
+  var N_COLORS = 5;                        /* khớp .wt-chip.k0..k4 trong app.css */
+  var SHIFT_MS = 620;                      /* khớp .6s transition của .wt-strip + chút dư */
+  var TYPE_MS = 62;                        /* mỗi ký tự gõ ra cách nhau — chậm rãi cho dễ đọc */
+  var DWELL_MS = 1300;                     /* nghỉ sau khi gõ xong 1 từ trước khi tiếp tục */
 
   var T = {};
   w.Ticker = T;
 
-  var elBar, elText, elOrderBtn, elToggle, elDrag;
-  var timer = null, seqIdx = 0, lastId = null, typing = false;
+  var elBar, elViewport, elStrip, elOrderBtn, elToggle, elDrag;
+  var timer = null, seqIdx = 0, lastId = null, typing = false, colorIdx = 0;
 
   function isMobile() { return window.matchMedia("(max-width:760px)").matches; }
 
@@ -29,15 +35,13 @@
   function setVisible(v) { try { localStorage.setItem(LS_VISIBLE, v ? "1" : "0"); } catch (e) {} }
 
   /* Danh sách {id, term, vi, blockId} của mọi từ thuộc Block ĐÃ DONE
-     (bp.passed || bp.meaning_passed) trong Page đang mở. */
+     (bp.passed || bp.meaning_passed) trong CẢ Notebook đang mở — S.blocks/
+     S.words trong app.js vốn đã chỉ chứa đúng Notebook đang mở (xem quy
+     ước ở đầu app.js), nên không cần lọc thêm theo Page/Batch nữa. */
   function pool() {
     var S = w.S;
-    if (!S || !S.pageId || !S.batches || !S.blocks) return [];
-    var batchIds = S.batches.filter(function (b) { return b.page_id === S.pageId; })
-      .map(function (b) { return b.id; });
-    if (!batchIds.length) return [];
+    if (!S || !S.blocks || !S.words) return [];
     var doneBlocks = S.blocks.filter(function (bl) {
-      if (batchIds.indexOf(bl.batch_id) === -1) return false;
       var bp = S.bp[bl.id];
       return bp && (bp.passed || bp.meaning_passed);
     });
@@ -64,39 +68,105 @@
     return item;
   }
 
-  function typeText(full, cb) {
+  /* ── Băng chuyền: strip là 1 hàng flex dịch bằng transform, viewport cắt
+     phần thừa. Đầy khung thì trôi sang trái đúng 1 chip trước khi gõ tiếp;
+     chip vừa trôi khuất hẳn thì xoá khỏi DOM + "bù" transform lại — kiểu
+     marquee vô hạn, không phình DOM theo thời gian. ── */
+  function gapPx() {
+    if (!elStrip) return 6;
+    var cs = getComputedStyle(elStrip);
+    var g = parseFloat(cs.columnGap || cs.gap || "6");
+    return isNaN(g) ? 6 : g;
+  }
+  function currentShiftX() {
+    var m = /translateX\((-?[\d.]+)px\)/.exec(elStrip.style.transform || "");
+    return m ? parseFloat(m[1]) : 0;
+  }
+  function viewportWidth() { return elViewport ? elViewport.clientWidth : 300; }
+
+  function nextColorClass() {
+    var cls = "k" + (colorIdx % N_COLORS);
+    colorIdx++;
+    return cls;
+  }
+
+  function addChip(item) {
+    var chip = document.createElement("span");
+    chip.className = "wt-chip " + nextColorClass();
+    chip.dataset.blockId = item.blockId;
+    elStrip.appendChild(chip);
+    return chip;
+  }
+
+  function typeChipText(chip, full, cb) {
     var i = 0;
+    chip.classList.add("typing");
     (function step() {
       if (!typing) return;
-      elText.textContent = full.slice(0, i);
+      chip.textContent = full.slice(0, i);
       i++;
-      timer = i <= full.length ? setTimeout(step, 42) : setTimeout(cb, 1400);
+      if (i <= full.length) { timer = setTimeout(step, TYPE_MS); }
+      else { chip.classList.remove("typing"); timer = setTimeout(cb, DWELL_MS); }
     })();
   }
-  function eraseText(cb) {
-    var cur = elText.textContent;
-    (function step() {
-      if (!typing) return;
-      cur = cur.slice(0, -1);
-      elText.textContent = cur;
-      timer = cur.length ? setTimeout(step, 22) : setTimeout(cb, 260);
-    })();
+
+  function shiftLeftBy(px, cb) {
+    elStrip.style.transform = "translateX(" + (currentShiftX() - px) + "px)";
+    timer = setTimeout(cb, SHIFT_MS);
+  }
+
+  /* Sau khi trôi đúng 1 chip-footprint, chip cũ nhất (đầu dải) chắc chắn
+     đã khuất hẳn khỏi khung nhìn — xoá nó + cộng lại transform đúng bằng
+     phần vừa trôi, để số không âm dần vô hạn mà hình không hề nhảy giật
+     (bù trừ đúng nhau, mắt không thấy khác biệt). */
+  function removeOffscreenChip(stepPx) {
+    if (!typing || !elStrip.firstElementChild) return;
+    var oldest = elStrip.firstElementChild;
+    elStrip.style.transition = "none";
+    elStrip.removeChild(oldest);
+    elStrip.style.transform = "translateX(" + (currentShiftX() + stepPx) + "px)";
+    void elStrip.offsetWidth;   /* ép reflow để lần transition kế tiếp có hiệu lực */
+    elStrip.style.transition = "";
   }
 
   function loop() {
     if (!typing) return;
     var list = pool();
     if (!list.length) {
-      elText.textContent = "Chưa có từ nào đã học trong Page này…";
-      elText.removeAttribute("data-block-id");
+      elStrip.style.transition = "none";
+      elStrip.innerHTML = '<span class="wt-chip" style="background:transparent;color:var(--text-3);font-style:italic;padding:0;">Chưa có từ nào đã học…</span>';
+      elStrip.style.transform = "translateX(0px)";
+      void elStrip.offsetWidth;
+      elStrip.style.transition = "";
       timer = setTimeout(loop, 3000);
       return;
     }
+
     var item = pickNext(list);
     lastId = item.id;
-    elText.dataset.blockId = item.blockId;
     var full = item.term + "  —  " + (item.vi || "…");
-    typeText(full, function () { eraseText(loop); });
+
+    function typeInPlace() {
+      var chip = addChip(item);
+      typeChipText(chip, full, loop);
+    }
+
+    /* Còn placeholder "chưa có từ" từ vòng trước -> dọn trước khi gõ thật */
+    if (elStrip.children.length === 1 && !elStrip.firstElementChild.dataset.blockId) {
+      elStrip.innerHTML = "";
+    }
+
+    var used = elStrip.scrollWidth + currentShiftX();   /* phần nội dung đã hiện trong khung, tính từ mép trái */
+    if (used >= viewportWidth() - 4 && elStrip.children.length) {
+      var oldest = elStrip.firstElementChild;
+      var stepPx = oldest.offsetWidth + gapPx();
+      shiftLeftBy(stepPx, function () {
+        removeOffscreenChip(stepPx);
+        typeInPlace();
+      });
+    } else {
+      typeInPlace();
+    }
   }
 
   function startTyping() { if (!typing) { typing = true; loop(); } }
@@ -167,23 +237,26 @@
     elDrag.addEventListener("pointercancel", endDrag);
   }
 
-  /* Gọi khi Page/Notebook đổi — pool() vốn tự đọc S mới nhất, chỉ cần reset
-     con trỏ thứ tự cho gọn (đổi Page mà đang ở giữa danh sách cũ thì nhảy
-     lộn xộn 1 nhịp, không sai gì, nhưng reset cho mượt hơn). */
+  /* Gọi khi Page/Notebook đổi — pool() vốn tự đọc S mới nhất, chỉ cần
+     reset con trỏ thứ tự cho gọn. KHÔNG xoá dải chip đang trôi dở (renderAll
+     gọi hàm này rất thường xuyên — mọi thao tác thêm/xoá/sửa đều gọi lại,
+     xoá sạch mỗi lần vậy sẽ giật hình liên tục, phản tác dụng). */
   T.refresh = function () { seqIdx = 0; };
 
   function bind() {
-    elBar = w.$("#word-ticker"); elText = w.$("#wt-text");
+    elBar = w.$("#word-ticker"); elViewport = w.$(".wt-viewport", elBar);
+    elStrip = w.$("#wt-strip");
     elOrderBtn = w.$("#wt-order"); elToggle = w.$("#wt-toggle"); elDrag = w.$("#wt-drag");
-    if (!elBar || !elToggle) return;
+    if (!elBar || !elToggle || !elStrip) return;
 
     elToggle.onclick = function () { setVisible(!!elBar.hidden); applyVisible(); };
     w.$("#wt-hide").onclick = function () { setVisible(false); applyVisible(); };
     elOrderBtn.onclick = function () { setOrder(getOrder() === "seq" ? "rand" : "seq"); applyOrderIcon(); };
-    elText.onclick = function () {
-      var id = elText.dataset.blockId;
+    elStrip.addEventListener("click", function (e) {
+      var chip = e.target.closest(".wt-chip");
+      var id = chip && chip.dataset.blockId;
       if (id) jumpToWord(id);
-    };
+    });
 
     applyOrderIcon();
     applyPos();
