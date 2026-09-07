@@ -683,13 +683,34 @@
   };
 
   /* ══════════════ TIẾN TRÌNH HỌC (riêng từng user) ══════════════ */
+  /* Sửa dữ liệu CŨ đã lỡ lưu trước khi "Nghĩa" đạt 80% cũng đẩy chu kỳ ôn
+     (bản vá trước chỉ áp dụng cho lần làm bài MỚI, không tự sửa bp đã
+     lưu sai từ trước) — block nào có meaning_passed nhưng chưa passed
+     thì coi như vừa đạt ngay bây giờ, đẩy vào chu kỳ như đáng lẽ phải
+     có. Trả về true nếu có sửa (để biết mà lưu lại). */
+  function reconcileMeaningPassed(r) {
+    if (!r || !r.meaning_passed || r.passed) return false;
+    var next = w.SRS.advance(r.cycle || 0);
+    r.passed = true;
+    r.cycle = next.cycle;
+    r.next_review_at = next.next_review_at;
+    r.last_reviewed_at = r.last_reviewed_at || Date.now();
+    return true;
+  }
+
   DB.loadProgress = async function (userId, blockIds, wordIds) {
     var wp = {}, bp = {};
     if (!userId) return { wp: wp, bp: bp };
 
     if (progressLocal()) {
       local().word_progress.forEach(function (r) { if (r.user_id === userId) wp[r.word_id] = r; });
-      local().block_progress.forEach(function (r) { if (r.user_id === userId) bp[r.block_id] = r; });
+      var changed = false;
+      local().block_progress.forEach(function (r) {
+        if (r.user_id !== userId) return;
+        if (reconcileMeaningPassed(r)) changed = true;
+        bp[r.block_id] = r;
+      });
+      if (changed) saveLocal();
       return { wp: wp, bp: bp };
     }
 
@@ -699,7 +720,19 @@
     }
     if (blockIds && blockIds.length) {
       var b = await sbList("block_progress", function (q) { return q.eq("user_id", userId).in("block_id", blockIds); });
-      b.forEach(function (r) { bp[r.block_id] = r; });
+      var toFix = [];
+      b.forEach(function (r) {
+        if (reconcileMeaningPassed(r)) toFix.push(r);
+        bp[r.block_id] = r;
+      });
+      for (var i = 0; i < toFix.length; i++) {
+        var r2 = toFix[i];
+        try {
+          await DB.sb.from("block_progress").update({
+            passed: true, cycle: r2.cycle, next_review_at: r2.next_review_at, last_reviewed_at: r2.last_reviewed_at
+          }).eq("user_id", userId).eq("block_id", r2.block_id);
+        } catch (e) {}
+      }
     }
     return { wp: wp, bp: bp };
   };
