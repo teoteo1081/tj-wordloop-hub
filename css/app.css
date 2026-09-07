@@ -354,6 +354,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .nav-item.active .dots,.section-tab.active .dots,.batch-tab.active .dots{opacity:1;}
 .dots:hover{background:var(--bg-raise);color:var(--text);}
 .section-tab,.batch-tab{position:relative;}
+/* Block card: KHÔNG ẩn theo hover — trên di động không có hover nên nút
+   "⋯" (đổi tên/xoá/xoá tiến trình riêng 1 Block) sẽ vô hình vĩnh viễn
+   nếu dùng chung kiểu opacity:0 như trên. */
+.block-left .dots{opacity:1;}
 
 /* ═══════════ KÉO THẢ ═══════════ */
 [draggable="true"]{cursor:grab;}

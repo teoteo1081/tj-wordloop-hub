@@ -1837,11 +1837,15 @@
       if (!e.target.closest("#ctx-menu")) App.closeMenu();
     });
     document.addEventListener("contextmenu", function (e) {
-      var host = e.target.closest("[data-nb],[data-sec],[data-page],[data-batch]");
+      /* Thiếu [data-block] trước đây -> bấm phải vào 1 Block card chỉ ra
+         menu chuột phải mặc định của trình duyệt, không mở được menu
+         đổi tên/xoá riêng Block (dù nút "⋯" trên card đã làm việc đó
+         được — đây chỉ là lối tắt chuột phải, không phải cách duy nhất). */
+      var host = e.target.closest("[data-nb],[data-sec],[data-page],[data-batch],[data-block]");
       if (!host) return;
       var table = host.dataset.nb ? "notebooks" : host.dataset.sec ? "sections"
-                : host.dataset.page ? "pages" : "batches";
-      var id = host.dataset.nb || host.dataset.sec || host.dataset.page || host.dataset.batch;
+                : host.dataset.page ? "pages" : host.dataset.batch ? "batches" : "blocks";
+      var id = host.dataset.nb || host.dataset.sec || host.dataset.page || host.dataset.batch || host.dataset.block;
       e.preventDefault();
       App.openMenu(table, id, host);
     });

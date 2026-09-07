@@ -282,7 +282,7 @@
           '<td class="def-en" data-label="Definition">' + w.esc(x.def_en || "—") + "</td>" +
           '<td class="vi-cell" data-label="Nghĩa Việt">' + w.esc(x.meaning_vi || "—") + "</td>" +
         "</tr>";
-    }).join("") || '<tr><td colspan="6" style="text-align:center;color:#64748b">Block này chưa có từ nào.</td></tr>';
+    }).join("") || '<tr><td colspan="6" style="text-align:center;color:var(--text-3)">Block này chưa có từ nào.</td></tr>';
 
     applyVocabCollapse();
     D.renderPassage();
@@ -599,7 +599,7 @@
     w.$("#quiz-card").innerHTML =
       '<div class="quiz-done">' +
         '<div class="big">' + rate + "%</div>" +
-        "<p style=\"margin:.4rem 0 1rem;color:#94a3b8\">Đúng " + q.correct + "/" + q.list.length + " từ. " +
+        "<p style=\"margin:.4rem 0 1rem;color:var(--text-2)\">Đúng " + q.correct + "/" + q.list.length + " từ. " +
         (ready ? "Nhớ tốt rồi — sang <b>Bài thi cuối bài</b> để hoàn thành Block."
                : "Nên luyện thêm một lượt nữa trước khi vào bài thi.") + "</p>" +
         '<div class="quiz-actions" style="justify-content:center;margin-top:1rem">' +
@@ -609,7 +609,11 @@
       "</div>";
 
     w.$("#q-again").onclick = function () { D.startQuiz(); };
-    w.$("#q-final").onclick = function () { D.showTab("final"); };
+    /* Bug đã gặp: "final" không khớp id tab nào (#pane-final không tồn
+       tại) -> D.showTab ném lỗi im lặng, tab Quiz mất class "active" mà
+       không tab nào bật lên thay, màn hình đơ sau khi làm xong Active
+       Recall Quiz. "Bài thi cuối bài" = tab Phiếu đầy đủ (Sheet). */
+    w.$("#q-final").onclick = function () { D.showTab("sheet"); };
 
     D.renderStats();
     D.renderProgress();
@@ -1301,7 +1305,7 @@
       var p = wp[x.id] || { attempts: 0, correct: 0 };
       var rate = w.pct(p.correct, p.attempts);
       return "<tr>" +
-        "<td><b style=\"color:#60a5fa\">" + w.esc(x.term) + "</b></td>" +
+        "<td><b style=\"color:var(--blue-l)\">" + w.esc(x.term) + "</b></td>" +
         '<td data-label="Nghĩa">' + w.esc(x.meaning_vi || "—") + "</td>" +
         '<td data-label="Lần ôn">' + (p.attempts || 0) + "</td>" +
         '<td data-label="Đúng">' + (p.correct || 0) + "</td>" +
@@ -1309,7 +1313,7 @@
         '<td data-label="Trạng thái">' + (p.mastered ? '<span class="tag-time">Đã thuộc</span>'
                              : '<span class="tag">' + (p.attempts ? "Đang học" : "Chưa ôn") + "</span>") + "</td>" +
       "</tr>";
-    }).join("") || '<tr><td colspan="6" style="text-align:center;color:#64748b">—</td></tr>';
+    }).join("") || '<tr><td colspan="6" style="text-align:center;color:var(--text-3)">—</td></tr>';
   };
 
   /* ══════════════ SỰ KIỆN CỦA MÀN HÌNH CHI TIẾT ══════════════ */
