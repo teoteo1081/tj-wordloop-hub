@@ -162,13 +162,13 @@
     }
     box.innerHTML = list.map(function (p) {
       var batches = batchesOfPage(p.id);
-      var nWords = 0;
+      var nBlocks = 0, nWords = 0;
       batches.forEach(function (bt) {
-        App.blocksOf(bt.id).forEach(function (blk) { nWords += App.wordsOf(blk.id).length; });
+        App.blocksOf(bt.id).forEach(function (blk) { nBlocks++; nWords += App.wordsOf(blk.id).length; });
       });
       return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true">' +
                '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span>' +
-               '<span class="count" title="' + batches.length + ' batch · ' + nWords + ' từ">' + batches.length + " batch · " + nWords + " từ</span>" +
+               '<span class="count" title="' + nBlocks + ' block · ' + nWords + ' từ">' + nBlocks + " block · " + nWords + " từ</span>" +
                '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác">⋯</button>' +
              "</div>";
     }).join("");
@@ -190,10 +190,19 @@
   /* ══════════════ RENDER: THANH BATCH ══════════════ */
   function renderBatches() {
     var list = S.pageId ? batchesOfPage(S.pageId) : [];
+    /* Đang mở 1 Block để học -> chip Batch của đúng Batch chứa Block đó
+       đổi hẳn sang hiện TÊN BLOCK (thay vì "Batch N (x block)") — lúc
+       đang học thì biết đang ở Block nào hữu ích hơn số lượng Batch. */
+    var openBlock = (w.Detail && w.Detail.blockId)
+      ? S.blocks.find(function (x) { return x.id === w.Detail.blockId; }) : null;
     w.$("#batch-tabs").innerHTML = list.map(function (b) {
       var n = App.blocksOf(b.id).length;
+      var showBlockName = openBlock && openBlock.batch_id === b.id;
+      var label = showBlockName
+        ? "📕 " + w.esc(openBlock.name)
+        : w.esc(b.name) + '<span class="n">(' + n + " block)</span>";
       return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true">' +
-               w.esc(b.name) + '<span class="n">(' + n + " block)</span>" +
+               label +
                '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
              "</span>";
     }).join("") || '<span class="nav-empty">Chưa có batch — bấm "+ Paste từ mới"</span>';
@@ -463,6 +472,7 @@
     renderUserChip();
   }
   App.renderAll = renderAll;
+  App.renderBatches = renderBatches;
 
   /* ══════════════ NGƯỜI DÙNG (CHIP GÓC TRÊN) ══════════════ */
   function renderUserChip() {

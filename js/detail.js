@@ -77,6 +77,7 @@
     D.renderStudy();
     D.renderProgress();
     D.renderBatchNav();
+    if (w.App && w.App.renderBatches) w.App.renderBatches();   /* chip Batch đổi sang hiện tên Block này */
   };
 
   /* ══════════════ CHUYỂN BLOCK TRƯỚC / SAU (trong tab Bài học) ══════════════
@@ -143,6 +144,7 @@
     w.$("#btn-back").hidden = true;
     D.blockId = null;
     clearLastBlock();
+    if (w.App && w.App.renderBatches) w.App.renderBatches();   /* chip Batch trở lại hiện tên Batch bình thường */
     /* Rời Block là lúc hợp lý nhất để làm mới bộ đếm tổng số từ ở góc
        phải trên cùng — không cần gắn vào từng chỗ chấm điểm/lưu tiến
        trình riêng lẻ (nhiều chỗ, dễ sót). */
