@@ -6,3 +6,4 @@ js/keys.local.js
 
 # Backup snapshots tự tạo trước khi sửa dữ liệu (xem CLAUDE.md)
 *.bak-*
+.DS_Store
