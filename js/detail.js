@@ -1113,8 +1113,10 @@
     var passed = ex.score >= PASS_MARK;
     return '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
         '<div class="score">' + ex.score + "%</div>" +
-        '<div class="verdict">' + (passed ? "✅ Nhớ nghĩa tốt!" : "🙂 Luyện thêm cho quen") + "</div>" +
-        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu · phần này chỉ để luyện, không tính vào chu kỳ ôn</div>" +
+        '<div class="verdict">' + (passed ? "✅ Đạt — Block hoàn thành!" : "🙂 Luyện thêm cho quen") + "</div>" +
+        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu" +
+          (passed ? " · lịch ôn: " + ex.nextLabel : " · cần ≥ " + PASS_MARK + "% để vào chu kỳ ôn") +
+        "</div>" +
       "</div>";
   };
   D.meaningResultActionsHtml = function () {
@@ -1157,14 +1159,21 @@
       try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
     }
 
-    /* Đạt ≥ 80% -> tính vào "số từ học hôm nay" cho màn Journey, y hệt
-       Phiếu đầy đủ / Từng câu — mỗi thẻ bài tập đều có giá trị như nhau.
-       Không đụng SRS/bp.passed (không đẩy chu kỳ ôn), nhưng vẫn đánh dấu
-       riêng "meaning_passed" — chỉ 1 trong 3 thẻ đạt 80% là Block đã Done. */
+    /* Đạt ≥ 80% -> tính vào "số từ học hôm nay" cho màn Journey, VÀ giờ
+       cũng đẩy chu kỳ ôn Tony Buzan y hệt Phiếu đầy đủ/Từng câu — theo
+       yêu cầu mới: bất kỳ 1 trong 3 thẻ đạt 80% đều kích hoạt chu kỳ ôn,
+       không riêng gì Phiếu đầy đủ/Từng câu nữa. */
     if (ex.score >= PASS_MARK) {
       try { await w.DB.bumpLearnedToday(w.Auth.user.id, ex.total); } catch (e) {}
-      var bp0 = S().bp[D.blockId] || {};
-      var bpatch = { meaning_passed: true, meaning_best: Math.max(bp0.meaning_best || 0, ex.score) };
+      var bp0 = S().bp[D.blockId] || { cycle: 0 };
+      var next = w.SRS.advance(bp0.cycle || 0);
+      var bpatch = {
+        meaning_passed: true, meaning_best: Math.max(bp0.meaning_best || 0, ex.score),
+        best_score: Math.max(bp0.best_score || 0, ex.score),
+        passed: true, cycle: next.cycle, next_review_at: next.next_review_at,
+        last_reviewed_at: Date.now(), last_exam_at: Date.now()
+      };
+      ex.nextLabel = w.SRS.stepFor(next.cycle).short + " nữa";
       S().bp[D.blockId] = Object.assign({}, bp0, bpatch, { user_id: w.Auth.user.id, block_id: D.blockId });
       try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, bpatch); } catch (e) {}
     }
