@@ -326,13 +326,8 @@
     }
 
     var banner = w.$("#block-filter-banner");
-    var navPrev = w.$("#batch-prev"), navNext = w.$("#batch-next");
     if (filter) {
       w.$("#batch-title").textContent = filterLabel(filter);
-      /* Đang xem dashboard lọc (không phải 1 Batch cụ thể) -> ẩn mũi tên
-         chuyển Batch, kẻo lẫn lộn đang điều hướng cái gì. */
-      if (navPrev) navPrev.hidden = true;
-      if (navNext) navNext.hidden = true;
       if (banner) {
         banner.hidden = false;
         banner.innerHTML = "🔎 Đang lọc — <b>" + list.length + " block</b> khớp trong cả Notebook. " +
@@ -340,8 +335,6 @@
       }
     } else {
       w.$("#batch-title").textContent = batch ? batch.name : "Chưa chọn Batch";
-      if (navPrev) navPrev.hidden = false;
-      if (navNext) navNext.hidden = false;
       if (banner) banner.hidden = true;
     }
 
@@ -1643,15 +1636,6 @@
       elBlockSort.value = getBlockSort();
       elBlockSort.onchange = function (e) { setBlockSort(e.target.value); App.renderBlocks(); };
     }
-
-    /* --- chuyển Batch trước/sau (xuyên Page/Notebook) --- */
-    var elBatchPrev = w.$("#batch-prev"), elBatchNext = w.$("#batch-next");
-    if (elBatchPrev) elBatchPrev.onclick = async function () {
-      if (!(await App.stepBatch(-1))) w.toast("Đây là Batch đầu tiên của Hub này", "err");
-    };
-    if (elBatchNext) elBatchNext.onclick = async function () {
-      if (!(await App.stepBatch(1))) w.toast("Đây là Batch cuối cùng của Hub này", "err");
-    };
 
     /* --- hub --- */
     w.$("#hub-tabs").onclick = async function (e) {

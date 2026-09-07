@@ -435,9 +435,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 }
 
 .screen-head{margin-bottom:.9rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem .6rem;}
-.screen-head .batch-nav-row{flex:0 0 100%;display:flex;align-items:center;justify-content:center;gap:.7rem;}
-.screen-head .batch-nav-row #batch-prev,.screen-head .batch-nav-row #batch-next{flex-shrink:0;}
-.screen-head h2{margin:0;font-size:1.12rem;font-weight:700;text-align:center;}
+.screen-head h2{margin:0;font-size:1.12rem;font-weight:700;flex:0 0 100%;}
 .screen-head #block-sort-select{margin-left:auto;}
 .muted{font-size:.76rem;color:var(--text-2);margin-top:.2rem;}
 
