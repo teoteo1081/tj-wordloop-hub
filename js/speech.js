@@ -16,7 +16,8 @@
 
   var S = {
     voice: null,
-    rate: (w.APP_CONFIG && w.APP_CONFIG.DEFAULT_SPEECH_RATE) || 1,
+    rate: (w.APP_CONFIG && w.APP_CONFIG.DEFAULT_SPEECH_RATE) || 1,       /* tốc độ đọc bài đọc */
+    vocabRate: (w.APP_CONFIG && w.APP_CONFIG.DEFAULT_SPEECH_RATE) || 1,  /* tốc độ đọc bảng từ vựng — RIÊNG, không đồng bộ với bài đọc */
     supported: !!synth,
     _container: null,
     _spans: [],
@@ -100,10 +101,12 @@
 
   S.voiceName = function () { return S.voice ? (S.voice.name + " · " + S.voice.lang) : "mặc định"; };
 
-  function makeUtterance(text) {
+  /* rate không truyền -> lấy S.rate (tốc độ bài đọc) — bảng từ vựng
+     dùng S.vocabRate riêng, ĐỘC LẬP với bài đọc, không đồng bộ nữa. */
+  function makeUtterance(text, rate) {
     var u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
-    u.rate = S.rate;
+    u.rate = rate != null ? rate : S.rate;
     u.pitch = 1;
     if (S.voice) u.voice = S.voice;
     return u;
@@ -114,7 +117,7 @@
     if (!synth || !text) return;
     synth.cancel();
     S.stopHighlight();
-    synth.speak(makeUtterance(text));
+    synth.speak(makeUtterance(text, S.vocabRate));
   };
 
   /* ---------- đọc lần lượt cả danh sách từ ----------
@@ -133,7 +136,7 @@
         return;
       }
       if (onEach) onEach(i);
-      var u = makeUtterance(items[i].text);
+      var u = makeUtterance(items[i].text, S.vocabRate);
       u.onend = function () { i++; setTimeout(step, 220); };
       u.onerror = function () { i++; setTimeout(step, 220); };
       synth.speak(u);
@@ -347,6 +350,7 @@
   };
 
   S.setRate = function (r) { S.rate = parseFloat(r) || 1; };
+  S.setVocabRate = function (r) { S.vocabRate = parseFloat(r) || 1; };
   S.isSpeaking = function () { return !!(synth && synth.speaking); };
 
   /* Bật sáng thủ công tại vị trí ký tự thứ N — dùng để kiểm thử phần

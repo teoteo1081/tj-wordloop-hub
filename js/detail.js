@@ -1373,16 +1373,10 @@
       }).join("\n");
       copyText(this, text);
     };
-    /* Tốc độ đọc dùng CHUNG 1 giá trị cho cả bài đọc và bảng từ vựng —
-       đổi ở đâu thì nơi kia cũng cập nhật theo, đỡ phải chỉnh 2 lần. */
-    w.$("#speed-select").onchange = function (e) {
-      w.Speech.setRate(e.target.value);
-      w.$("#vocab-speed-select").value = e.target.value;
-    };
-    w.$("#vocab-speed-select").onchange = function (e) {
-      w.Speech.setRate(e.target.value);
-      w.$("#speed-select").value = e.target.value;
-    };
+    /* 2 tốc độ ĐỘC LẬP — bài đọc và bảng từ vựng chỉnh riêng, không ảnh
+       hưởng lẫn nhau. */
+    w.$("#speed-select").onchange = function (e) { w.Speech.setRate(e.target.value); };
+    w.$("#vocab-speed-select").onchange = function (e) { w.Speech.setVocabRate(e.target.value); };
 
     /* --- chọn giọng đọc có sẵn trên máy --- */
     function fillVoices() {
