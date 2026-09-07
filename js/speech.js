@@ -122,6 +122,7 @@
   S.speakList = function (items, onEach, onDone) {
     if (!synth) { w.toast("Trình duyệt này không hỗ trợ đọc tự động", "err"); return; }
     S.stop();
+    S.resetFollow();
     S._listStop = false;
     var i = 0;
 
@@ -160,13 +161,19 @@
   /* ---------- cuộn theo từ đang đọc, KHÔNG giành với người dùng ----------
      Lỗi cũ: so vị trí của từ với khung đoạn văn (chứ không phải vùng nhìn
      thấy), nên gần như từ nào cũng gọi scrollIntoView("smooth") -> trang
-     giật liên tục và cướp thao tác kéo chuột. Giờ:
+     giật liên tục và cướp thao tác kéo chuột.
        · tự dò khung CUỘN GẦN NHẤT chứa từ đó (bảng từ / đoạn văn giờ có
          khung cuộn riêng, không còn chắc chắn là #workspace nữa)
        · chỉ cuộn khi từ đó THỰC SỰ ra khỏi tầm mắt
-       · người dùng vừa tự cuộn trong 1,5 giây thì nhường, không cuộn      */
-  var lastUserScroll = 0;
-  S.noteUserScroll = function () { lastUserScroll = Date.now(); };
+       · NGƯỜI DÙNG TỰ CUỘN THÌ THÔI LUÔN, không tự kéo lại nữa — trước
+         đây chỉ nhường 1,5 giây rồi tự cuộn lại, nên user đang xem từ
+         vựng ở chỗ khác thì cứ vài giây lại bị giật về đúng từ đang đọc,
+         rất khó chịu. Chữ vẫn sáng theo giọng đọc bình thường, chỉ riêng
+         việc TỰ CUỘN màn hình là dừng hẳn cho tới khi bắt đầu 1 lượt đọc
+         mới (bấm Nghe US / Đọc tất cả từ lần nữa). */
+  var userTookControl = false;
+  S.noteUserScroll = function () { userTookControl = true; };
+  S.resetFollow = function () { userTookControl = false; };
 
   function scrollBoxOf(el) {
     var node = el.parentElement;
@@ -190,7 +197,7 @@
          như nhảy lung tung — ghim cố định 1 vị trí thì dễ dò theo hơn. */
   S.followWord = function (el, opts) {
     if (!el) return;
-    if (Date.now() - lastUserScroll < 1500) return;      /* đang tự kéo -> nhường */
+    if (userTookControl) return;      /* user đã tự cuộn -> thôi hẳn, để họ yên */
 
     var box = scrollBoxOf(el);
     if (!box) return;
@@ -200,7 +207,16 @@
     if (r.height === 0 && r.width === 0) return;
 
     if (opts && opts.anchor === "top") {
+      /* Bảng từ vựng có dòng tiêu đề cột "dính" (position:sticky) đè lên
+         trên cùng của khung cuộn — topPad phải TRỪ ĐÚNG chiều cao dòng
+         đó ra, không thì dòng đang đọc bị ghim ngay dưới đỉnh khung
+         nhưng lại nằm CHÌM dưới tiêu đề dính, nhìn như bị cắt mất/không
+         thấy chữ. */
       var topPad = opts.topPad || 2;
+      if (opts.stickyHeader) {
+        var head = box.querySelector(opts.stickyHeader);
+        if (head) topPad = head.getBoundingClientRect().height + 4;
+      }
       if (Math.abs(r.top - (b.top + topPad)) < 3) return;   /* đã đúng vị trí, khỏi cuộn lặt vặt */
       box.scrollTop += (r.top - b.top) - topPad;
       return;
@@ -274,6 +290,12 @@
   S.readPassage = function (opts) {
     if (!synth) { w.toast("Trình duyệt này không hỗ trợ đọc tự động", "err"); return; }
     S.stop();
+    /* KHÔNG resetFollow() ở đây — chế độ từng câu/từng đoạn tự gọi lại
+       readPassage() cho mỗi câu/đoạn kế tiếp (xem readCurrent() trong
+       detail.js), gọi resetFollow() ở đây sẽ xoá mất lựa chọn "để yên
+       tôi" của user sau MỖI câu, vài trăm mili-giây lại kéo về như cũ.
+       Chỗ thật sự bắt đầu 1 lượt nghe mới (nút "🎧 Nghe US") tự gọi
+       resetFollow() riêng. */
 
     S._container = opts.container;
     S._spans = w.$$(".kw", opts.container);

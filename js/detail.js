@@ -1454,7 +1454,7 @@
           w.$$("#vocab-tbody tr").forEach(function (tr, k) {
             tr.classList.toggle("reading", k === i);
           });
-          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top" });
+          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top", stickyHeader: "thead" });
         },
         function () { btn.textContent = "🔊 Đọc tất cả từ"; }
       );
