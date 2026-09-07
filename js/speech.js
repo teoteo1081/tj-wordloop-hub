@@ -207,18 +207,13 @@
     if (r.height === 0 && r.width === 0) return;
 
     if (opts && opts.anchor === "top") {
-      /* Bảng từ vựng có dòng tiêu đề cột "dính" (position:sticky) đè lên
-         trên cùng của khung cuộn — topPad phải TRỪ ĐÚNG chiều cao dòng
-         đó ra, không thì dòng đang đọc bị ghim ngay dưới đỉnh khung
-         nhưng lại nằm CHÌM dưới tiêu đề dính, nhìn như bị cắt mất/không
-         thấy chữ. */
-      var topPad = opts.topPad || 2;
-      if (opts.stickyHeader) {
-        var head = box.querySelector(opts.stickyHeader);
-        if (head) topPad = head.getBoundingClientRect().height + 4;
-      }
-      if (Math.abs(r.top - (b.top + topPad)) < 3) return;   /* đã đúng vị trí, khỏi cuộn lặt vặt */
-      box.scrollTop += (r.top - b.top) - topPad;
+      /* Dùng scrollIntoView() có sẵn của trình duyệt thay vì tính tay
+         scrollTop (hay lệch/giật khi có dòng tiêu đề dính che ở trên) —
+         CSS đã khai "scroll-padding-top" đúng bằng chiều cao tiêu đề
+         (xem .table-wrap.collapsed trong app.css), nên trình duyệt tự
+         chừa đúng chỗ, khỏi phải đo tay ở đây nữa. */
+      if (Math.abs(r.top - b.top) < 3) return;   /* đã đúng vị trí, khỏi cuộn lặt vặt */
+      el.scrollIntoView({ block: "start" });
       return;
     }
 

@@ -1373,7 +1373,16 @@
       }).join("\n");
       copyText(this, text);
     };
-    w.$("#speed-select").onchange = function (e) { w.Speech.setRate(e.target.value); };
+    /* Tốc độ đọc dùng CHUNG 1 giá trị cho cả bài đọc và bảng từ vựng —
+       đổi ở đâu thì nơi kia cũng cập nhật theo, đỡ phải chỉnh 2 lần. */
+    w.$("#speed-select").onchange = function (e) {
+      w.Speech.setRate(e.target.value);
+      w.$("#vocab-speed-select").value = e.target.value;
+    };
+    w.$("#vocab-speed-select").onchange = function (e) {
+      w.Speech.setRate(e.target.value);
+      w.$("#speed-select").value = e.target.value;
+    };
 
     /* --- chọn giọng đọc có sẵn trên máy --- */
     function fillVoices() {
@@ -1457,7 +1466,7 @@
           w.$$("#vocab-tbody tr").forEach(function (tr, k) {
             tr.classList.toggle("reading", k === i);
           });
-          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top", stickyHeader: "thead" });
+          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top" });
         },
         function () { btn.textContent = "🔊 Đọc tất cả từ"; }
       );

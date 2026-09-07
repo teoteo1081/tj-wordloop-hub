@@ -273,7 +273,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 }
 
 /* ═══════════ WORKSPACE ═══════════ */
-.workspace{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:1rem 1.2rem 3rem;min-width:0;}
+/* scroll-padding-top: chừa chỗ cho .detail-tabs dính ở trên khi
+   scrollIntoView() cuộn tới 1 phần tử nào đó (vd đọc bảng từ vựng lúc
+   đang MỞ RỘNG, không dùng khung cuộn riêng của #vocab-wrap nữa). */
+.workspace{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:1rem 1.2rem 3rem;min-width:0;scroll-padding-top:3.2rem;}
 /* SECTIONS — hàng ngay dưới Hub: tên cột Notebooks · tab Sections · tên cột Pages.
    Tab bo tròn hai góc trên, dính liền vào nội dung bên dưới — kiểu OneNote. */
 .section-bar{
@@ -549,7 +552,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    cuộn GẦN NHẤT (overflowY auto/scroll) để cuộn theo từ đang đọc —
    overflow:hidden sẽ khiến nó bỏ qua khung này, tưởng cả trang mới là
    khung cuộn, và không "nhảy" theo từ được nữa. */
-.table-wrap.collapsed{max-height:10.5rem;overflow-y:auto;position:relative;}
+/* scroll-padding-top: chừa đúng khoảng trống bằng dòng tiêu đề dính, để
+   scrollIntoView() tự canh dòng đang đọc ngay dưới tiêu đề — không cần
+   tính tay trong JS nữa (cách cũ hay lệch/giật, xem speech.js). */
+.table-wrap.collapsed{max-height:10.5rem;overflow-y:auto;position:relative;scroll-padding-top:2.3rem;}
 .table-wrap.collapsed::after{
   content:"";position:absolute;left:0;right:0;bottom:0;height:2.2rem;
   background:linear-gradient(to bottom, transparent, var(--bg-card));pointer-events:none;
