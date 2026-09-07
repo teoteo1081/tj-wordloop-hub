@@ -447,7 +447,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .alert-title{color:var(--amber-l);font-weight:700;font-size:.88rem;}
 .alert-sub{color:var(--text-2);font-size:.74rem;margin-top:.15rem;}
 .cycle-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;border-top:1px solid var(--border-soft);padding-top:.85rem;}
-.time-card{background:var(--bg-soft);border:1px solid var(--border-soft);border-radius:8px;padding:.6rem .7rem;display:flex;flex-direction:column;gap:.5rem;min-height:64px;}
+.time-card{background:var(--bg-soft);border:1px solid var(--border-soft);border-left:3px solid var(--border-soft);border-radius:8px;padding:.6rem .7rem;display:flex;flex-direction:column;gap:.5rem;min-height:64px;transition:border-color .15s;}
+/* Viền trái tô màu đúng theo mức độ khẩn — đỏ (sắp quên) nổi nhất, càng
+   về sau càng dịu, để liếc 1 cái là biết nên ưu tiên ôn nhóm nào. */
+.time-card:has(.dot.c1){border-left-color:var(--red);}
+.time-card:has(.dot.c2){border-left-color:var(--amber);}
+.time-card:has(.dot.c3){border-left-color:var(--blue);}
+.time-card:has(.dot.c4){border-left-color:var(--violet);}
+.time-card:hover{border-left-width:5px;}
 .time-label{
   font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--text-1);
   display:flex;align-items:center;gap:.35rem;
