@@ -380,17 +380,21 @@
      meaning_passed) của user, để tính % tiến độ từng cấp mà KHÔNG cần tải
      riêng từng Notebook như DB.loadNotebook. */
   DB.getFullTree = async function (userId) {
+    /* Kho từ vựng (hubs..blocks) theo DB.mode như mọi nơi khác — NHƯNG
+       tiến trình (block_progress) phải theo progressLocal(), KHÔNG phải
+       DB.mode: ở chế độ Cloud mà CHƯA đăng nhập thật (chỉ hồ sơ máy),
+       userId là chuỗi tự sinh kiểu "us_xxxx", không phải uuid thật —
+       gửi thẳng lên Supabase (cột user_id kiểu uuid) sẽ vỡ với lỗi
+       "invalid input syntax for type uuid". Bug này từng làm cây
+       Journey báo lỗi ngay ở gốc (Hub), không tải được gì cả. */
+    var bp = {};
+    function bpRowToState(r) {
+      return { passed: !!r.passed, meaning_passed: !!r.meaning_passed, cycle: r.cycle || 0, next_review_at: r.next_review_at || null };
+    }
+
     if (DB.mode === "local") {
       var d = local();
-      var bp = {};
-      d.block_progress.forEach(function (r) {
-        if (r.user_id === userId) {
-          bp[r.block_id] = {
-            passed: !!r.passed, meaning_passed: !!r.meaning_passed,
-            cycle: r.cycle || 0, next_review_at: r.next_review_at || null
-          };
-        }
-      });
+      d.block_progress.forEach(function (r) { if (r.user_id === userId) bp[r.block_id] = bpRowToState(r); });
       return {
         hubs: d.hubs.slice().sort(bySort),
         notebooks: d.notebooks.slice().sort(bySort),
@@ -408,17 +412,14 @@
     var pages = await sbListAll("pages");
     var batches = await sbListAll("batches");
     var blocks = await sbListAll("blocks", function (q) { return q.select("id,batch_id,name,global_index,sort"); });
-    var bp = {};
-    if (userId) {
+
+    if (userId && progressLocal()) {
+      local().block_progress.forEach(function (r) { if (r.user_id === userId) bp[r.block_id] = bpRowToState(r); });
+    } else if (userId) {
       var bpRows = await sbListAll("block_progress", function (q) {
         return q.select("block_id,passed,meaning_passed,cycle,next_review_at").eq("user_id", userId);
       }, "block_id");
-      bpRows.forEach(function (r) {
-        bp[r.block_id] = {
-          passed: !!r.passed, meaning_passed: !!r.meaning_passed,
-          cycle: r.cycle || 0, next_review_at: r.next_review_at || null
-        };
-      });
+      bpRows.forEach(function (r) { bp[r.block_id] = bpRowToState(r); });
     }
     return { hubs: hubs, notebooks: notebooks, sections: sections, pages: pages, batches: batches, blocks: blocks, bp: bp };
   };
