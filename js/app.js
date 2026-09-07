@@ -1697,7 +1697,15 @@
        để nghe được cả sự kiện "scroll" xảy ra bên trong khung con (bảng
        từ / đoạn văn giờ tự cuộn riêng) — "scroll" không nổi bọt lên cha
        như wheel/touchstart, phải bắt lúc nó đi xuống mới thấy được. */
-    w.$("#workspace").addEventListener("scroll", function () { w.Speech.noteUserScroll(); }, { passive: true, capture: true });
+    /* e.isTrusted: chỉ tính "người dùng tự cuộn" khi đúng là user gây ra
+       (kéo chuột/vuốt/lăn chuột) — followWord() cuộn màn hình bằng cách
+       gán box.scrollTop trực tiếp, việc đó CŨNG bắn ra sự kiện "scroll"
+       y hệt, isTrusted=false. Không lọc thì lần tự cuộn ĐẦU TIÊN của
+       chính app đã bị hiểu nhầm là user cuộn, tự khoá luôn không bao
+       giờ cuộn theo được nữa. */
+    w.$("#workspace").addEventListener("scroll", function (e) {
+      if (e.isTrusted) w.Speech.noteUserScroll();
+    }, { passive: true, capture: true });
     w.$("#workspace").addEventListener("wheel", function () { w.Speech.noteUserScroll(); }, { passive: true });
     w.$("#workspace").addEventListener("touchstart", function () { w.Speech.noteUserScroll(); }, { passive: true });
 
