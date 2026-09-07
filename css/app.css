@@ -891,31 +891,33 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 /* --- Chế độ TỪNG CÂU --- */
 .exam-bar-row{
   display:flex;align-items:center;justify-content:space-between;gap:.8rem;
-  margin:.9rem 0 .5rem;
+  margin:.6rem 0 .4rem;
 }
 .exam-idx{font-size:.78rem;font-weight:800;letter-spacing:.08em;color:var(--text-2);text-transform:uppercase;white-space:nowrap;}
 .exam-score{font-size:.82rem;font-weight:700;color:var(--blue-l);white-space:nowrap;}
 .gap-card{
   background:var(--bg-soft);border:1px solid var(--border);border-radius:14px;
-  padding:1.1rem 1.2rem;margin:.9rem 0 1.1rem;
+  padding:.75rem .9rem;margin:.6rem 0 .7rem;
 }
 /* 4 đáp án bên TRÁI, giải thích bên PHẢI — chấm xong chỉ lấp vào cột
    phải, không đẩy nút "Câu tiếp" xuống dưới như kiểu xếp chồng cũ. Cột
    phải có min-height sẵn để lúc chưa trả lời cũng không đổi cao đột
-   ngột khi đáp án hiện ra. Điện thoại gập về 1 cột (chật ngang). */
-.single-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;align-items:start;margin-bottom:.9rem;}
-.single-explain{min-height:100px;}
+   ngột khi đáp án hiện ra. Điện thoại gập về 1 cột (chật ngang).
+   Thu gọn cả cụm (thẻ từ + 4 đáp án + nút Câu tiếp) để vừa trọn 1 màn
+   hình, nhất là điện thoại — không phải cuộn mới thấy hết. */
+.single-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;align-items:start;margin-bottom:.6rem;}
+.single-explain{min-height:56px;}
 .single-explain:empty{min-height:0;}
 @media(max-width:760px){
-  .single-grid{grid-template-columns:1fr;gap:.7rem;}
+  .single-grid{grid-template-columns:1fr;gap:.5rem;}
   .single-explain{min-height:0;}
 }
 .gap-label{
-  font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--text-3);margin-bottom:.7rem;
+  font-size:.7rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:.45rem;
 }
 .gap-sentence{font-size:1.12rem;line-height:1.8;color:var(--text);}
-.gap-sentence.mc-term-big{font-size:1.5rem;font-weight:800;text-align:center;padding:.3rem 0;}
+.gap-sentence.mc-term-big{font-size:1.2rem;font-weight:800;text-align:center;padding:.1rem 0;}
 .blank{
   display:inline-block;color:var(--blue-l);font-weight:800;letter-spacing:.18em;
   padding:0 .25rem;vertical-align:baseline;
@@ -975,12 +977,12 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .mc-ask{font-size:.95rem;margin-bottom:.5rem;color:var(--text);}
 .mc-ask .qn{color:var(--amber-l);font-weight:800;margin-right:.2rem;}
 .mc-term{color:var(--blue-l);}
-.opt-list{display:flex;flex-direction:column;gap:.5rem;}
+.opt-list{display:flex;flex-direction:column;gap:.4rem;}
 .opt{
   display:block;width:100%;text-align:left;
   background:var(--bg-soft);border:1px solid var(--border);color:var(--text);
-  padding:.8rem 1rem;border-radius:10px;font-size:.95rem;font-weight:600;
-  cursor:pointer;min-height:48px;line-height:1.4;
+  padding:.55rem .8rem;border-radius:10px;font-size:.9rem;font-weight:600;
+  cursor:pointer;min-height:42px;line-height:1.35;
 }
 .opt .mk{font-weight:800;margin-right:.4rem;color:var(--text-3);}
 .opt:hover:not(:disabled){border-color:var(--text-3);background:var(--bg-raise);}
@@ -991,7 +993,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .opt.dim{opacity:.45;}
 
 /* --- Kết quả --- */
-.exam-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;}
+.exam-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.6rem;}
 .exam-actions .btn-primary,.exam-actions .btn-soft{flex:1;padding:.8rem 1rem;font-size:.9rem;}
 .exam-grading{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:.85rem;font-style:italic;}
 .exam-result{
@@ -1178,6 +1180,7 @@ textarea:focus{border-color:var(--blue);}
   .brand-text{display:none;}
   .uname{max-width:70px;}
   .workspace{padding:.8rem .8rem 5rem;}
+  .card{padding:.75rem;}   /* thẻ bài tập (Nghĩa/Từng câu...) bớt viền trắng thừa, vừa màn hình hơn */
 
   .sidebar{
     position:fixed;top:calc(var(--topbar-h) + env(safe-area-inset-top));bottom:0;width:78%;max-width:290px;z-index:850;
@@ -1289,15 +1292,18 @@ textarea:focus{border-color:var(--blue);}
   .wb-chip{font-size:.9rem;padding:.45rem .75rem;min-height:40px;}
   .wb-clear{padding:.3rem .6rem;font-size:.72rem;}
 
-  .exam-bar-row{margin:.8rem 0 .45rem;}
+  .exam-bar-row{margin:.5rem 0 .35rem;}
   .exam-idx{font-size:.72rem;}
   .exam-score{font-size:.76rem;}
-  .gap-card{padding:1rem .9rem;margin:.8rem 0 1rem;}
+  /* Thu gọn thẻ từ + đáp án của Nghĩa/Từng câu để vừa trọn màn hình điện
+     thoại (khỏi cuộn mới thấy hết nút "Câu tiếp") — .ex-q/.slot bên dưới
+     là của Phiếu đầy đủ, giữ nguyên cỡ to (câu văn dài, cần dễ đọc hơn). */
+  .gap-card{padding:.6rem .7rem;margin:.5rem 0 .6rem;}
   .gap-sentence{font-size:1.06rem;line-height:1.85;}
   .ex-q{flex-direction:column;gap:.15rem;line-height:2.3;margin-bottom:1.2rem;}
   .slot{min-width:9.5rem;padding:.3rem .55rem;font-size:1rem;}
-  .opt{padding:.95rem 1rem;font-size:1rem;min-height:54px;border-radius:12px;}
-  .opt-list{gap:.55rem;}
+  .opt{padding:.6rem .8rem;font-size:.88rem;min-height:44px;border-radius:10px;}
+  .opt-list{gap:.4rem;}
   .prep-row{gap:.4rem;}
   .prep-vi{width:100%;flex:none;font-size:.86rem;}
   .exam-result .score{font-size:2.9rem;}
