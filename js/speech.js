@@ -202,7 +202,12 @@
     if (!el) return;
     if (userTookControl) return;      /* user đã tự cuộn -> thôi hẳn, để họ yên */
 
-    var box = scrollBoxOf(el);
+    /* opts.scrollBox: chỉ thẳng khung cuộn, KHỎI dò qua getComputedStyle
+       (dò tự động từng sai/không chắc ăn với bảng từ vựng — lúc thu gọn
+       thì đúng là #vocab-wrap, lúc mở rộng lại là #workspace, mà tự dò
+       nhiều lần vẫn không ổn định). Bên gọi (detail.js) biết chắc đang ở
+       chế độ nào nên tự truyền đúng khung vào. */
+    var box = (opts && opts.scrollBox) || scrollBoxOf(el);
     if (!box) return;
     var r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
     /* phần tử đang bị ẩn (chế độ từng câu/từng đoạn) có kích thước 0 —
@@ -214,8 +219,9 @@
          scrollTop (hay lệch/giật khi có dòng tiêu đề dính che ở trên) —
          CSS đã khai "scroll-padding-top" đúng bằng chiều cao tiêu đề
          (xem .table-wrap.collapsed trong app.css), nên trình duyệt tự
-         chừa đúng chỗ, khỏi phải đo tay ở đây nữa. */
-      if (Math.abs(r.top - b.top) < 3) return;   /* đã đúng vị trí, khỏi cuộn lặt vặt */
+         chừa đúng chỗ, khỏi phải đo tay ở đây nữa. Gọi mỗi từ luôn, không
+         "tối ưu" bỏ qua khi tưởng đã đúng chỗ — scrollIntoView vô hại
+         khi gọi lặp, còn bỏ qua sai lại thành KHÔNG BAO GIỜ cuộn. */
       el.scrollIntoView({ block: "start" });
       return;
     }

@@ -1460,7 +1460,13 @@
           w.$$("#vocab-tbody tr").forEach(function (tr, k) {
             tr.classList.toggle("reading", k === i);
           });
-          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top" });
+          /* Thu gọn -> #vocab-wrap tự cuộn riêng; mở rộng -> #vocab-wrap
+             không có overflow gì cả, phải cuộn cả trang (#workspace).
+             Chỉ định thẳng, không nhờ speech.js tự dò (từng không chắc
+             ăn với khung lồng nhau kiểu này). */
+          var vwrap = w.$("#vocab-wrap");
+          var box = (vwrap && vwrap.classList.contains("collapsed")) ? vwrap : w.$("#workspace");
+          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top", scrollBox: box });
         },
         function () { btn.textContent = "🔊 Đọc tất cả từ"; }
       );
