@@ -504,24 +504,32 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .stat-num.green{color:var(--green-l);} .stat-num.blue{color:var(--blue-l);} .stat-num.amber{color:var(--amber-l);}
 .stat-label{font-size:.63rem;color:var(--text-3);text-transform:uppercase;margin-top:.2rem;font-weight:700;letter-spacing:.03em;}
 
-.detail-tabs{display:flex;gap:.35rem;border-bottom:1px solid var(--border);padding-bottom:.4rem;overflow-x:auto;scrollbar-width:none;}
+/* Dính lại (position:sticky) khi cuộn xuống bài đọc dài — luôn bấm được
+   tab khác mà khỏi kéo lên đầu trang. Nền đặc trùng màu nền trang nên
+   không lộ viền lúc dính. */
+.detail-tabs{
+  display:flex;align-items:center;gap:.35rem;border-bottom:1px solid var(--border);padding:.5rem 0 .4rem;
+  overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:6;background:var(--bg-main);
+}
 .detail-tabs::-webkit-scrollbar{display:none;}
-.dtab{background:transparent;border:none;color:var(--text-2);font-weight:600;font-size:.8rem;padding:.4rem .8rem;cursor:pointer;border-radius:6px;white-space:nowrap;}
+.dtab{background:transparent;border:none;color:var(--text-2);font-weight:600;font-size:.8rem;padding:.4rem .8rem;cursor:pointer;border-radius:6px;white-space:nowrap;flex-shrink:0;}
 .dtab.active{background:var(--blue-sub);color:var(--blue-l);font-weight:700;}
 .tab-pane{display:none;flex-direction:column;gap:1rem;}
 .tab-pane.active{display:flex;}
 
-/* Điều hướng Batch trước/sau ngay trong tab Bài học */
-/* Dính lại khi cuộn xuống bài đọc dài — khỏi phải kéo lên đầu mới bấm
-   được Block trước/sau. Nền đặc trùng màu nền trang nên không lộ viền
-   khi dính (2 bên vốn đã cùng màu với phần đệm của #workspace). */
-.batch-nav{
-  display:flex;align-items:center;gap:.6rem;
-  position:sticky;top:0;z-index:6;background:var(--bg-main);
-  padding:.5rem 0 .6rem;margin-bottom:-.2rem;
+/* Vị trí Block hiện tại — cuối hàng tab, canh phải (trước đây là 1 hàng
+   riêng bên dưới, giờ gộp lại cho gọn). */
+.detail-tabs .bn-pos{margin-left:auto;flex-shrink:0;font-size:.74rem;font-weight:700;color:var(--text-3);white-space:nowrap;padding-left:.5rem;}
+.dtab-top{
+  flex-shrink:0;background:var(--bg-soft);border:1px solid var(--border);color:var(--text-2);
+  width:1.8rem;height:1.8rem;border-radius:6px;cursor:pointer;font-size:.85rem;line-height:1;margin-left:.4rem;
 }
-.batch-nav .bn-pos{flex:1;text-align:center;font-size:.78rem;font-weight:700;color:var(--text-2);}
-.batch-nav .btn-soft:disabled{opacity:.4;cursor:default;}
+.dtab-top:hover{color:var(--text);border-color:var(--text-3);}
+
+/* Nút Block trước/sau — gộp lên hàng Batch cho gọn, đứng sát nhau. */
+.bn-buttons{display:flex;gap:.3rem;flex-shrink:0;}
+.bn-buttons .btn-soft{padding:.4rem .6rem;}
+.bn-buttons .btn-soft:disabled{opacity:.4;cursor:default;}
 
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;}
 .card-title{font-size:.83rem;font-weight:700;color:var(--blue-l);margin-bottom:.75rem;}

@@ -72,18 +72,18 @@
   }
 
   D.renderBatchNav = function () {
-    var nav = w.$("#batch-nav");
-    if (!nav) return;
+    var buttons = w.$("#bn-buttons"), pos = w.$("#bn-pos");
+    if (!buttons || !pos) return;
     var info = blockNavInfo();
     if (!info || info.blockIdx < 0 || (info.batchList.length <= 1 && info.blockList.length <= 1)) {
-      nav.hidden = true;
+      buttons.hidden = true; pos.hidden = true;
       return;
     }
 
-    nav.hidden = false;
+    buttons.hidden = false; pos.hidden = false;
     w.$("#bn-prev").disabled = info.blockIdx <= 0 && info.batchIdx <= 0;
     w.$("#bn-next").disabled = info.blockIdx >= info.blockList.length - 1 && info.batchIdx >= info.batchList.length - 1;
-    w.$("#bn-pos").textContent = "Block " + (info.blockIdx + 1) + "/" + info.blockList.length + " · " + info.curBatch.name;
+    pos.textContent = "Block " + (info.blockIdx + 1) + "/" + info.blockList.length + " · " + info.curBatch.name;
   };
 
   D.gotoAdjacentBlock = function (dir) {
@@ -1279,6 +1279,9 @@
 
     w.$("#bn-prev").onclick = function () { D.gotoAdjacentBlock(-1); };
     w.$("#bn-next").onclick = function () { D.gotoAdjacentBlock(1); };
+    w.$("#btn-scroll-top").onclick = function () {
+      w.$("#workspace").scrollTo({ top: 0, behavior: "smooth" });
+    };
 
     w.$$(".dtab").forEach(function (t) {
       t.onclick = function () { D.showTab(t.dataset.tab); };

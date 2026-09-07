@@ -129,6 +129,12 @@
     <!-- Thanh Batch -->
     <div class="batches-bar">
       <button class="btn-ghost" id="btn-back" hidden>← Quay lại danh sách Block</button>
+      <!-- Chuyển Block trước/sau — chỉ hiện khi đang xem Chi tiết Block,
+           gộp chung hàng với Batch cho gọn (trước đây là 1 hàng riêng). -->
+      <div class="bn-buttons" id="bn-buttons" hidden>
+        <button class="btn-soft" id="bn-prev" title="Block trước">←</button>
+        <button class="btn-soft" id="bn-next" title="Block sau">→</button>
+      </div>
       <div class="batch-tabs" id="batch-tabs"><!-- JS --></div>
       <button class="btn-soft" id="btn-paste-extract" title="Dán bài báo / transcript — AI tự trích từ B1+ và tạo Block">✨ Dán bài, tự trích từ</button>
       <button class="btn-primary" id="btn-paste-new">+ Paste từ mới</button>
@@ -178,26 +184,22 @@
     <section id="screen-detail" hidden>
       <h2 id="detail-title" hidden>📕 Block 1</h2>
 
-      <div class="detail-tabs">
+      <!-- position:sticky — luôn thấy được các tab dù cuộn xuống đâu.
+           #bn-pos (Block X/Y · Batch Z) nằm cuối hàng, canh phải; nút
+           "⤒" thu gọn/cuộn về đầu khi cần lấy lại chỗ cho bài đọc. -->
+      <div class="detail-tabs" id="detail-tabs">
         <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
         <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
         <button class="dtab" data-tab="sheet">📋 Phiếu<span class="dt-long"> đầy đủ</span></button>
         <button class="dtab" data-tab="single">🔤 Từng câu</button>
         <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
         <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
+        <span class="bn-pos" id="bn-pos" hidden></span>
+        <button class="dtab-top" id="btn-scroll-top" title="Về đầu trang">⤒</button>
       </div>
 
       <!-- TAB 1: BÀI HỌC -->
       <div class="tab-pane active" id="pane-study">
-        <!-- Chuyển Block trước/sau trong cùng Page — hết Block của Batch
-             hiện tại thì tự lăn qua Batch kế/trước, không phải quay ra cột
-             Pages bấm lại. Ẩn khi cả Page chỉ có 1 Block duy nhất. -->
-        <div class="batch-nav" id="batch-nav" hidden>
-          <button class="btn-soft" id="bn-prev">← Block trước</button>
-          <span class="bn-pos" id="bn-pos"></span>
-          <button class="btn-soft" id="bn-next">Block sau →</button>
-        </div>
-
         <div class="card">
           <div class="card-title-row">
             <div class="card-title">📘 1. Danh sách từ vựng cần học</div>
