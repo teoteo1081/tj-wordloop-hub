@@ -15,7 +15,7 @@ window.APP_CONFIG = {
 
   APP_NAME: "TJ WordLoop Hub",
   WORDS_PER_BLOCK: 10,        // chuẩn 10 từ / block
-  DEFAULT_SPEECH_RATE: 1.0,
+  DEFAULT_SPEECH_RATE: 0.85,   // đang học, đọc chậm hơn tốc độ tự nhiên cho dễ nghe
   MASTER_THRESHOLD: 0.8,      // >= 80% đúng và >= 3 lần thử  => "Đã thuộc"
   MASTER_MIN_ATTEMPTS: 3
 };
