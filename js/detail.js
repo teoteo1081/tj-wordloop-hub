@@ -1261,12 +1261,13 @@
       w.$("#btn-read").textContent = "🎧 Nghe US";
     };
 
-    /* nút cuối Glossary -> vào THẲNG bài kiểm tra (tab Phiếu đầy đủ),
-       không dừng lại ở màn chuẩn bị nào cả — chỉ tạo đề rồi hiện luôn. */
+    /* nút cuối Glossary -> vào THẲNG bài kiểm tra trắc nghiệm 4 đáp án
+       (tab Từng câu — theo yêu cầu mới, mặc định vào đây thay vì Phiếu
+       đầy đủ), không dừng lại ở màn chuẩn bị nào cả. */
     w.$("#btn-go-exam").onclick = function () {
       D._autoRead = false;
       w.Speech.stop();
-      D.showTab("sheet");
+      D.showTab("single");
       w.$("#workspace").scrollTop = 0;
     };
     w.$("#btn-regen").onclick = async function () {

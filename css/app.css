@@ -1254,24 +1254,32 @@ textarea:focus{border-color:var(--blue);}
 .jdot.due{background:var(--red);}
 .jdot.both{background:linear-gradient(135deg,var(--green) 50%,var(--red) 50%);}
 
-.journey-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:.4rem;}
+/* Giới hạn bề rộng để ô lịch không phình to trên màn hình rộng, và
+   không bao giờ tràn khỏi khung màn hình trên điện thoại — 7 cột vuông,
+   max mỗi ô ~52px là đủ đọc số, không cần to hơn. */
+.journey-cal{
+  display:grid;grid-template-columns:repeat(7,minmax(0,52px));gap:.3rem;
+  justify-content:center;max-width:100%;margin:0 auto;
+}
 .jcell{
   aspect-ratio:1;border-radius:8px;background:var(--bg-soft);border:1px solid var(--border);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
-  font-size:.72rem;color:var(--text-3);position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.05rem;
+  font-size:.68rem;color:var(--text-3);position:relative;min-width:0;
 }
 .jcell .jd{font-weight:700;}
-.jcell .jn{font-size:.62rem;font-weight:700;}
+.jcell .jn{font-size:.56rem;font-weight:700;}
 .jcell.learn{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.4);color:var(--green-l);}
 .jcell.due{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.4);color:var(--red-l);}
 .jcell.both{background:linear-gradient(135deg,rgba(16,185,129,.22) 50%,rgba(239,68,68,.22) 50%);border-color:var(--border);color:var(--text);}
 .jcell.today{outline:2px solid var(--blue);outline-offset:1px;}
 .jcell.pad{visibility:hidden;}
-.jcal-dow{font-size:.66rem;color:var(--text-3);text-align:center;font-weight:700;text-transform:uppercase;}
+.jcal-dow{font-size:.62rem;color:var(--text-3);text-align:center;font-weight:700;text-transform:uppercase;}
 
 @media(max-width:640px){
   .journey-stats-row{grid-template-columns:1fr;}
-  .jcell{font-size:.64rem;}
+  .journey-cal{grid-template-columns:repeat(7,minmax(0,1fr));gap:.25rem;}
+  .jcell{font-size:.6rem;}
+  .jcell .jn{font-size:.5rem;}
 }
 
 /* ─── Journey: thanh trên + breadcrumb + cây drill-down ─── */
