@@ -488,6 +488,81 @@
     return insertOne("pages", { section_id: sectionId, name: name, sort: Date.now() % 100000 });
   };
 
+  async function insertMany(table, rows) {
+    if (!rows.length) return [];
+    if (DB.mode === "local") {
+      rows.forEach(function (r) { r.id = r.id || w.uid(table.slice(0, 2)); });
+      local()[table] = local()[table].concat(rows);
+      saveLocal();
+      return rows;
+    }
+    /* Cloud: 1 lần gọi cho cả mảng thay vì từng dòng — nhanh hơn nhiều
+       khi nhân bản Page có hàng trăm từ bên trong. */
+    var out = [];
+    for (var i = 0; i < rows.length; i += 500) {
+      var chunk = rows.slice(i, i + 500);
+      var r = await DB.sb.from(table).insert(chunk).select();
+      if (r.error) throw r.error;
+      out = out.concat(r.data || []);
+    }
+    return out;
+  }
+
+  /* Nhân bản 1 Page — tạo bản sao đầy đủ Batch > Block > Từ vựng bên
+     trong, id mới hết, KHÔNG đụng gì tới bản gốc. Trả về Page mới. */
+  DB.duplicatePage = async function (pageId) {
+    var d = local();
+    var srcPage = DB.mode === "local"
+      ? d.pages.find(function (p) { return p.id === pageId; })
+      : (await sbList("pages", function (q) { return q.eq("id", pageId); }))[0];
+    if (!srcPage) throw new Error("Không tìm thấy Page gốc");
+
+    var srcBatches, srcBlocks, srcWords;
+    if (DB.mode === "local") {
+      srcBatches = where(d.batches, "page_id", pageId).sort(bySort);
+      srcBlocks = whereIn(d.blocks, "batch_id", srcBatches.map(function (b) { return b.id; })).sort(bySort);
+      srcWords = whereIn(d.words, "block_id", srcBlocks.map(function (b) { return b.id; })).sort(bySort);
+    } else {
+      srcBatches = await sbList("batches", function (q) { return q.eq("page_id", pageId).order("sort"); });
+      var bIds = srcBatches.map(function (b) { return b.id; });
+      srcBlocks = bIds.length ? await sbList("blocks", function (q) { return q.in("batch_id", bIds).order("sort"); }) : [];
+      var blkIds = srcBlocks.map(function (b) { return b.id; });
+      srcWords = blkIds.length ? await sbList("words", function (q) { return q.in("block_id", blkIds).order("sort"); }) : [];
+    }
+
+    var newPage = await insertOne("pages", {
+      section_id: srcPage.section_id, name: srcPage.name + " (Copy)", sort: (srcPage.sort || 0) + 1
+    });
+
+    var batchIdMap = {}, newBatches = srcBatches.map(function (b) {
+      var nb = Object.assign({}, b); delete nb.id;
+      nb.page_id = newPage.id;
+      nb.id = w.uid("bt");
+      batchIdMap[b.id] = nb.id;
+      return nb;
+    });
+    await insertMany("batches", newBatches);
+
+    var blockIdMap = {}, newBlocks = srcBlocks.map(function (b) {
+      var nb = Object.assign({}, b); delete nb.id;
+      nb.batch_id = batchIdMap[b.batch_id];
+      nb.id = w.uid("bl");
+      blockIdMap[b.id] = nb.id;
+      return nb;
+    });
+    await insertMany("blocks", newBlocks);
+
+    var newWords = srcWords.map(function (x) {
+      var nx = Object.assign({}, x); delete nx.id;
+      nx.block_id = blockIdMap[x.block_id];
+      nx.id = w.uid("wd");
+      return nx;
+    });
+    await insertMany("words", newWords);
+
+    return newPage;
+  };
+
   /* Tạo 1 Batch mới + tự cắt danh sách từ thành các Block 10 từ */
   DB.addBatchFromWords = async function (pageId, parsedWords, batchName, startGlobalIndex) {
     var per = cfg.WORDS_PER_BLOCK || 10;

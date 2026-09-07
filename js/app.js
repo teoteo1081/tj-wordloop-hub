@@ -834,6 +834,7 @@
     if (table === "sections" && S.notebooks.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Notebook khác" });
     if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
     if (table === "batches" && S.pages.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Page khác" });
+    if (table === "pages") items.push({ act: "duplicate", icon: "📋", text: "Nhân bản Page" });
     /* Gộp hàng loạt: đứng ở 1 Hub, gom hết Notebook từ MỌI Hub khác về đây */
     if (table === "hubs" && S.hubs.length > 1) items.push({ act: "consolidate", icon: "📦", text: "Gộp tất cả Notebook về đây" });
     items.push({ act: "sep" });
@@ -950,6 +951,15 @@
           await w.DB.patch("notebooks", toMove[ti].id, { hub_id: id });
         }
         w.toast('Đã gộp ' + toMove.length + ' Notebook về "' + row.name + '"', "ok");
+      }
+
+      else if (act === "duplicate") {
+        w.toast("Đang nhân bản Page…");
+        var newPage = await w.DB.duplicatePage(id);
+        S.pageId = newPage.id;   /* loadNotebook() bên trong reloadCurrent() sẽ nạp lại S.pages đầy đủ, chỉ cần chốt trước pageId muốn đứng lại */
+        saveSel();
+        await App.reloadCurrent();
+        w.toast('Đã tạo "' + newPage.name + '" — bản sao đầy đủ Batch/Block/Từ vựng', "ok");
       }
 
       else if (act === "reset") {
@@ -1113,6 +1123,7 @@
   /* Cặp (kéo cái gì, thả lên cái gì) nào là "chuyển chỗ" */
   var MOVE_PAIRS = {
     "notebooks>hubs": "hub_id",
+    "sections>notebooks": "notebook_id",
     "pages>sections": "section_id",
     "batches>pages": "page_id"
   };
