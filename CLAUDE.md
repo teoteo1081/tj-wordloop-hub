@@ -28,9 +28,13 @@
 - **KHÔNG** có UI chọn độ khó Dễ/Vừa/Khó cho bài đọc (đã làm rồi bị yêu cầu bỏ — "hong có tác dụng"). Thay vào đó là 1 hàng tab **"📝 Dán" + "Claude 1/2/3"** (`#src-tabs`/`#src-body` trong `detail.js`, hàm `D.renderSourcePicker`) — LUÔN hiện (không ẩn khi đã có bài đọc), chọn tab nào xem trước tab đó rồi bấm chung 1 nút "Dùng bài này" mới đẩy lên. Không có nút "Nhờ AI viết" riêng ở khu này — dùng "🔄 Tạo lại" ở đầu card bài đọc.
 - **KHÔNG** tự động luân phiên bài đọc theo chu kỳ ôn (đã thử, bị thay bằng picker thủ công ở trên).
 - **KHÔNG** tự fallback về mẫu câu cứng khi chưa có AI/chưa dán bài — thà để trống.
-- Số Block **đánh lại từ 1 trong mỗi Batch**, không chạy dồn toàn Notebook (nhưng field nội bộ `global_index` vẫn tăng liên tục xuyên Batch, dùng cho sắp xếp — đừng nhầm với tên hiển thị).
-- "Done" trên Block = **1 trong 3** thẻ bài tập đạt ≥80% (không cần cả 3), nhưng chỉ Phiếu đầy đủ/Từng câu mới đẩy chu kỳ SRS thật (`bp.passed`); Nghĩa đạt 80% chỉ set `bp.meaning_passed` (ảnh hưởng "Done" + Journey, không ảnh hưởng SRS).
+- Số Block là `global_index`, **KHÔNG trùng nhau xuyên suốt cả Notebook** (đã thử đánh lại từ 1 mỗi Batch rồi bị yêu cầu revert — "để dễ nhớ/dễ nhắc tên 1 Block cụ thể"). Vị trí (Batch/Page nào) đã có breadcrumb lo, không cần nhét vào tên Block.
+- "Done" trên Block = **1 trong 3** thẻ bài tập đạt ≥80% — và từ giờ **CẢ 3 THẺ ĐỀU đẩy chu kỳ SRS thật** (`bp.passed`), kể cả Nghĩa (đã đổi: trước đây chỉ Phiếu đầy đủ/Từng câu mới đẩy SRS, Nghĩa chỉ set `meaning_passed` — user yêu cầu đổi vì thấy mâu thuẫn "Done nhưng chưa vào chu kỳ ôn").
+- **Học sớm (trước `next_review_at`) vẫn được và vẫn ghi điểm, nhưng KHÔNG đẩy chu kỳ ôn lên sớm** (`srsAdvanceIfDue()` trong `detail.js`) — tránh cày nhiều lần trong ngày để nhảy cóc lịch Tony Buzan. Có nới 1 tiếng (`SRS_GRACE_MS`): ôn sớm hơn hạn ≤1 tiếng vẫn tính đúng hạn.
+- Mỗi lần THẬT SỰ đẩy chu kỳ được ghi vào `bp.review_history` ([{step, at}]) — tab Tiến trình dùng cái này để hiện đúng ngày giờ đã ôn từng lần, không chỉ dấu ✓ chung chung.
 - Từng câu/Nghĩa: câu cuối trả lời xong (đúng hay sai) là **tự chấm luôn**, không cần nút "Nộp bài" — chỉ Phiếu đầy đủ giữ nút Nộp bài tường minh.
+- Đọc bài/bảng từ vựng: **user tự cuộn đi đâu thì để yên hẳn** cho tới lần bấm nghe tiếp theo (`speech.js` — cờ `userTookControl`, không phải hẹn giờ 1.5s như trước) — chữ vẫn sáng theo giọng đọc, chỉ riêng việc tự cuộn màn hình là dừng.
+- **Repo đã chuyển PUBLIC** (từ private) để dùng GitHub Pages miễn phí — đã rà soát kỹ toàn bộ lịch sử git, không có key/credential nhạy cảm nào (xem README.md mục Triển khai). Host chính giờ là GitHub Pages (`https://teoteo1081.github.io/tj-wordloop-hub/`, tự build khi push, không cần lệnh deploy riêng); Netlify giữ làm dự phòng.
 
 ## Khi viết bài đọc tay hàng loạt (nếu được yêu cầu tiếp)
 1. Lấy đúng danh sách 10 từ của Block (từ export JSON của user hoặc Supabase).

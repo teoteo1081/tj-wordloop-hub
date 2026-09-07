@@ -13,9 +13,10 @@
 - Viết `README.md` (tài liệu tổng thể) + `CLAUDE.md` (quyết định đã chốt, lỗi đã sửa, checklist viết bài đọc) trong repo.
 
 ## Đường dẫn
-- **Code (GitHub, private)**: https://github.com/teoteo1081/tj-wordloop-hub
-- **Web live (Netlify)**: https://tj-wordloop-hub.netlify.app
-- **Supabase project**: `pqarpszsipbdugrumhfy` (Singapore) — https://supabase.com/dashboard/project/pqarpszsipbdugrumhfy
+- **Code (GitHub, PUBLIC** — chuyển từ private để dùng GitHub Pages miễn phí, đã rà soát không lộ key gì): https://github.com/teoteo1081/tj-wordloop-hub
+- **Web live (GitHub Pages, chính)**: https://teoteo1081.github.io/tj-wordloop-hub/ — chỉ cần `git push` là tự build lại, không cần lệnh deploy riêng
+- **Web live (Netlify, dự phòng — đang tạm ngưng deploy vì team hết hạn mức tháng)**: https://tj-wordloop-hub.netlify.app
+- **Supabase project**: `pqarpszsipbdugrumhfy` (Singapore) — https://supabase.com/dashboard/project/pqarpszsipbdugrumhfy — nhớ Redirect URLs (Authentication → URL Configuration) đã có cả 3: localhost, Netlify, và GitHub Pages
 
 ## Khoá cấu hình (đã có sẵn trong `js/config.js`, đã commit)
 ```
@@ -30,12 +31,11 @@ cd TJHUB
 python3 -m http.server 8934
 # mở http://localhost:8934 — KHÔNG mở bằng file://
 ```
-Deploy lại sau khi sửa:
+Deploy lại sau khi sửa (GitHub Pages tự build khi push, không cần lệnh riêng):
 ```bash
 git add -A && git commit -m "..." && git push
-netlify deploy --prod --dir=.
 ```
-(Cần `netlify login` một lần nếu máy mới — CLI đã cài qua `brew install netlify-cli`, `gh`, `supabase` (không dùng supabase CLI, chỉ dùng REST API trực tiếp qua `curl`/`requests`).)
+Muốn deploy thêm sang Netlify (khi hết hạn mức) thì `netlify deploy --prod --dir=.` (cần `netlify login` một lần nếu máy mới — CLI đã cài qua `brew install netlify-cli`, `gh`, `supabase`; supabase CLI không dùng, chỉ gọi REST API trực tiếp qua `curl`/`requests`).
 
 ## Đọc thêm
 - `README.md` — tài liệu đầy đủ (kiến trúc, cách bài đọc hoạt động, 3 kiểu thi, SRS, Journey...)

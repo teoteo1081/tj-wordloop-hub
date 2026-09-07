@@ -28,15 +28,18 @@ Mở **`http://localhost:8934`** — **không** mở bằng `file://` (fetch() b
 ## Triển khai hiện tại
 | Thứ | Ở đâu |
 |---|---|
-| Code (GitHub, private) | https://github.com/teoteo1081/tj-wordloop-hub |
-| Web live (Netlify) | https://tj-wordloop-hub.netlify.app |
+| Code (GitHub, **public**) | https://github.com/teoteo1081/tj-wordloop-hub |
+| Web live (GitHub Pages) | **https://teoteo1081.github.io/tj-wordloop-hub/** |
+| Web live (Netlify — tạm ngưng deploy) | https://tj-wordloop-hub.netlify.app (đứng ở bản cũ, team hết hạn mức tháng, xem CLAUDE.md) |
 | Database dùng chung (Supabase) | project `pqarpszsipbdugrumhfy`, region Singapore |
 
-Deploy lại sau khi sửa code:
+Deploy lại sau khi sửa code — chỉ cần push, GitHub Pages tự build lại (không cần lệnh deploy riêng như Netlify):
 ```bash
 git add -A && git commit -m "..." && git push
-netlify deploy --prod --dir=.
 ```
+Kiểm tra Pages build xong chưa: `gh api repos/teoteo1081/tj-wordloop-hub/pages/builds/latest`
+
+**Lưu ý repo đã chuyển PUBLIC** (bắt buộc để dùng GitHub Pages miễn phí) — đã rà soát kỹ, không có key/credential nhạy cảm nào trong repo hay lịch sử git (xem CLAUDE.md).
 
 ## Cây dữ liệu
 ```
