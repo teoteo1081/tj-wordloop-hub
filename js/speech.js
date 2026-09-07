@@ -180,7 +180,15 @@
     return document.getElementById("workspace");
   }
 
-  S.followWord = function (el) {
+  /* opts.anchor:
+       "center" (mặc định) — giữ trong vùng nhìn thấy, chỉ cuộn khi ra
+         khỏi tầm mắt, dùng cho bài đọc (đoạn văn dài, không nên ghim
+         cứng 1 chỗ vì mất mạch đọc).
+       "top"    — LUÔN ghim dòng đang đọc ngay sát đỉnh khung, dùng cho
+         bảng từ vựng thu gọn: khung chỉ ~3 dòng nên nếu chỉ "giữ trong
+         tầm mắt" thì dòng đang đọc lúc rơi vào dòng 1, lúc dòng 3, nhìn
+         như nhảy lung tung — ghim cố định 1 vị trí thì dễ dò theo hơn. */
+  S.followWord = function (el, opts) {
     if (!el) return;
     if (Date.now() - lastUserScroll < 1500) return;      /* đang tự kéo -> nhường */
 
@@ -190,6 +198,14 @@
     /* phần tử đang bị ẩn (chế độ từng câu/từng đoạn) có kích thước 0 —
        cuộn theo nó là trang nhảy loạn */
     if (r.height === 0 && r.width === 0) return;
+
+    if (opts && opts.anchor === "top") {
+      var topPad = opts.topPad || 2;
+      if (Math.abs(r.top - (b.top + topPad)) < 3) return;   /* đã đúng vị trí, khỏi cuộn lặt vặt */
+      box.scrollTop += (r.top - b.top) - topPad;
+      return;
+    }
+
     var pad = Math.min(48, b.height / 3);
     if (r.top >= b.top + pad && r.bottom <= b.bottom - pad) return;   /* còn trong tầm mắt */
 

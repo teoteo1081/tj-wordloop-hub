@@ -939,16 +939,43 @@
     w.$("#single-back").onclick = function () { D.close(); w.App.renderBlocks(); };
   };
 
+  /* Chỉ THẬT SỰ đẩy chu kỳ ôn khi ĐÚNG HẠN — chưa từng đạt lần nào (mới
+     học lần đầu), hoặc đã tới/quá next_review_at. Học sớm (ôn trước hạn)
+     vẫn được và vẫn ghi điểm, nhưng KHÔNG được đẩy lịch ôn tiếp theo lên
+     sớm — tránh "cày" nhiều lần trong ngày để nhảy cóc cả chu kỳ Tony
+     Buzan. ex.early=true để màn kết quả báo đúng cho người học biết. */
+  var SRS_GRACE_MS = 60 * 60 * 1000;   /* nới 1 tiếng — ôn "sớm" 1 tiếng vẫn coi như đúng hạn */
+  function srsAdvanceIfDue(bp, ex) {
+    var due = !bp.passed || !bp.next_review_at || bp.next_review_at - SRS_GRACE_MS <= Date.now();
+    if (!due) {
+      ex.early = true;
+      ex.nextLabel = w.humanTime(bp.next_review_at, { future: true });
+      return { passed: true };
+    }
+    var next = w.SRS.advance(bp.cycle || 0);
+    ex.nextLabel = w.SRS.stepFor(next.cycle).short + " nữa";
+    /* Nhật ký từng lần ôn — để tab Tiến trình khoe được đúng ngày giờ đã
+       ôn lần 1, lần 2... chứ không chỉ 1 dấu ✓ chung chung. */
+    var hist = Array.isArray(bp.review_history) ? bp.review_history.slice() : [];
+    hist.push({ step: next.cycle, at: Date.now() });
+    if (hist.length > w.SRS.MAX_CYCLE) hist = hist.slice(hist.length - w.SRS.MAX_CYCLE);
+    return {
+      passed: true, cycle: next.cycle, next_review_at: next.next_review_at,
+      last_reviewed_at: Date.now(), review_history: hist
+    };
+  }
+
   /* ---------- Khối kết quả dùng chung cho Phiếu đầy đủ & Từng câu ---------- */
   D.examResultHtml = function (ex) {
     var passed = ex.score >= PASS_MARK;
+    var detail;
+    if (!passed) detail = "Đọc lại bài rồi kiểm tra lại nhé";
+    else if (ex.early) detail = "Đã ghi điểm, nhưng ôn sớm nên lịch ôn giữ nguyên — còn " + ex.nextLabel + " nữa mới đúng hạn";
+    else detail = "Block đã lên chu kỳ tiếp theo, lịch ôn: " + ex.nextLabel;
     return '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
         '<div class="score">' + ex.score + "%</div>" +
-        '<div class="verdict">' + (passed ? "✅ ĐẠT — Block đã hoàn thành" : "❌ CHƯA ĐẠT — cần ≥ " + PASS_MARK + "%") + "</div>" +
-        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu" +
-          (passed ? " · Block đã lên chu kỳ tiếp theo, lịch ôn: " + ex.nextLabel
-                  : " · Đọc lại bài rồi kiểm tra lại nhé") +
-        "</div>" +
+        '<div class="verdict">' + (passed ? (ex.early ? "✅ ĐẠT — chưa tới hạn ôn" : "✅ ĐẠT — Block đã hoàn thành") : "❌ CHƯA ĐẠT — cần ≥ " + PASS_MARK + "%") + "</div>" +
+        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu · " + detail + "</div>" +
       "</div>";
   };
 
@@ -974,12 +1001,7 @@
     };
 
     if (passed) {
-      var next = w.SRS.advance(bp.cycle || 0);
-      patch.passed = true;
-      patch.cycle = next.cycle;
-      patch.next_review_at = next.next_review_at;
-      patch.last_reviewed_at = Date.now();
-      ex.nextLabel = w.SRS.stepFor(next.cycle).short + " nữa";
+      Object.assign(patch, srsAdvanceIfDue(bp, ex));
     } else {
       patch.passed = !!bp.passed;   /* đã từng đạt thì không bị mất */
     }
@@ -1126,12 +1148,14 @@
 
   D.meaningResultHtml = function (ex) {
     var passed = ex.score >= PASS_MARK;
+    var detail;
+    if (!passed) detail = "cần ≥ " + PASS_MARK + "% để vào chu kỳ ôn";
+    else if (ex.early) detail = "đã ghi điểm, nhưng ôn sớm nên lịch ôn giữ nguyên — còn " + ex.nextLabel + " nữa mới đúng hạn";
+    else detail = "lịch ôn: " + ex.nextLabel;
     return '<div class="exam-result ' + (passed ? "pass" : "failed") + '">' +
         '<div class="score">' + ex.score + "%</div>" +
-        '<div class="verdict">' + (passed ? "✅ Đạt — Block hoàn thành!" : "🙂 Luyện thêm cho quen") + "</div>" +
-        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu" +
-          (passed ? " · lịch ôn: " + ex.nextLabel : " · cần ≥ " + PASS_MARK + "% để vào chu kỳ ôn") +
-        "</div>" +
+        '<div class="verdict">' + (passed ? (ex.early ? "✅ Đạt — chưa tới hạn ôn" : "✅ Đạt — Block hoàn thành!") : "🙂 Luyện thêm cho quen") + "</div>" +
+        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + " câu · " + detail + "</div>" +
       "</div>";
   };
   D.meaningResultActionsHtml = function () {
@@ -1181,14 +1205,11 @@
     if (ex.score >= PASS_MARK) {
       try { await w.DB.bumpLearnedToday(w.Auth.user.id, ex.total); } catch (e) {}
       var bp0 = S().bp[D.blockId] || { cycle: 0 };
-      var next = w.SRS.advance(bp0.cycle || 0);
-      var bpatch = {
-        meaning_passed: true, meaning_best: Math.max(bp0.meaning_best || 0, ex.score),
-        best_score: Math.max(bp0.best_score || 0, ex.score),
-        passed: true, cycle: next.cycle, next_review_at: next.next_review_at,
-        last_reviewed_at: Date.now(), last_exam_at: Date.now()
-      };
-      ex.nextLabel = w.SRS.stepFor(next.cycle).short + " nữa";
+      var bpatch = Object.assign(
+        { meaning_passed: true, meaning_best: Math.max(bp0.meaning_best || 0, ex.score),
+          best_score: Math.max(bp0.best_score || 0, ex.score), last_exam_at: Date.now() },
+        srsAdvanceIfDue(bp0, ex)
+      );
       S().bp[D.blockId] = Object.assign({}, bp0, bpatch, { user_id: w.Auth.user.id, block_id: D.blockId });
       try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, bpatch); } catch (e) {}
     }
@@ -1204,16 +1225,34 @@
   D.renderProgress = function () {
     var bp = S().bp[D.blockId] || { cycle: 0 };
     var cur = bp.cycle || 0;
+    var hist = Array.isArray(bp.review_history) ? bp.review_history : [];
+    function histAt(stepNo) {
+      for (var i = hist.length - 1; i >= 0; i--) { if (hist[i].step === stepNo) return hist[i].at; }
+      return null;
+    }
 
     w.$("#srs-timeline").innerHTML = w.SRS.STEPS.map(function (s, i) {
+      var stepNo = i + 1;
       var cls = i < cur ? "done" : (i === cur ? "now" : "");
-      var when = i < cur ? "đã xong"
-               : (i === cur ? (bp.next_review_at ? w.humanTime(bp.next_review_at, { future: true }) : "sẵn sàng ôn")
-                            : "chờ");
+      var badge, when;
+      if (i < cur) {
+        badge = "✓"; var at = histAt(stepNo);
+        when = at ? "Đã ôn lúc " + w.fmtDateTime(at) : "Đã ôn";
+      } else if (i === cur) {
+        badge = "L" + stepNo;
+        when = bp.next_review_at
+          ? "Lần kế tiếp: " + w.fmtDateTime(bp.next_review_at) + " (" + w.humanTime(bp.next_review_at, { future: true }) + ")"
+          : "Sẵn sàng ôn ngay";
+      } else {
+        badge = "L" + stepNo;
+        when = "Chưa tới lượt";
+      }
       return '<div class="srs-step ' + cls + '">' +
-               '<span class="idx">' + (i + 1) + "</span>" +
-               "<span>" + w.esc(s.label) + "</span>" +
-               '<span class="when">' + when + "</span>" +
+               '<span class="idx">' + badge + "</span>" +
+               '<div class="srs-step-body">' +
+                 '<span class="srs-step-name">' + w.esc(s.label) + "</span>" +
+                 '<span class="when">' + w.esc(when) + "</span>" +
+               "</div>" +
              "</div>";
     }).join("");
 
@@ -1415,7 +1454,7 @@
           w.$$("#vocab-tbody tr").forEach(function (tr, k) {
             tr.classList.toggle("reading", k === i);
           });
-          w.Speech.followWord(w.$$("#vocab-tbody tr")[i]);
+          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top" });
         },
         function () { btn.textContent = "🔊 Đọc tất cả từ"; }
       );

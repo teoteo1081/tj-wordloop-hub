@@ -355,10 +355,14 @@
   /* Giống sbList nhưng đọc HẾT bảng, tự phân trang qua giới hạn 1000
      dòng/request mặc định của PostgREST (bảng `blocks` đã hơn 1000 dòng).
      Dùng cho DB.getFullTree — cần TOÀN BỘ cây, không lọc theo notebook. */
-  function sbListAll(table, build) {
+  function sbListAll(table, build, orderCol) {
+    /* orderCol mặc định "id" — nhưng block_progress/word_progress không có
+       cột "id" (khoá chính là cặp user_id+block_id/word_id), truyền
+       "block_id" khi gọi cho bảng đó, không thì PostgREST báo lỗi
+       "column ... does not exist". */
     var PAGE = 1000, out = [];
     function loop(offset) {
-      var q = DB.sb.from(table).select("*").range(offset, offset + PAGE - 1).order("id");
+      var q = DB.sb.from(table).select("*").range(offset, offset + PAGE - 1).order(orderCol || "id");
       if (build) q = build(q);
       return q.then(function (r) {
         if (r.error) throw r.error;
@@ -408,7 +412,7 @@
     if (userId) {
       var bpRows = await sbListAll("block_progress", function (q) {
         return q.select("block_id,passed,meaning_passed,cycle,next_review_at").eq("user_id", userId);
-      });
+      }, "block_id");
       bpRows.forEach(function (r) {
         bp[r.block_id] = {
           passed: !!r.passed, meaning_passed: !!r.meaning_passed,

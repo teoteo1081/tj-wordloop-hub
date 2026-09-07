@@ -25,6 +25,15 @@
       .replace(/\s+/g, " ");
   };
 
+  /* Ngày giờ chính xác: "07/09 14:30" — dùng cho lịch ôn Tony Buzan, nơi
+     người học muốn biết ĐÚNG mấy giờ ngày nào chứ không chỉ "sau 3 ngày". */
+  w.fmtDateTime = function (ts) {
+    if (!ts) return "—";
+    var d = new Date(ts);
+    function p2(n) { return String(n).padStart(2, "0"); }
+    return p2(d.getDate()) + "/" + p2(d.getMonth() + 1) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+  };
+
   /* "3 phút trước" / "sau 2 ngày" */
   w.humanTime = function (ts, opts) {
     if (!ts) return "chưa ôn";

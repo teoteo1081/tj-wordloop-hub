@@ -971,13 +971,20 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 
 /* SRS timeline */
 .srs-timeline{display:flex;flex-direction:column;gap:.5rem;}
-.srs-step{display:flex;align-items:center;gap:.7rem;padding:.55rem .7rem;border-radius:8px;background:var(--bg-soft);border:1px solid var(--border-soft);font-size:.8rem;}
-.srs-step .idx{width:24px;height:24px;border-radius:50%;background:var(--bg-raise);color:var(--text-3);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0;}
+.srs-step{display:flex;align-items:center;gap:.8rem;padding:.65rem .8rem;border-radius:10px;background:var(--bg-soft);border:1px solid var(--border-soft);font-size:.8rem;}
+.srs-step .idx{
+  min-width:2rem;height:2rem;padding:0 .3rem;border-radius:999px;background:var(--bg-raise);color:var(--text-3);
+  display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0;
+}
 .srs-step.done{border-color:rgba(16,185,129,.3);}
 .srs-step.done .idx{background:rgba(16,185,129,.2);color:var(--green-l);}
-.srs-step.now{border-color:var(--amber);}
-.srs-step.now .idx{background:rgba(245,158,11,.2);color:var(--amber-l);}
-.srs-step .when{margin-left:auto;color:var(--text-3);font-size:.74rem;}
+.srs-step.now{border-color:var(--amber);background:rgba(245,158,11,.06);}
+.srs-step.now .idx{background:var(--amber);color:#1a1200;}
+.srs-step-body{display:flex;flex-direction:column;gap:.15rem;min-width:0;flex:1;}
+.srs-step-name{font-weight:700;color:var(--text);}
+.srs-step.now .srs-step-name{color:var(--amber-l);}
+.srs-step .when{color:var(--text-3);font-size:.72rem;}
+.srs-step.now .when{color:var(--text-2);font-weight:600;}
 
 /* ═══════════ MODALS ═══════════ */
 /* Hộp thoại phải nằm TRÊN bảng nghĩa (z-index 1101), nếu không thì hộp

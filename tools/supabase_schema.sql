@@ -103,6 +103,7 @@ create table if not exists block_progress (
   next_review_at bigint,
   last_reviewed_at bigint,
   last_exam_at bigint,
+  review_history jsonb default '[]'::jsonb,  -- [{step, at}] mỗi lần thật sự đẩy chu kỳ (để tab Tiến trình khoe đúng ngày giờ đã ôn lần 1, lần 2...)
   primary key (user_id, block_id)
 );
 
