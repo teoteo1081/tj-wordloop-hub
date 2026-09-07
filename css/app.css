@@ -134,6 +134,9 @@ button{font-family:inherit;}
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .theme-btn:hover{color:var(--text);border-color:var(--border-hi);}
+/* .theme-btn mặc định chỉ rộng 30px cho 1 icon — nút Journey có thêm
+   chữ nên cần bỏ bề rộng cố định, để tự giãn theo nội dung. */
+.btn-journey-label{width:auto;padding:0 .6rem;gap:.3rem;font-size:.78rem;font-weight:600;}
 .btn-learning{
   display:flex;align-items:center;gap:.3rem;height:26px;padding:0 .55rem;border-radius:7px;
   border:1px solid var(--border);background:transparent;color:var(--text-2);cursor:pointer;
