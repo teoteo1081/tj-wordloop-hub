@@ -134,6 +134,12 @@ button{font-family:inherit;}
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .theme-btn:hover{color:var(--text);border-color:var(--border-hi);}
+.btn-learning{
+  display:flex;align-items:center;gap:.3rem;height:26px;padding:0 .55rem;border-radius:7px;
+  border:1px solid var(--border);background:transparent;color:var(--text-2);cursor:pointer;
+  font-size:.72rem;font-weight:700;white-space:nowrap;flex-shrink:0;
+}
+.btn-learning:hover{color:var(--text);border-color:var(--border-hi);}
 .mode-pill{
   font-size:.62rem;font-weight:800;letter-spacing:.06em;padding:.2rem .45rem;border-radius:5px;
   border:1px solid var(--border);color:var(--text-3);background:var(--bg-deep);white-space:nowrap;

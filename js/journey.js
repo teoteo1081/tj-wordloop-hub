@@ -29,6 +29,7 @@
     w.$("#screen-detail").hidden = true;
     w.$("#btn-back").hidden = true;
     w.$("#screen-journey").hidden = false;
+    w.$("#btn-learning").hidden = false;
     w.$("#workspace").scrollTop = 0;
 
     w.$("#journey-cal").innerHTML =
@@ -49,6 +50,7 @@
 
   J.close = function () {
     w.$("#screen-journey").hidden = true;
+    w.$("#btn-learning").hidden = true;
     if (J._prevWasDetail && w.Detail && w.Detail.blockId) {
       w.$("#screen-detail").hidden = false;
       w.$("#btn-back").hidden = false;
@@ -107,4 +109,5 @@
      trong DOM lúc chạy tới đây, không cần chờ App.init() gọi riêng. */
   w.$("#btn-journey").onclick = function () { J.open(); };
   w.$("#btn-journey-back").onclick = function () { J.close(); };
+  w.$("#btn-learning").onclick = function () { J.close(); };
 })(window);

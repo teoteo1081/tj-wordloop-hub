@@ -264,6 +264,19 @@
       }
     } else {
       DB.mode = "local";
+      /* Nếu có URL+key hợp lệ trong config.js nhưng vẫn rơi vào đây,
+         nghĩa là thư viện supabase-js (script CDN jsdelivr trong
+         index.html) KHÔNG nạp được — thường do mạng/extension chặn
+         jsdelivr. Trước đây nhánh này im lặng hoàn toàn nên bug
+         "kẹt Local dù đã có key" không để lại dấu vết gì trong console.
+         Log rõ nguyên nhân ra để không phải đoán mò lần sau. */
+      if (url && key) {
+        console.error(
+          "[DB] Có SUPABASE_URL/ANON_KEY trong config.js nhưng vẫn ở chế độ Local — " +
+          "thư viện @supabase/supabase-js chưa nạp được (window.supabase = " + (typeof w.supabase) + "). " +
+          "Kiểm tra: script CDN jsdelivr trong index.html có bị mạng/extension chặn không (mở DevTools > Network, tìm supabase.min.js)."
+        );
+      }
     }
 
     if (DB.mode === "local") {
