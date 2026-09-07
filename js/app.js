@@ -236,20 +236,34 @@
   }
 
   /* ══════════════ RENDER: BREADCRUMB ══════════════ */
+  /* Đường dẫn dài (tên Hub/Notebook/Section/Page/Batch cộng lại) mà vẫn
+     nhét đủ cả chuỗi trên 1 hàng thì hoặc tràn màn hình hoặc phải xuống
+     hàng — cả 2 đều xấu. Quá 1 ngưỡng ký tự thì chỉ hiện khúc ĐẦU (Hub)
+     và khúc CUỐI (chỗ đang đứng), giữa thay bằng "…", giữ nguyên 1 hàng
+     (CSS .crumb: nowrap + cuộn ngang phòng khi vẫn còn dài). */
+  var CRUMB_MAX_CHARS = 46;
   function renderCrumb() {
     function nameOf(list, id, fb) {
       var x = list.find(function (r) { return r.id === id; });
       return x ? x.name : fb;
     }
-    var html =
-      "<b>" + w.esc(nameOf(S.hubs, S.hubId, "—")) + "</b>" +
-      '<span class="sep">›</span>' + w.esc(nameOf(S.notebooks, S.notebookId, "—")) +
-      '<span class="sep">›</span>' + w.esc(nameOf(S.sections, S.sectionId, "—")) +
-      '<span class="sep">›</span>' + w.esc(nameOf(S.pages, S.pageId, "—"));
-    /* Batch đang chọn cũng lên luôn breadcrumb cho rõ đang ở đâu — đỡ
-       phải nhìn xuống thanh Batch riêng, nhất là lúc Page chỉ có 1 Batch
-       (thanh Batch lúc đó chỉ còn 1 pill, dễ bị bỏ qua). */
-    if (S.batchId) html += '<span class="sep">›</span>' + w.esc(nameOf(S.batches, S.batchId, "—"));
+    var parts = [
+      nameOf(S.hubs, S.hubId, "—"), nameOf(S.notebooks, S.notebookId, "—"),
+      nameOf(S.sections, S.sectionId, "—"), nameOf(S.pages, S.pageId, "—")
+    ];
+    if (S.batchId) parts.push(nameOf(S.batches, S.batchId, "—"));
+
+    var totalLen = parts.reduce(function (n, s) { return n + s.length; }, 0);
+    var html;
+    if (parts.length > 2 && totalLen > CRUMB_MAX_CHARS) {
+      html = "<b>" + w.esc(parts[0]) + "</b>" +
+        '<span class="sep">›</span><span class="crumb-ellipsis" title="' + w.esc(parts.slice(1, -1).join(" › ")) + '">…</span>' +
+        '<span class="sep">›</span>' + w.esc(parts[parts.length - 1]);
+    } else {
+      html = "<b>" + w.esc(parts[0]) + "</b>" + parts.slice(1).map(function (p) {
+        return '<span class="sep">›</span>' + w.esc(p);
+      }).join("");
+    }
     w.$("#crumb").innerHTML = html;
   }
 
@@ -275,6 +289,7 @@
   }
 
   /* ══════════════ RENDER: DANH SÁCH BLOCK ══════════════ */
+  var VCHIP_MAX = 4;   /* số chip từ vựng tối đa hiện trong mỗi Block card, xem bên dưới */
   App.renderBlocks = function () {
     var batch = S.batches.find(function (b) { return b.id === S.batchId; });
     var list = S.batchId ? App.blocksOf(S.batchId) : [];
@@ -348,10 +363,13 @@
           "</div>" +
           '<div class="done-badge' + badgeCls + '">' + badge + "</div>" +
         "</div>" +
-        '<div class="vocab-chips">' + ws.map(function (x) {
+        /* Chỉ hiện tối đa VCHIP_MAX từ, còn lại gộp "+N từ" — 10 từ hiện hết
+           thì mỗi Block chiếm 2-3 hàng chữ, list nhiều Block cuộn rất dài.
+           Xem đủ 10 từ thì mở hẳn Block ra (nút "Học / Ôn lại"). */
+        '<div class="vocab-chips">' + ws.slice(0, VCHIP_MAX).map(function (x) {
           var ok = S.wp[x.id] && S.wp[x.id].mastered;
           return '<span class="vchip' + (ok ? " ok" : "") + '">' + w.esc(x.term) + "</span>";
-        }).join("") + "</div>" +
+        }).join("") + (ws.length > VCHIP_MAX ? '<span class="vchip more">+' + (ws.length - VCHIP_MAX) + " từ</span>" : "") + "</div>" +
         '<div class="block-bottom">' +
           '<div class="audio-hint">🎧 Nghe US · Karaoke highlight</div>' +
           '<span class="progress-bar"><i style="width:' + w.pct(mastered, ws.length) + '%"></i></span>' +

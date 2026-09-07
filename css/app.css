@@ -401,9 +401,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .sidebar-left.unpinned.flyout{left:0;width:var(--sidebar-w-left);}
 .sidebar-right.unpinned.flyout{right:0;width:var(--sidebar-w-right);}
 
-.crumb{font-size:.72rem;color:var(--text-3);margin-bottom:.7rem;display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;}
+.crumb{
+  font-size:.72rem;color:var(--text-3);margin-bottom:.7rem;display:flex;gap:.3rem;align-items:center;
+  flex-wrap:nowrap;white-space:nowrap;overflow-x:auto;scrollbar-width:none;
+}
+.crumb::-webkit-scrollbar{display:none;}
 .crumb b{color:var(--text-2);font-weight:600;}
-.crumb .sep{opacity:.4;}
+.crumb .sep{opacity:.4;flex-shrink:0;}
+.crumb-ellipsis{cursor:help;flex-shrink:0;}
 
 .batches-bar{display:flex;gap:.5rem;align-items:center;margin-bottom:1.1rem;}
 .batch-tabs{display:flex;gap:.45rem;overflow-x:auto;flex:1;padding-bottom:.2rem;scrollbar-width:none;}
@@ -444,9 +449,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   width:32px;height:30px;border-radius:7px;cursor:pointer;font-size:.95rem;flex-shrink:0;
 }
 
-.screen-head{margin-bottom:.9rem;}
+.screen-head{margin-bottom:.9rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .6rem;}
 .screen-head h2{margin:0;font-size:1.12rem;font-weight:700;}
 .muted{font-size:.76rem;color:var(--text-2);margin-top:.2rem;}
+.screen-head .muted{margin-top:0;}
 
 /* Alert + chu kỳ */
 .alert-box{
@@ -499,7 +505,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .done-badge{color:var(--green-l);font-weight:700;font-size:.78rem;white-space:nowrap;}
 .done-badge.pending{color:var(--text-3);font-weight:600;}
 .done-badge.warn{color:var(--amber-l);}
-.vocab-chips{display:flex;flex-wrap:wrap;gap:.35rem;}
+/* Chỉ tối đa VCHIP_MAX+1 chip (xem app.js) nên thường vừa 1 hàng; phòng
+   khi từ dài (accountability...) vẫn tràn thì cho cuộn ngang thay vì
+   xuống hàng — đỡ mỗi Block card cao lênh khênh khi list dài. */
+.vocab-chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:.35rem;scrollbar-width:none;}
+.vocab-chips::-webkit-scrollbar{display:none;}
+.vchip{flex-shrink:0;}
+.vchip.more{color:var(--text-3);font-style:italic;background:transparent;border-style:dashed;}
 .vchip{background:var(--bg-soft);border:1px solid var(--border);color:var(--text-1);padding:.18rem .55rem;border-radius:5px;font-size:.76rem;font-weight:500;}
 .vchip.ok{border-color:rgba(16,185,129,.35);color:var(--green-l);}
 .block-bottom{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-soft);padding-top:.55rem;gap:.5rem;}
