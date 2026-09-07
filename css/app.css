@@ -434,8 +434,11 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   width:32px;height:30px;border-radius:7px;cursor:pointer;font-size:.95rem;flex-shrink:0;
 }
 
-.screen-head{margin-bottom:.9rem;}
-.screen-head h2{margin:0;font-size:1.12rem;font-weight:700;}
+.screen-head{margin-bottom:.9rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem .6rem;}
+.screen-head .batch-nav-row{flex:0 0 100%;display:flex;align-items:center;justify-content:center;gap:.7rem;}
+.screen-head .batch-nav-row #batch-prev,.screen-head .batch-nav-row #batch-next{flex-shrink:0;}
+.screen-head h2{margin:0;font-size:1.12rem;font-weight:700;text-align:center;}
+.screen-head #block-sort-select{margin-left:auto;}
 .muted{font-size:.76rem;color:var(--text-2);margin-top:.2rem;}
 
 /* Alert + chu kỳ */
@@ -457,10 +460,15 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .time-card:hover{border-left-width:5px;}
 .time-label{
   font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--text-1);
-  display:flex;align-items:center;gap:.35rem;
+  display:flex;align-items:center;gap:.35rem;cursor:pointer;
 }
+.time-label:hover{color:var(--blue-l);}
 .chips-row{display:flex;flex-wrap:wrap;gap:.3rem;max-height:152px;overflow-y:auto;}
-.chips-more{font-size:.68rem;color:var(--text-3);align-self:center;padding-left:.15rem;font-style:italic;}
+.chips-more{
+  font:inherit;font-size:.68rem;color:var(--text-3);align-self:center;padding:.1rem .3rem;font-style:italic;
+  background:transparent;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+.chips-more:hover{color:var(--blue-l);}
 .overdue-chip{
   background:var(--bg-raise);border:1px solid var(--border-hi);color:var(--text-2);
   padding:.15rem .55rem;border-radius:12px;font-size:.7rem;font-weight:600;cursor:pointer;
@@ -468,6 +476,22 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .overdue-chip:hover{background:var(--border);color:var(--text);border-color:var(--border-hi);}
 .overdue-chip.due{border-color:rgba(239,68,68,.5);color:var(--red-l);background:rgba(239,68,68,.1);}
 .chips-empty{font-size:.68rem;color:var(--text-3);font-style:italic;}
+
+/* Số bấm được trong câu cảnh báo (N block chưa học/quá hạn/...) — trông
+   như chữ thường có gạch chân nhẹ, không như nút bấm to, tránh rối câu. */
+.link-filter{
+  font:inherit;color:inherit;background:transparent;border:none;padding:0;cursor:pointer;
+  text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;
+}
+.link-filter:hover{color:var(--blue-l);}
+
+/* Banner báo đang xem dashboard đã LỌC (thay vì xem theo Batch) */
+.block-filter-banner{
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;background:var(--blue-sub);
+  border:1px solid var(--blue);border-radius:9px;padding:.5rem .8rem;margin-bottom:.8rem;
+  font-size:.78rem;color:var(--text-1);
+}
+.block-filter-banner .btn-ghost{margin-left:auto;font-size:.74rem;padding:.3rem .6rem;}
 
 /* Block cards */
 .blocks-list{display:flex;flex-direction:column;gap:.75rem;}
@@ -522,16 +546,22 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    không lộ viền lúc dính. */
 .detail-tabs{
   display:flex;align-items:center;gap:.35rem;border-bottom:1px solid var(--border);padding:.5rem 0 .4rem;
-  overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:6;background:var(--bg-main);
+  position:sticky;top:0;z-index:6;background:var(--bg-main);
 }
-.detail-tabs::-webkit-scrollbar{display:none;}
+/* CHỈ dải nút tab mới cuộn ngang khi chật chỗ — #bn-pos + nút "⤒" đứng
+   ngoài, KHÔNG bao giờ bị cuộn khuất (gộp 1 hàng để tiết kiệm chỗ, không
+   phải để mất thông tin — xem ghi chú trong index.html). */
+.dtabs-scroll{display:flex;align-items:center;gap:.35rem;overflow-x:auto;scrollbar-width:none;min-width:0;}
+.dtabs-scroll::-webkit-scrollbar{display:none;}
 .dtab{background:transparent;border:none;color:var(--text-2);font-weight:600;font-size:.8rem;padding:.4rem .8rem;cursor:pointer;border-radius:6px;white-space:nowrap;flex-shrink:0;}
 .dtab.active{background:var(--blue-sub);color:var(--blue-l);font-weight:700;}
 .tab-pane{display:none;flex-direction:column;gap:1rem;}
 .tab-pane.active{display:flex;}
 
 /* Vị trí Block hiện tại — cuối hàng tab, canh phải (trước đây là 1 hàng
-   riêng bên dưới, giờ gộp lại cho gọn). */
+   riêng bên dưới, giờ gộp lại cho gọn). margin-left:auto đẩy nó sát phải
+   khi dải tab còn dư chỗ; flex-shrink:0 + đứng ngoài .dtabs-scroll đảm
+   bảo KHÔNG bao giờ bị co lại hay cuộn khuất mất chữ. */
 .detail-tabs .bn-pos{margin-left:auto;flex-shrink:0;font-size:.74rem;font-weight:700;color:var(--text-3);white-space:nowrap;padding-left:.5rem;}
 .dtab-top{
   flex-shrink:0;background:var(--bg-soft);border:1px solid var(--border);color:var(--text-2);
@@ -1077,6 +1107,47 @@ textarea:focus{border-color:var(--blue);}
 .cloud-status.ok{color:var(--green-l);}
 .cloud-status.err{color:var(--red-l);}
 
+/* ═══════════ THANH "ĐÁNH MÁY" — TỪ ĐÃ HỌC (js/ticker.js) ═══════════
+   Nổi góc dưới-phải, kéo được (desktop) để né nội dung đang đọc; điện
+   thoại thì cố định trên thanh mobile-nav, không kéo (chật, dễ vướng). */
+.word-ticker{
+  position:fixed;right:16px;bottom:16px;z-index:950;
+  display:flex;align-items:center;gap:.3rem;
+  background:var(--bg-sidebar);border:1px solid var(--border);border-radius:999px;
+  padding:.35rem .3rem .35rem .6rem;box-shadow:0 4px 18px rgba(0,0,0,.25);
+  max-width:min(340px,calc(100vw - 32px));user-select:none;
+}
+.word-ticker[hidden]{display:none;}
+.wt-drag{cursor:grab;color:var(--text-3);font-size:.85rem;padding:0 .1rem;touch-action:none;flex-shrink:0;}
+.wt-text{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.78rem;color:var(--text-1);white-space:nowrap;overflow:hidden;
+  min-width:110px;flex:1;cursor:pointer;
+}
+.wt-text::after{content:"▌";opacity:.55;animation:wtBlink 1s step-end infinite;}
+@keyframes wtBlink{50%{opacity:0;}}
+.wt-btn{
+  background:transparent;border:none;color:var(--text-3);cursor:pointer;
+  font-size:.85rem;width:22px;height:22px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.wt-btn:hover{background:var(--bg-hover);color:var(--text-1);}
+.wt-toggle{
+  position:fixed;right:16px;bottom:16px;z-index:949;
+  width:38px;height:38px;border-radius:50%;border:1px solid var(--border);
+  background:var(--bg-sidebar);color:var(--text-2);font-size:1rem;cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.25);
+}
+@media(max-width:760px){
+  .word-ticker{
+    left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom)) !important;
+    max-width:none;border-radius:0;border-left:none;border-right:none;
+    justify-content:center;
+  }
+  .wt-drag{display:none;}
+  .wt-toggle{bottom:calc(56px + 10px + env(safe-area-inset-bottom));}
+}
+
 /* Toast */
 .toast-wrap{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:.4rem;align-items:center;pointer-events:none;}
 .toast{
@@ -1117,10 +1188,14 @@ textarea:focus{border-color:var(--blue);}
   .alert-header{flex-direction:column;align-items:stretch;}
   .alert-header .btn-warn{width:100%;}
 
-  /* 3 tab chia đều, bỏ bớt chữ cho vừa màn hình */
+  /* 3 tab chia đều, bỏ bớt chữ cho vừa màn hình. #bn-pos vẫn phải hiện
+     TRỌN VẸN — không đủ chỗ chung 1 hàng với dải tab thì xuống hàng riêng
+     (flex-wrap), tuyệt đối không để bị cuộn/co khuất mất chữ. */
   .dt-long{display:none;}
-  .detail-tabs{overflow-x:visible;}
+  .detail-tabs{flex-wrap:wrap;}
+  .dtabs-scroll{overflow-x:visible;flex:1 1 100%;}
   .dtab{flex:1;padding:.42rem .12rem;font-size:.68rem;white-space:nowrap;}
+  .detail-tabs .bn-pos{margin-left:0;flex:1 1 100%;padding-left:0;padding-top:.15rem;}
 
   /* thanh công cụ nghe: các nút giãn đều, không rớt lộn xộn */
   .card-title-row{flex-direction:column;align-items:stretch;}
@@ -1362,3 +1437,33 @@ textarea:focus{border-color:var(--blue);}
   .jrow-bar{display:none;}
   .jrow-count{display:none;}
 }
+
+/* ─── Journey: 4 chip giai đoạn Tony Buzan (dưới 3 thẻ tổng quan) ─── */
+.journey-group-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.7rem;}
+.jgroup-chip{
+  background:var(--bg-soft);border:1px solid var(--border);border-radius:9px;
+  padding:.5rem .5rem;text-align:center;cursor:pointer;
+}
+.jgroup-chip:hover{border-color:var(--border-hi);background:var(--bg-card);}
+.jgroup-chip.active{border-color:var(--blue);background:rgba(96,165,250,.08);}
+.jgroup-chip .jg-label{font-size:.68rem;color:var(--text-2);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.jgroup-chip .jg-due{font-size:1.05rem;font-weight:800;color:var(--red-l);}
+.jgroup-chip .jg-due small{font-size:.66rem;color:var(--text-3);font-weight:600;}
+@media(max-width:640px){ .journey-group-row{grid-template-columns:repeat(2,1fr);} }
+
+/* ─── Journey: 2 khung song song (trạng thái | cây thư mục) ─── */
+.journey-body{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;align-items:start;}
+@media(max-width:980px){ .journey-body{grid-template-columns:1fr;} }
+
+/* ─── Journey: 4 tab Tony Buzan + 2 danh sách Block trong mỗi tab ─── */
+.jtabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.7rem;}
+.jtab-btn{
+  background:var(--bg-soft);border:1px solid var(--border);color:var(--text-2);
+  border-radius:999px;padding:.35rem .75rem;font-size:.76rem;font-weight:700;cursor:pointer;
+}
+.jtab-btn:hover{border-color:var(--border-hi);color:var(--text);}
+.jtab-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+.jtab-sub{font-size:.72rem;color:var(--text-3);margin:0 0 .8rem;}
+.jtab-group-title{font-size:.76rem;font-weight:700;color:var(--text-2);margin:.9rem 0 .4rem;display:flex;align-items:center;gap:.35rem;}
+.jtab-group-title:first-child{margin-top:0;}
+.jtab-empty{font-size:.74rem;color:var(--text-3);padding:.3rem 0 .6rem;}

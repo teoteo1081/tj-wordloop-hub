@@ -143,8 +143,18 @@
     <!-- ===== MÀN HÌNH A: DANH SÁCH BLOCK ===== -->
     <section id="screen-blocks">
       <div class="screen-head">
-        <h2 id="batch-title">Batch 1</h2>
+        <!-- Chuyển Batch trước/sau — xuyên cả Page/Notebook khác, không
+             giới hạn trong Page đang mở (App.stepBatch trong app.js). -->
+        <div class="batch-nav-row">
+          <button class="btn-soft" id="batch-prev" title="Batch trước (có thể qua Page/Notebook khác)">←</button>
+          <h2 id="batch-title">Batch 1</h2>
+          <button class="btn-soft" id="batch-next" title="Batch sau (có thể qua Page/Notebook khác)">→</button>
+        </div>
         <div class="muted" id="batch-sub"></div>
+        <select class="mini-select" id="block-sort-select" title="Sắp xếp danh sách Block">
+          <option value="order">🔢 Theo số thứ tự</option>
+          <option value="status">🚦 Theo trạng thái ôn</option>
+        </select>
       </div>
 
       <!-- Ô cảnh báo ôn tập + 4 thẻ chu kỳ -->
@@ -157,26 +167,27 @@
           <button class="btn-warn" id="btn-review-now">Ôn ngay →</button>
         </div>
 
-        <div class="cycle-grid">
+        <div class="cycle-grid" id="cycle-grid" title="Bấm tên giai đoạn để lọc danh sách Block bên dưới">
           <div class="time-card">
-            <div class="time-label"><i class="dot c1"></i> Lần 1–2 · 10p / 24h</div>
+            <div class="time-label" data-filter-group="1"><i class="dot c1"></i> Lần 1–2 · 10p / 24h</div>
             <div class="chips-row" id="chips-g1"></div>
           </div>
           <div class="time-card">
-            <div class="time-label"><i class="dot c2"></i> Lần 3 · 1 Tuần Sau</div>
+            <div class="time-label" data-filter-group="2"><i class="dot c2"></i> Lần 3 · 1 Tuần Sau</div>
             <div class="chips-row" id="chips-g2"></div>
           </div>
           <div class="time-card">
-            <div class="time-label"><i class="dot c3"></i> Lần 4 · 1 Tháng Sau</div>
+            <div class="time-label" data-filter-group="3"><i class="dot c3"></i> Lần 4 · 1 Tháng Sau</div>
             <div class="chips-row" id="chips-g3"></div>
           </div>
           <div class="time-card">
-            <div class="time-label"><i class="dot c4"></i> Lần 5–6 · 3–6 Tháng</div>
+            <div class="time-label" data-filter-group="4"><i class="dot c4"></i> Lần 5–6 · 3–6 Tháng</div>
             <div class="chips-row" id="chips-g4"></div>
           </div>
         </div>
       </div>
 
+      <div class="block-filter-banner" id="block-filter-banner" hidden></div>
       <div class="blocks-list" id="blocks-list"><!-- JS --></div>
     </section>
 
@@ -185,15 +196,19 @@
       <h2 id="detail-title" hidden>📕 Block 1</h2>
 
       <!-- position:sticky — luôn thấy được các tab dù cuộn xuống đâu.
-           #bn-pos (Block X/Y · Batch Z) nằm cuối hàng, canh phải; nút
-           "⤒" thu gọn/cuộn về đầu khi cần lấy lại chỗ cho bài đọc. -->
+           Gộp chung 1 hàng cho gọn KHÔNG có nghĩa là để mất chữ — #bn-pos
+           (Block X/Y · Batch Z) và nút "⤒" đứng NGOÀI vùng cuộn ngang, nên
+           luôn hiện trọn vẹn; chỉ riêng dải nút tab (.dtabs-scroll) mới
+           cuộn ngang khi không đủ chỗ. -->
       <div class="detail-tabs" id="detail-tabs">
-        <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
-        <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
-        <button class="dtab" data-tab="sheet">📋 Phiếu<span class="dt-long"> đầy đủ</span></button>
-        <button class="dtab" data-tab="single">🔤 Từng câu</button>
-        <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
-        <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
+        <div class="dtabs-scroll">
+          <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
+          <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
+          <button class="dtab" data-tab="sheet">📋 Phiếu<span class="dt-long"> đầy đủ</span></button>
+          <button class="dtab" data-tab="single">🔤 Từng câu</button>
+          <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
+          <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
+        </div>
         <span class="bn-pos" id="bn-pos" hidden></span>
         <button class="dtab-top" id="btn-scroll-top" title="Về đầu trang">⤒</button>
       </div>
@@ -350,42 +365,61 @@
       </div>
     </section>
 
-    <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày + cây tiến độ ===== -->
+    <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày + cây tiến độ =====
+         Tổng quan (số liệu + 4 tab theo giai đoạn Tony Buzan) LUÔN là số của
+         TOÀN BỘ TJ WordLoop, không đổi theo cây thư mục bên phải — cây bên
+         phải chỉ để DUYỆT/nhảy vào học, không phải "phạm vi" của số liệu. -->
     <section id="screen-journey" hidden>
       <div class="journey-topbar">
         <button class="btn-ghost" id="btn-journey-back">← Về học tiếp</button>
         <button class="btn-ghost" id="journey-refresh" title="Tải lại số liệu">⟳ Tải lại</button>
       </div>
 
-      <div class="journey-crumb" id="journey-crumb"><!-- JS --></div>
-
       <div class="card journey-overview">
-        <div class="card-title" id="journey-scope-title">📊 Tổng quan — Toàn bộ</div>
+        <div class="card-title">📊 Tổng quan — TJ WordLoop</div>
         <div class="journey-stats-row">
-          <div class="jstat"><div class="jstat-num" id="j-words">0</div><div class="jstat-label" id="j-words-label">Đã thuộc / Tổng từ</div></div>
-          <div class="jstat"><div class="jstat-num" id="j-blocks">0</div><div class="jstat-label">Block đã Done</div></div>
+          <div class="jstat"><div class="jstat-num" id="j-words">0</div><div class="jstat-label">Đã thuộc / Đã học / Tổng từ</div></div>
+          <div class="jstat"><div class="jstat-num" id="j-blocks">0</div><div class="jstat-label">Block đã Done / Tổng Block</div></div>
           <div class="jstat overdue" id="j-overdue-card" title="Bấm để mở Block quá hạn gần nhất, giải quyết ngay">
             <div class="jstat-num" id="j-overdue">0</div>
-            <div class="jstat-label" id="j-overdue-label">Từ đang quá hạn ôn</div>
+            <div class="jstat-label">Block đang quá hạn ôn</div>
           </div>
         </div>
+        <div class="journey-group-row" id="journey-group-row" title="Bấm 1 giai đoạn để xem chi tiết ở tab bên dưới"><!-- JS: 4 chip giai đoạn Tony Buzan --></div>
       </div>
 
       <div class="card" id="journey-cal-card">
         <div class="card-title-row">
           <div class="card-title">🗓️ Lịch học 28 ngày (toàn app)</div>
           <div class="journey-legend">
-            <span><i class="jdot learn"></i> Có học</span>
-            <span><i class="jdot due"></i> Quá hạn</span>
+            <span><i class="jdot learn"></i> +N = số từ đã học hôm đó</span>
+            <span><i class="jdot due"></i> ⚠N = số từ quá hạn ôn hôm đó</span>
             <span><i class="jdot both"></i> Cả hai</span>
           </div>
         </div>
         <div class="journey-cal" id="journey-cal"><!-- JS --></div>
       </div>
 
-      <div class="card">
-        <div class="card-title" id="journey-list-title">🗂 Hub</div>
-        <div class="journey-tree" id="journey-tree"><!-- JS --></div>
+      <!-- 2 khung song song: trái = xem THEO TRẠNG THÁI ôn (4 tab Tony Buzan),
+           phải = xem THEO CÂY THƯ MỤC (Hub>Notebook>...>Block, drill-down cũ). -->
+      <div class="journey-body">
+        <div class="journey-col">
+          <div class="card">
+            <div class="card-title">🚦 Theo tiến độ Tony Buzan</div>
+            <div class="jtabs" id="jtabs"><!-- JS: 4 nút tab --></div>
+            <div class="jtab-panel" id="jtab-panel"><!-- JS: 2 danh sách Block --></div>
+          </div>
+        </div>
+        <div class="journey-col">
+          <div class="card">
+            <div class="card-title-row">
+              <div class="card-title">🗂 Theo cây thư mục</div>
+            </div>
+            <div class="journey-crumb" id="journey-crumb"><!-- JS --></div>
+            <div class="muted" id="journey-list-title"><!-- JS: "📓 Notebook (3)" --></div>
+            <div class="journey-tree" id="journey-tree"><!-- JS --></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -630,6 +664,16 @@ mitigate | giảm nhẹ"></textarea>
 <div id="toast-wrap" class="toast-wrap"></div>
 <input type="file" id="file-import" accept="application/json" hidden>
 
+<!-- Thanh "đánh máy" chạy các từ ĐÃ HỌC trong Page đang mở (js/ticker.js).
+     Bấm vào chữ đang chạy để nhảy vào Block chứa từ đó ôn lại. -->
+<div class="word-ticker" id="word-ticker" hidden>
+  <span class="wt-drag" id="wt-drag" title="Kéo để di chuyển">⠿</span>
+  <button class="wt-btn" id="wt-order" type="button">🔀</button>
+  <span class="wt-text" id="wt-text"></span>
+  <button class="wt-btn" id="wt-hide" type="button" title="Ẩn thanh này">✕</button>
+</div>
+<button class="wt-toggle" id="wt-toggle" type="button" title="Từ đã học (đánh máy)">⌨️</button>
+
 <!-- ══════════════════ 4. SCRIPTS ══════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
@@ -648,5 +692,6 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/export.js"></script>
 <script src="js/journey.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ticker.js"></script>
 </body>
 </html>

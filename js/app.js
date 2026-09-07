@@ -16,7 +16,8 @@
     pages: [], pageId: null,
     batches: [], batchId: null,
     blocks: [], words: [],
-    wp: {}, bp: {}
+    wp: {}, bp: {},
+    blockFilter: null   /* {type:"new"|"due"|"started"|"group", group?} — xem renderAlert/renderBlocks */
   };
   w.S = S;
 
@@ -59,6 +60,7 @@
     if (!b) return;
     S.batchId = batchId;
     S.pageId = b.page_id;
+    S.blockFilter = null;
     saveSel();
     renderCrumb();
     renderBatches();
@@ -68,6 +70,69 @@
       .sort(function (a, b) { return (a.sort || 0) - (b.sort || 0); });
   }
 
+  function bySort(a, b) { return (a.sort || 0) - (b.sort || 0); }
+
+  /* Toàn bộ Batch của Notebook đang mở, xếp phẳng đúng thứ tự hiển thị:
+     Section > Page > Batch — dùng để duyệt Batch/Block liên tục xuyên
+     Page (App.stepBatch bên dưới). */
+  App.flattenBatches = function () {
+    var out = [];
+    S.sections.slice().sort(bySort).forEach(function (sec) {
+      pagesOfSection(sec.id).forEach(function (pg) {
+        batchesOfPage(pg.id).forEach(function (bt) {
+          out.push({ batchId: bt.id, pageId: pg.id, sectionId: sec.id });
+        });
+      });
+    });
+    return out;
+  };
+
+  /* ══════════════ DUYỆT BATCH XUYÊN PAGE/NOTEBOOK ══════════════
+     Dùng chung cho: (1) nút ←/→ đổi Batch ở đầu màn danh sách Block,
+     (2) nút ←/→ đổi Block trong Chi tiết khi đã hết Block/Batch của Page
+     hiện tại (D.gotoAdjacentBlock trong detail.js). Thứ tự duyệt: hết
+     Batch của Page này thì qua Page kế/trước (cùng Notebook); hết luôn
+     Notebook thì lăn qua Notebook kế/trước TRONG CÙNG HUB, theo đúng thứ
+     tự đang hiển thị ở sidebar (S.notebooks) — bỏ qua Notebook rỗng
+     (không có Batch nào), KHÔNG lăn qua Hub khác.
+     Trả về true nếu di chuyển được (đã cập nhật S + renderAll()), false
+     nếu đã ở Batch đầu/cuối cùng của cả Hub. */
+  App.stepBatch = async function (dir) {
+    var seq = App.flattenBatches();
+    var idx = seq.findIndex(function (x) { return x.batchId === S.batchId; });
+    if (idx >= 0) {
+      var j = idx + dir;
+      if (j >= 0 && j < seq.length) {
+        var hit = seq[j];
+        S.sectionId = hit.sectionId; S.pageId = hit.pageId; S.batchId = hit.batchId;
+        S.blockFilter = null;
+        saveSel(); renderAll();
+        return true;
+      }
+    }
+    /* Hết Batch trong Notebook hiện tại -> thử từng Notebook kế/trước cho
+       tới khi gặp 1 cái có Batch, hoặc hết danh sách Notebook của Hub. */
+    var nbId = S.notebookId;
+    for (var guard = 0; guard < S.notebooks.length; guard++) {
+      var curIdx = S.notebooks.findIndex(function (n) { return n.id === nbId; });
+      var nextIdx = curIdx + dir;
+      if (nextIdx < 0 || nextIdx >= S.notebooks.length) return false;
+      nbId = S.notebooks[nextIdx].id;
+      S.notebookId = nbId;
+      await loadNotebook(nbId);
+      var seq2 = App.flattenBatches();
+      if (seq2.length) {
+        var edge = dir > 0 ? seq2[0] : seq2[seq2.length - 1];
+        S.sectionId = edge.sectionId; S.pageId = edge.pageId; S.batchId = edge.batchId;
+        S.blockFilter = null;
+        saveSel(); renderAll();
+        return true;
+      }
+      /* Notebook này rỗng (chưa có Batch nào) -> thử tiếp Notebook kế/trước */
+    }
+    return false;
+  };
+
   /* ══════════════ NẠP DỮ LIỆU ══════════════ */
   /* Dọn sạch nội dung khi chuyển sang chỗ chưa có gì.
      Lưu ý: PHẢI tạo 5 mảng riêng. Viết a = b = c = [] thì cả ba cùng trỏ
@@ -75,10 +140,11 @@
   function clearContent() {
     S.sections = []; S.pages = []; S.batches = []; S.blocks = []; S.words = [];
     S.sectionId = null; S.pageId = null; S.batchId = null;
-    S.wp = {}; S.bp = {};
+    S.wp = {}; S.bp = {}; S.blockFilter = null;
   }
 
   async function loadNotebook(notebookId) {
+    S.blockFilter = null;   /* đổi Notebook thì thoát khỏi dashboard đang lọc dở */
     var d = await w.DB.loadNotebook(notebookId);
     S.sections = d.sections; S.pages = d.pages;
     S.batches = d.batches; S.blocks = d.blocks; S.words = d.words;
@@ -180,11 +246,16 @@
       var x = list.find(function (r) { return r.id === id; });
       return x ? x.name : fb;
     }
-    w.$("#crumb").innerHTML =
+    var html =
       "<b>" + w.esc(nameOf(S.hubs, S.hubId, "—")) + "</b>" +
       '<span class="sep">›</span>' + w.esc(nameOf(S.notebooks, S.notebookId, "—")) +
       '<span class="sep">›</span>' + w.esc(nameOf(S.sections, S.sectionId, "—")) +
       '<span class="sep">›</span>' + w.esc(nameOf(S.pages, S.pageId, "—"));
+    /* Batch đang chọn cũng lên luôn breadcrumb cho rõ đang ở đâu — đỡ
+       phải nhìn xuống thanh Batch riêng, nhất là lúc Page chỉ có 1 Batch
+       (thanh Batch lúc đó chỉ còn 1 pill, dễ bị bỏ qua). */
+    if (S.batchId) html += '<span class="sep">›</span>' + w.esc(nameOf(S.batches, S.batchId, "—"));
+    w.$("#crumb").innerHTML = html;
   }
 
   /* ══════════════ RENDER: THANH BATCH ══════════════ */
@@ -209,11 +280,70 @@
   }
 
   /* ══════════════ RENDER: DANH SÁCH BLOCK ══════════════ */
-  App.renderBlocks = function () {
-    var batch = S.batches.find(function (b) { return b.id === S.batchId; });
-    var list = S.batchId ? App.blocksOf(S.batchId) : [];
+  var LS_BLOCK_SORT = "tjwl_block_sort_v1";   /* "order" | "status" */
+  function getBlockSort() { try { return localStorage.getItem(LS_BLOCK_SORT) || "order"; } catch (e) { return "order"; } }
+  function setBlockSort(v) { try { localStorage.setItem(LS_BLOCK_SORT, v); } catch (e) {} }
 
-    w.$("#batch-title").textContent = batch ? batch.name : "Chưa chọn Batch";
+  /* 4 nhóm trạng thái ôn tập, ưu tiên hiển thị từ trên xuống khi sắp xếp
+     "Theo trạng thái": 🔴 đến/quá hạn (cần ôn ngay) trước tiên, rồi tới
+     ⚪ chưa học, 🟢 đang chờ tới hạn, cuối cùng 💎 đã vào trí nhớ dài hạn
+     (không cần ôn gấp). */
+  function blockStatusRank(st) {
+    if (st.started && st.due) return 0;
+    if (!st.started) return 1;
+    if (st.cycle >= (w.SRS.MAX_CYCLE || 6)) return 3;
+    return 2;
+  }
+
+  App.renderBlocks = function () {
+    var filter = S.blockFilter;
+    var batch = S.batches.find(function (b) { return b.id === S.batchId; });
+    var list;
+
+    if (filter) {
+      /* Dashboard lọc — phạm vi là CẢ NOTEBOOK (không chỉ Batch đang mở),
+         vì các thống kê nguồn gốc của bộ lọc (44 block chưa học, N block
+         quá hạn...) vốn cũng tính trên cả Notebook (renderAlert). */
+      list = S.blocks.filter(function (b) { return blockMatchesFilter(w.SRS.state(S.bp[b.id]), filter); })
+        .sort(function (a, b) { return (a.global_index || 0) - (b.global_index || 0); });
+      /* Lọc ra đúng 1 Block -> vào thẳng luôn, khỏi bắt chọn giữa danh
+         sách chỉ có 1 dòng. */
+      if (list.length === 1 && w.Detail && w.Detail.blockId !== list[0].id) {
+        S.blockFilter = null;
+        w.Detail.open(list[0].id);
+        return;
+      }
+    } else {
+      list = S.batchId ? App.blocksOf(S.batchId) : [];
+      if (getBlockSort() === "status") {
+        list = list.map(function (b, i) { return { b: b, i: i, st: w.SRS.state(S.bp[b.id]) }; })
+          .sort(function (x, y) {
+            var r = blockStatusRank(x.st) - blockStatusRank(y.st);
+            return r !== 0 ? r : x.i - y.i;   /* cùng nhóm thì giữ nguyên thứ tự số */
+          })
+          .map(function (x) { return x.b; });
+      }
+    }
+
+    var banner = w.$("#block-filter-banner");
+    var navPrev = w.$("#batch-prev"), navNext = w.$("#batch-next");
+    if (filter) {
+      w.$("#batch-title").textContent = filterLabel(filter);
+      /* Đang xem dashboard lọc (không phải 1 Batch cụ thể) -> ẩn mũi tên
+         chuyển Batch, kẻo lẫn lộn đang điều hướng cái gì. */
+      if (navPrev) navPrev.hidden = true;
+      if (navNext) navNext.hidden = true;
+      if (banner) {
+        banner.hidden = false;
+        banner.innerHTML = "🔎 Đang lọc — <b>" + list.length + " block</b> khớp trong cả Notebook. " +
+          '<button type="button" class="btn-ghost" data-act="clear-filter">✕ Bỏ lọc, về Batch</button>';
+      }
+    } else {
+      w.$("#batch-title").textContent = batch ? batch.name : "Chưa chọn Batch";
+      if (navPrev) navPrev.hidden = false;
+      if (navNext) navNext.hidden = false;
+      if (banner) banner.hidden = true;
+    }
 
     var totalWords = 0, doneBlocks = 0;
     list.forEach(function (b) {
@@ -226,6 +356,12 @@
       " đã đạt bài thi • " + totalWords + " từ";
 
     var box = w.$("#blocks-list");
+    if (!list.length && filter) {
+      box.innerHTML = '<div class="empty-state"><b>Không có Block nào khớp bộ lọc này</b>' +
+        '<span>Bấm "✕ Bỏ lọc" ở trên để quay lại xem theo Batch.</span></div>';
+      renderAlert();
+      return;
+    }
     if (!list.length) {
       /* Chỉ rõ đang thiếu tầng nào, thay vì báo chung chung "chưa có block" */
       var msg, hint;
@@ -297,8 +433,40 @@
     renderAlert();
   };
 
-  /* ══════════════ RENDER: Ô CẢNH BÁO + 4 THẺ CHU KỲ ══════════════ */
-  var CHIPS_PER_CARD = 12;   // nhiều hơn thì gộp lại, kẻo 62 block phủ kín màn hình
+  /* ══════════════ RENDER: Ô CẢNH BÁO + 4 THẺ CHU KỲ ══════════════
+     Mọi con số ở đây (44 block chưa học, N block đang trong chu kỳ, +N
+     block nữa của từng thẻ...) đều bấm được — bấm vào là lọc thẳng danh
+     sách Block bên dưới (#blocks-list) chỉ còn đúng nhóm đó, y như đang
+     đứng trong 1 Batch nhưng phạm vi lọc là CẢ NOTEBOOK (App.renderBlocks
+     đọc S.blockFilter — xem hàm đó). */
+  var CHIPS_PER_CARD = 2;   // dài hơn thì gộp "+N block nữa" (bấm được) — kẻo phủ kín màn hình
+
+  var GROUP_LABEL_FULL = {
+    1: "Lần 1–2 · 10 phút / 24 giờ", 2: "Lần 3 · 1 tuần",
+    3: "Lần 4 · 1 tháng", 4: "Lần 5–6 · 3–6 tháng"
+  };
+
+  function blockMatchesFilter(st, f) {
+    if (!f) return true;
+    if (f.type === "new") return !st.started;
+    if (f.type === "due") return st.started && st.due;
+    if (f.type === "started") return st.started;
+    if (f.type === "group") return st.started && w.SRS.groupOf(st.cycle) === f.group;
+    return true;
+  }
+  function filterLabel(f) {
+    if (!f) return "";
+    if (f.type === "new") return "🆕 Block chưa học";
+    if (f.type === "due") return "🔴 Block đến/quá hạn ôn";
+    if (f.type === "started") return "🟢 Block đang trong chu kỳ ôn";
+    if (f.type === "group") return "🚦 " + (GROUP_LABEL_FULL[f.group] || ("Giai đoạn " + f.group));
+    return "Đang lọc";
+  }
+  App.setBlockFilter = function (f) {
+    S.blockFilter = f;
+    App.renderBlocks();
+    var list = w.$("#blocks-list"); if (list) list.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   function renderAlert() {
     var groups = { 1: [], 2: [], 3: [], 4: [] };
@@ -341,7 +509,9 @@
       el.innerHTML = shown.map(function (x) {
         return '<div class="overdue-chip' + (x.due ? " due" : "") + '" data-jump="' + x.block.id + '">' +
                w.esc(x.block.name) + "</div>";
-      }).join("") + (rest > 0 ? '<span class="chips-more">+' + rest + " block nữa</span>" : "");
+      }).join("") + (rest > 0
+        ? '<button type="button" class="chips-more" data-filter-group="' + g + '">+' + rest + " block nữa</button>"
+        : "");
     });
 
     /* nhắc rõ vì sao 4 ô đang trống */
@@ -349,31 +519,39 @@
       w.$("#chips-g1").innerHTML = '<span class="chips-empty">chưa block nào vào chu kỳ</span>';
     }
 
-    var newNote = newCount ? " · <b>" + newCount + " block</b> chưa học" : "";
+    /* Số trong ngoặc đều bấm được (data-filter-type) — bấm là lọc danh
+       sách Block bên dưới, không tự nhảy thẳng vào 1 Block cụ thể nữa
+       (trừ khi lọc ra đúng 1 Block — xem App.renderBlocks). */
+    var newNote = newCount
+      ? ' · <button type="button" class="link-filter" data-filter-type="new"><b>' + newCount + " block</b> chưa học</button>"
+      : "";
     var btn = w.$("#btn-review-now");
 
     if (dueCount) {
       w.$("#alert-title-text").textContent = "Đến hạn ôn tập — đừng để trí nhớ rơi";
-      w.$("#alert-sub").innerHTML = "<b>" + dueCount + " block</b> • " + dueWords +
-        " từ đang chờ ôn theo chu kỳ suy giảm trí nhớ (Ebbinghaus)" + newNote + ".";
+      w.$("#alert-sub").innerHTML =
+        '<button type="button" class="link-filter" data-filter-type="due"><b>' + dueCount + " block</b> • " + dueWords +
+        " từ</button> đang chờ ôn theo chu kỳ suy giảm trí nhớ (Ebbinghaus)" + newNote + ".";
       btn.disabled = false;
       btn.textContent = "Ôn ngay →";
-      btn.dataset.target = firstDue ? firstDue.id : "";
+      btn.dataset.filterType = "due";
     } else if (startedCount) {
       w.$("#alert-title-text").textContent = "Tất cả đều đúng lịch 🎉";
-      w.$("#alert-sub").innerHTML = "<b>" + startedCount + " block</b> đang trong chu kỳ, " +
+      w.$("#alert-sub").innerHTML =
+        '<button type="button" class="link-filter" data-filter-type="started"><b>' + startedCount + " block</b> đang trong chu kỳ</button>, " +
         "chưa cái nào quá hạn" + newNote + ".";
       btn.disabled = !newCount;
       btn.textContent = newCount ? "Học block mới →" : "Ôn ngay →";
-      btn.dataset.target = firstNew ? firstNew.id : "";
+      btn.dataset.filterType = newCount ? "new" : "started";
     } else {
       /* chưa có block nào Done -> chu kỳ chưa bắt đầu chạy */
       w.$("#alert-title-text").textContent = "Chu kỳ ôn tập chưa bắt đầu";
-      w.$("#alert-sub").innerHTML = "Có <b>" + newCount + " block</b> chưa học. " +
+      w.$("#alert-sub").innerHTML =
+        'Có <button type="button" class="link-filter" data-filter-type="new"><b>' + newCount + " block</b> chưa học</button>. " +
         "Học xong và đạt ≥ 80% ở bài kiểm tra thì Block mới vào lịch ôn Tony Buzan.";
       btn.disabled = !newCount;
       btn.textContent = "Bắt đầu học →";
-      btn.dataset.target = firstNew ? firstNew.id : "";
+      btn.dataset.filterType = "new";
     }
   }
 
@@ -470,6 +648,7 @@
     renderPages(); renderCrumb(); renderBatches();
     App.renderBlocks();
     renderUserChip();
+    if (w.Ticker && w.Ticker.refresh) w.Ticker.refresh();
   }
   App.renderAll = renderAll;
   App.renderBatches = renderBatches;
@@ -1447,6 +1626,22 @@
 
   /* ══════════════ GẮN SỰ KIỆN ══════════════ */
   function bind() {
+    /* --- sắp xếp danh sách Block trong Batch --- */
+    var elBlockSort = w.$("#block-sort-select");
+    if (elBlockSort) {
+      elBlockSort.value = getBlockSort();
+      elBlockSort.onchange = function (e) { setBlockSort(e.target.value); App.renderBlocks(); };
+    }
+
+    /* --- chuyển Batch trước/sau (xuyên Page/Notebook) --- */
+    var elBatchPrev = w.$("#batch-prev"), elBatchNext = w.$("#batch-next");
+    if (elBatchPrev) elBatchPrev.onclick = async function () {
+      if (!(await App.stepBatch(-1))) w.toast("Đây là Batch đầu tiên của Hub này", "err");
+    };
+    if (elBatchNext) elBatchNext.onclick = async function () {
+      if (!(await App.stepBatch(1))) w.toast("Đây là Batch cuối cùng của Hub này", "err");
+    };
+
     /* --- hub --- */
     w.$("#hub-tabs").onclick = async function (e) {
       var b = e.target.closest("[data-hub]");
@@ -1514,19 +1709,41 @@
       if (id) w.Detail.open(id);
     };
 
-    /* --- chip trong 4 ô chu kỳ --- */
+    /* --- chip trong 4 ô chu kỳ: 1 chip cụ thể = nhảy thẳng vào Block đó;
+       "+N block nữa" = lọc dashboard theo cả nhóm (data-filter-group) --- */
     w.$$(".chips-row").forEach(function (row) {
       row.onclick = function (e) {
         var chip = e.target.closest("[data-jump]");
-        if (!chip) return;
-        jumpToBlock(chip.dataset.jump);
+        if (chip) { jumpToBlock(chip.dataset.jump); return; }
+        var more = e.target.closest("[data-filter-group]");
+        if (more) App.setBlockFilter({ type: "group", group: parseInt(more.dataset.filterGroup, 10) });
       };
     });
 
+    /* --- tên giai đoạn (Lần 1–2/3/4/5–6) trong ô cảnh báo -> lọc theo nhóm --- */
+    var elCycleGrid = w.$("#cycle-grid");
+    if (elCycleGrid) elCycleGrid.addEventListener("click", function (e) {
+      var lbl = e.target.closest("[data-filter-group]");
+      if (lbl) App.setBlockFilter({ type: "group", group: parseInt(lbl.dataset.filterGroup, 10) });
+    });
+
+    /* --- số bấm được trong câu cảnh báo (N block chưa học/quá hạn/...) --- */
+    var elAlertSub = w.$("#alert-sub");
+    if (elAlertSub) elAlertSub.addEventListener("click", function (e) {
+      var lnk = e.target.closest("[data-filter-type]");
+      if (lnk) App.setBlockFilter({ type: lnk.dataset.filterType });
+    });
+
     w.$("#btn-review-now").onclick = function () {
-      var id = this.dataset.target;
-      if (id) jumpToBlock(id);
+      var t = this.dataset.filterType;
+      if (t) App.setBlockFilter({ type: t });
     };
+
+    /* --- nút "✕ Bỏ lọc" trong banner dashboard đang lọc --- */
+    var elFilterBanner = w.$("#block-filter-banner");
+    if (elFilterBanner) elFilterBanner.addEventListener("click", function (e) {
+      if (e.target.closest("[data-act='clear-filter']")) App.setBlockFilter(null);
+    });
 
     /* --- thêm hub --- */
     w.$("#btn-add-hub").onclick = async function () {

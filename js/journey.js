@@ -1,5 +1,5 @@
 /* journey.js — Màn "Journey": tổng quan TOÀN APP + lịch học theo ngày +
-   cây tiến độ drill-down (Hub > Notebook > Section > Page > Batch > Block).
+   4 tab theo tiến độ Tony Buzan + cây tiến độ drill-down.
 
    Quy ước:
      · XANH  = số từ "đã học" hôm đó — cộng dồn mỗi khi 1 trong 3 thẻ bài
@@ -10,13 +10,23 @@
      · "Done" trên 1 Block (✓ ở cây) = đã LÀM XONG bài tập (bp.passed hoặc
        bp.meaning_passed đạt ≥80%) — chỉ là "đã học". Vào được chu kỳ ôn
        Tony Buzan thật (tức "đưa vào trí nhớ dài hạn") CHỈ khi bp.passed
-       (Phiếu đầy đủ/Từng câu) — xem js/srs.js. Cây này không tách riêng
-       2 trạng thái đó (chỉ cần đủ để biết Block nào cần học tiếp), số
-       liệu chính xác cho SRS vẫn nằm ở "Tổng quan" + màn Chi tiết Block.
+       (Phiếu đầy đủ/Từng câu) — xem js/srs.js.
+
+   Bố cục màn hình:
+     1. "📊 Tổng quan" — LUÔN là số của TOÀN BỘ TJ WordLoop (không đổi theo
+        cây thư mục bên phải — xem giải thích ở #screen-journey trong
+        index.html). Đã thuộc/Đã học/Tổng từ + Block Done/Tổng + Block
+        quá hạn, cùng 4 chip giai đoạn Tony Buzan bên dưới.
+     2. "🗓️ Lịch 28 ngày" — số liệu toàn app, không đổi theo scope.
+     3. 2 khung song song: TRÁI = "🚦 Theo tiến độ Tony Buzan" (4 tab,
+        mỗi tab liệt kê Block đến hạn ôn ngay / Block đã ôn chờ hạn kế
+        tiếp — liệt kê THEO BLOCK, không theo từng từ, vì tiến trình chỉ
+        lưu ở cấp Block); PHẢI = cây drill-down cũ (Hub>...>Block) để
+        duyệt/nhảy vào học theo cấu trúc thư mục.
 
    Cây tiến độ tải TOÀN BỘ cấu trúc app (DB.getFullTree, không kèm Word —
-   xem lý do trong db.js) MỘT LẦN khi mở Journey, rồi tự tính % từng cấp ở
-   phía client (không hỏi lại server mỗi lần bấm sâu vào 1 cấp). */
+   xem lý do trong db.js) MỘT LẦN khi mở Journey, rồi tự tính % + phân
+   nhóm Tony Buzan ở phía client (không hỏi lại server mỗi lần bấm sâu). */
 (function (w) {
   "use strict";
 
@@ -30,6 +40,14 @@
   var TABLE_OF    = { hub: "hubs", notebook: "notebooks", section: "sections", page: "pages", batch: "batches", block: "blocks" };
   var PARENT_LEVEL = { notebook: "hub", section: "notebook", page: "section", batch: "page", block: "batch" };
   var PARENT_FIELD = { notebook: "hub_id", section: "notebook_id", page: "section_id", batch: "page_id", block: "batch_id" };
+
+  /* 4 giai đoạn Tony Buzan, khớp w.SRS.STEPS[].group (1..4) */
+  var GROUP_SHORT = { 1: "Lần 1–2", 2: "Lần 3", 3: "Lần 4", 4: "Lần 5–6" };
+  var GROUP_LABEL = {
+    1: "Lần 1–2 · sau 10 phút / 24 giờ", 2: "Lần 3 · sau 1 tuần",
+    3: "Lần 4 · sau 1 tháng", 4: "Lần 5–6 · sau 3–6 tháng"
+  };
+  var LS_JTAB = "tjwl_journey_tab_v1";
 
   function pad2(n) { return String(n).padStart(2, "0"); }
   function keyOf(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
@@ -48,19 +66,22 @@
     w.$("#btn-learning").hidden = false;
     w.$("#workspace").scrollTop = 0;
 
-    J._crumb = [];   // trống = đang ở "🌐 Toàn bộ"
+    J._crumb = [];   // trống = cây bên phải đang ở gốc "🌐 Toàn bộ"
+    renderTabs();
     w.$("#journey-cal").innerHTML =
       '<div style="grid-column:1/-1;text-align:center;color:var(--text-3);padding:1rem">Đang tải…</div>';
     w.$("#journey-tree").innerHTML = '<div class="nav-empty">Đang tải…</div>';
+    w.$("#jtab-panel").innerHTML = '<div class="nav-empty">Đang tải…</div>';
 
     var uid = w.Auth.user && w.Auth.user.id;
     J._summary = uid
       ? await w.DB.getJourneySummary(uid)
-      : { totalWords: 0, mastered: 0, totalBlocks: 0, blocksDone: 0, overdueWords: 0, overdueByDate: {} };
+      : { totalWords: 0, mastered: 0, learnedWords: 0, totalBlocks: 0, blocksDone: 0, overdueWords: 0, overdueByDate: {} };
     var log = uid ? await w.DB.getDailyLog(uid) : {};
     if (w.App && w.App.setWordCounter) w.App.setWordCounter(J._summary.mastered, J._summary.totalWords);
 
     J.renderCalendar(log, J._summary.overdueByDate || {});
+    renderOverviewTop();
     await J.loadTree();
   };
 
@@ -74,6 +95,19 @@
       w.$("#screen-blocks").hidden = false;
     }
   };
+
+  /* --- 3 thẻ tổng quan trên cùng: dùng số liệu tức thời từ getJourneySummary
+     (không cần đợi cây tải xong) --- */
+  function renderOverviewTop() {
+    var s = J._summary;
+    w.$("#j-words").textContent =
+      s.mastered.toLocaleString("vi-VN") + " / " + (s.learnedWords || 0).toLocaleString("vi-VN") +
+      " / " + s.totalWords.toLocaleString("vi-VN");
+    w.$("#j-blocks").textContent = s.blocksDone + " / " + s.totalBlocks;
+    /* Số Block quá hạn chính xác (đếm theo Block, không ước tính) chỉ có
+       sau khi cây tải xong — renderGroupChips() sẽ cập nhật lại #j-overdue. */
+    w.$("#j-overdue").textContent = s.blocksDone ? "…" : 0;
+  }
 
   /* Lịch 28 ngày gần nhất, xếp cột T2 → CN giống lịch học/Duolingo. */
   J.renderCalendar = function (log, overdueByDate) {
@@ -183,6 +217,84 @@
     return { total: ids.length, done: done };
   }
 
+  /* Phân Block vào đúng 1 trong 4 giai đoạn Tony Buzan + due/notDue, cộng
+     2 nhóm phụ ngoài 4 giai đoạn (chưa học / đã vào trí nhớ dài hạn) —
+     dùng cho 4 chip tổng quan + 4 tab bên dưới. Đếm THEO BLOCK (không
+     ước tính theo từ) vì tiến trình chỉ lưu ở cấp Block, và cây này vốn
+     đã tải đủ, chính xác 100% — không cần suy ra qua getJourneySummary. */
+  function buildGroupStats() {
+    var groups = { 1: { due: [], notDue: [] }, 2: { due: [], notDue: [] }, 3: { due: [], notDue: [] }, 4: { due: [], notDue: [] } };
+    var notStarted = [], longTerm = [];
+    (J._tree.blocks || []).forEach(function (b) {
+      var st = w.SRS.state(J._tree.bp[b.id]);
+      if (!st.started) { notStarted.push(b); return; }
+      if (st.cycle >= w.SRS.MAX_CYCLE) { longTerm.push(b); return; }
+      var g = w.SRS.groupOf(st.cycle);
+      (st.due ? groups[g].due : groups[g].notDue).push(b);
+    });
+    return { groups: groups, notStarted: notStarted, longTerm: longTerm };
+  }
+
+  function getActiveTab() {
+    if (J._activeTab) return J._activeTab;
+    var v; try { v = parseInt(localStorage.getItem(LS_JTAB), 10); } catch (e) {}
+    return (v >= 1 && v <= 4) ? v : 1;
+  }
+  function setActiveTab(g) {
+    J._activeTab = g;
+    try { localStorage.setItem(LS_JTAB, String(g)); } catch (e) {}
+  }
+
+  function renderTabs() {
+    var active = getActiveTab();
+    w.$("#jtabs").innerHTML = [1, 2, 3, 4].map(function (g) {
+      return '<button class="jtab-btn' + (g === active ? " active" : "") + '" data-group="' + g + '">' + GROUP_SHORT[g] + "</button>";
+    }).join("");
+  }
+
+  function blockRowsHtml(list) {
+    if (!list.length) return '<div class="jtab-empty">Không có Block nào</div>';
+    return list.map(function (b) { return renderRow("block", b); }).join("");
+  }
+
+  /* 4 chip tổng quan (trong thẻ "Tổng quan") — mỗi chip là số Block ĐANG
+     QUÁ HẠN của 1 giai đoạn, bấm vào để nhảy thẳng tới tab đó bên dưới. */
+  function renderGroupChips() {
+    var gs = J._groupStats;
+    var active = getActiveTab();
+    w.$("#journey-group-row").innerHTML = [1, 2, 3, 4].map(function (g) {
+      return '<div class="jgroup-chip' + (g === active ? " active" : "") + '" data-group="' + g + '">' +
+        '<div class="jg-label">' + GROUP_SHORT[g] + "</div>" +
+        '<div class="jg-due">' + gs.groups[g].due.length + " <small>quá hạn</small></div>" +
+      "</div>";
+    }).join("");
+  }
+
+  function renderOverdueTotal() {
+    var gs = J._groupStats;
+    var total = [1, 2, 3, 4].reduce(function (sum, g) { return sum + gs.groups[g].due.length; }, 0);
+    w.$("#j-overdue").textContent = total;
+  }
+
+  function renderTabPanel() {
+    var g = getActiveTab();
+    var gs = J._groupStats;
+    var due = gs.groups[g].due, notDue = gs.groups[g].notDue;
+    w.$("#jtab-panel").innerHTML =
+      '<div class="jtab-sub">' + GROUP_LABEL[g] + "</div>" +
+      '<div class="jtab-group-title">🔴 Đến hạn ôn ngay (' + due.length + ")</div>" +
+      blockRowsHtml(due) +
+      '<div class="jtab-group-title">🟢 Đã ôn, chưa tới hạn kế tiếp (' + notDue.length + ")</div>" +
+      blockRowsHtml(notDue);
+  }
+
+  function switchTab(g) {
+    setActiveTab(g);
+    renderTabs();
+    renderGroupChips();
+    renderTabPanel();
+  }
+
   /* Ai là con trực tiếp của 1 nút — level truyền vào là level của NÚT
      CHA, trả về {level con, rows con}. "root" = danh sách Hub. */
   function childrenOf(level, id) {
@@ -219,10 +331,12 @@
       J._tree = await w.DB.getFullTree(uid);
     } catch (e) {
       w.$("#journey-tree").innerHTML = '<div class="nav-empty">Không tải được cây tiến độ: ' + w.esc(e.message || String(e)) + "</div>";
+      w.$("#jtab-panel").innerHTML = '<div class="nav-empty">Không tải được: ' + w.esc(e.message || String(e)) + "</div>";
       return;
     }
     J._agg = buildAgg(J._tree);
     J._byId = indexTree(J._tree);
+    J._groupStats = buildGroupStats();
 
     /* Nếu đang drill sâu mà 1 mắt xích vừa bị xoá ở nơi khác (tab khác,
        hoặc action vừa xoá chính nó) -> lùi breadcrumb về đúng chỗ cuối
@@ -231,6 +345,9 @@
       var c = J._crumb[i];
       if (!(J._byId[c.level] && J._byId[c.level][c.id])) { J._crumb = J._crumb.slice(0, i); break; }
     }
+    renderGroupChips();
+    renderOverdueTotal();
+    renderTabPanel();
     J.renderScope();
   };
 
@@ -238,11 +355,12 @@
     return J._crumb.length ? J._crumb[J._crumb.length - 1] : { level: "root", id: null, name: "Toàn bộ" };
   }
 
+  /* Cây thư mục bên phải — CHỈ để duyệt/nhảy vào học, KHÔNG còn ảnh hưởng
+     tới 3 thẻ tổng quan hay 4 tab Tony Buzan (2 khối đó luôn là số toàn
+     app — xem renderOverviewTop/renderGroupChips ở trên). */
   J.renderScope = function () {
     var scope = currentScope();
-    var perBlock = (w.APP_CONFIG && w.APP_CONFIG.WORDS_PER_BLOCK) || 10;
 
-    /* --- breadcrumb --- */
     var crumbHtml = '<span class="jcrumb-item' + (!J._crumb.length ? " active" : "") + '" data-idx="-1">🌐 Toàn bộ</span>';
     J._crumb.forEach(function (c, i) {
       crumbHtml += '<span class="jcrumb-sep">›</span><span class="jcrumb-item' +
@@ -250,31 +368,12 @@
     });
     w.$("#journey-crumb").innerHTML = crumbHtml;
 
-    /* --- 3 thẻ tổng quan: số THẬT ở gốc, ƯỚC TÍNH khi đã drill vào (vì
-       cây này không tải tới cấp Word — xem lý do trong db.js) --- */
-    w.$("#journey-scope-title").textContent = "📊 Tổng quan — " + (scope.level === "root" ? "Toàn bộ" : scope.name);
-    if (scope.level === "root") {
-      w.$("#j-words").textContent = J._summary.mastered.toLocaleString("vi-VN") + " / " + J._summary.totalWords.toLocaleString("vi-VN");
-      w.$("#j-words-label").textContent = "Đã thuộc / Tổng từ";
-      w.$("#j-blocks").textContent = J._summary.blocksDone + " / " + J._summary.totalBlocks;
-      w.$("#j-overdue").textContent = J._summary.overdueWords;
-      w.$("#j-overdue-label").textContent = "Từ đang quá hạn ôn";
-    } else {
-      var st = statsFor(scope.level, scope.id);
-      w.$("#j-words").textContent = "≈" + (st.done * perBlock).toLocaleString("vi-VN") + " / " + (st.total * perBlock).toLocaleString("vi-VN");
-      w.$("#j-words-label").textContent = "Từ trong Block đã Done (ước tính) / Tổng từ";
-      w.$("#j-blocks").textContent = st.done + " / " + st.total;
-      w.$("#j-overdue").textContent = "—";
-      w.$("#j-overdue-label").textContent = "Xem số chính xác ở Toàn bộ";
-    }
-    /* Lịch 28 ngày là số liệu TOÀN APP (daily_log không tách theo Hub/
-       Block) — ẩn khi đã drill để khỏi hiểu lầm là số của riêng chỗ đó. */
-    w.$("#journey-cal-card").hidden = scope.level !== "root";
-
-    /* --- danh sách con --- */
     var kids = childrenOf(scope.level === "root" ? "root" : scope.level, scope.id);
+    var st = scope.level === "root" ? null : statsFor(scope.level, scope.id);
     w.$("#journey-list-title").textContent =
-      (LEVEL_ICON[kids.level] || "🧩") + " " + LEVEL_LABEL[kids.level] + (kids.rows.length ? " (" + kids.rows.length + ")" : "");
+      (LEVEL_ICON[kids.level] || "🧩") + " " + LEVEL_LABEL[kids.level] +
+      (kids.rows.length ? " (" + kids.rows.length + ")" : "") +
+      (st ? " · " + st.done + "/" + st.total + " block done" : "");
     w.$("#journey-tree").innerHTML = kids.rows.length
       ? kids.rows.map(function (row) { return renderRow(kids.level, row); }).join("")
       : '<div class="nav-empty">Trống</div>';
@@ -341,10 +440,10 @@
     J._refreshTimer = setTimeout(function () { J.loadTree(); }, 1500);
   }
 
-  /* "Từ đang quá hạn ôn" -> bấm để nhảy THẲNG vào Block quá hạn gần nhất
-     (đến hạn sớm nhất trước) mà giải quyết luôn, khỏi tự đi tìm trong cây.
-     Chỉ cần bp.cycle/next_review_at (đã có trong J._tree.bp — xem
-     DB.getFullTree) + w.SRS.state() để biết Block nào đang "due". */
+  /* "Block đang quá hạn ôn" -> bấm để nhảy THẲNG vào Block quá hạn gần
+     nhất (đến hạn sớm nhất trước) mà giải quyết luôn, khỏi tự đi tìm
+     trong cây. Chỉ cần bp.cycle/next_review_at (đã có trong J._tree.bp —
+     xem DB.getFullTree) + w.SRS.state() để biết Block nào đang "due". */
   function overdueBlocksSorted() {
     if (!J._tree) return [];
     var out = [];
@@ -362,6 +461,18 @@
     if (!list.length) { w.toast("Không có Block nào quá hạn ôn 🎉", "ok"); return; }
     var anc = ancestorsOf("block", list[0].block.id);
     await w.App.jumpTo(anc);
+  }
+
+  /* Click/bấm phải trong 1 danh sách Block phẳng (tab Tony Buzan) — chỉ
+     có 1 cấp (block, lá), không cần logic "drill sâu hơn" như cây bên
+     phải, nên tách hàm riêng cho gọn thay vì dùng chung handler cây. */
+  async function handleFlatBlockClick(e) {
+    var row = e.target.closest(".jrow");
+    if (!row) return;
+    var id = row.dataset.id;
+    var act = e.target.closest("[data-act]");
+    if (act && act.dataset.act === "menu") { e.stopPropagation(); await openRowMenu("block", id, act); return; }
+    await jumpToRow("block", id);
   }
 
   /* ══════════════ GẮN SỰ KIỆN ══════════════ */
@@ -397,5 +508,23 @@
     if (!row) return;
     e.preventDefault();
     await openRowMenu(row.dataset.level, row.dataset.id, row);
+  });
+
+  w.$("#jtabs").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-group]");
+    if (!btn) return;
+    switchTab(parseInt(btn.dataset.group, 10));
+  });
+  w.$("#journey-group-row").addEventListener("click", function (e) {
+    var chip = e.target.closest("[data-group]");
+    if (!chip) return;
+    switchTab(parseInt(chip.dataset.group, 10));
+  });
+  w.$("#jtab-panel").addEventListener("click", handleFlatBlockClick);
+  w.$("#jtab-panel").addEventListener("contextmenu", async function (e) {
+    var row = e.target.closest(".jrow");
+    if (!row) return;
+    e.preventDefault();
+    await openRowMenu("block", row.dataset.id, row);
   });
 })(window);

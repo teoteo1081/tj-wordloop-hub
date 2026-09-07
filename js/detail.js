@@ -100,18 +100,23 @@
     var buttons = w.$("#bn-buttons"), pos = w.$("#bn-pos");
     if (!buttons || !pos) return;
     var info = blockNavInfo();
-    if (!info || info.blockIdx < 0 || (info.batchList.length <= 1 && info.blockList.length <= 1)) {
+    if (!info || info.blockIdx < 0) {
       buttons.hidden = true; pos.hidden = true;
       return;
     }
 
     buttons.hidden = false; pos.hidden = false;
-    w.$("#bn-prev").disabled = info.blockIdx <= 0 && info.batchIdx <= 0;
-    w.$("#bn-next").disabled = info.blockIdx >= info.blockList.length - 1 && info.batchIdx >= info.batchList.length - 1;
+    /* Không tự tắt nút ←/→ nữa — giờ hết Block/Batch của Page này thì lăn
+       tiếp qua Page/Notebook khác (D.gotoAdjacentBlock -> App.stepBatch),
+       nên rất hiếm khi THẬT SỰ hết đường đi; chỉ khi đã ở đầu/cuối cả Hub
+       thì bấm mới báo toast, khỏi tính trước tốn công (phải soi hết mọi
+       Notebook khác mới biết chắc). */
+    w.$("#bn-prev").disabled = false;
+    w.$("#bn-next").disabled = false;
     pos.textContent = "Block " + (info.blockIdx + 1) + "/" + info.blockList.length + " · " + info.curBatch.name;
   };
 
-  D.gotoAdjacentBlock = function (dir) {
+  D.gotoAdjacentBlock = async function (dir) {
     var info = blockNavInfo();
     if (!info || info.blockIdx < 0) return;
 
@@ -122,16 +127,17 @@
       return;
     }
 
-    /* hết Block của Batch này -> lăn qua Batch kế/trước */
-    var targetBatch = info.batchList[info.batchIdx + dir];
-    if (!targetBatch) {
-      w.toast(dir > 0 ? "Đây là Block cuối cùng trong Page này" : "Đây là Block đầu tiên trong Page này", "err");
+    /* hết Block của Batch này -> lăn qua Batch kế/trước, xuyên cả Page
+       và Notebook khác nếu cần (App.stepBatch trong app.js — dùng chung
+       với nút ←/→ đổi Batch ở màn danh sách Block), không còn giới hạn
+       trong 1 Page như trước. */
+    var moved = await w.App.stepBatch(dir);
+    if (!moved) {
+      w.toast(dir > 0 ? "Đây là Block cuối cùng của Hub này" : "Đây là Block đầu tiên của Hub này", "err");
       return;
     }
-    var targetBlocks = w.App.blocksOf(targetBatch.id);
-    if (!targetBlocks.length) { w.toast(targetBatch.name + " chưa có Block nào", "err"); return; }
-
-    w.App.selectBatch(targetBatch.id);
+    var targetBlocks = w.App.blocksOf(w.S.batchId);
+    if (!targetBlocks.length) { w.toast("Batch kế tiếp chưa có Block nào", "err"); return; }
     /* Batch sau -> mở Block ĐẦU; Batch trước -> mở Block CUỐI (đúng chỗ
        mình vừa học dở nếu đang lùi lại). */
     D.open(dir > 0 ? targetBlocks[0].id : targetBlocks[targetBlocks.length - 1].id);
@@ -142,6 +148,12 @@
     w.$("#screen-detail").hidden = true;
     w.$("#screen-blocks").hidden = false;
     w.$("#btn-back").hidden = true;
+    /* Bug đã gặp: rời Chi tiết Block mà không ẩn 2 cái này thì mũi tên
+       ←/→ + "Block X/Y · Batch Z" của Chi tiết còn kẹt lại y nguyên trên
+       màn danh sách Block (đứng cạnh chip Batch), gây rối vì trông như 1
+       bộ điều hướng Batch nhưng thật ra là điều hướng Block cũ. */
+    w.$("#bn-buttons").hidden = true;
+    w.$("#bn-pos").hidden = true;
     D.blockId = null;
     clearLastBlock();
     if (w.App && w.App.renderBatches) w.App.renderBatches();   /* chip Batch trở lại hiện tên Batch bình thường */

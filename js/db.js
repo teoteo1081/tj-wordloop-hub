@@ -922,7 +922,7 @@
       var wordsByBlock = {};
       d.words.forEach(function (x) { wordsByBlock[x.block_id] = (wordsByBlock[x.block_id] || 0) + 1; });
 
-      var overdueByDate = {}, overdueWords = 0;
+      var overdueByDate = {}, overdueWords = 0, learnedWords = 0;
       bpByUser.forEach(function (bp) {
         var st = w.SRS.state(bp);
         if (st.started && st.due && bp.next_review_at) {
@@ -931,11 +931,16 @@
           var key = todayStr(bp.next_review_at);
           overdueByDate[key] = (overdueByDate[key] || 0) + n;
         }
+        /* "Đã học" = từ thuộc Block đã Done ít nhất 1 lần (bp.passed hoặc
+           bp.meaning_passed) — khác "Đã thuộc" (mastered) là bậc cao hơn,
+           đòi hỏi nhớ lại đúng nhiều lần riêng ở bảng tra từ. */
+        if (bp.passed || bp.meaning_passed) learnedWords += wordsByBlock[bp.block_id] || 0;
       });
 
       return {
         totalWords: d.words.length,
         mastered: wpByUser.filter(function (r) { return r.mastered; }).length,
+        learnedWords: learnedWords,
         totalBlocks: d.blocks.length,
         blocksDone: bpByUser.filter(function (r) { return r.passed || r.meaning_passed; }).length,
         overdueWords: overdueWords,
@@ -967,11 +972,12 @@
 
       return {
         totalWords: qWords.count || 0, mastered: qMastered.count || 0,
+        learnedWords: (qDone.count || 0) * perBlock,   /* ước tính, chưa có số từ chính xác/block */
         totalBlocks: qBlocks.count || 0, blocksDone: qDone.count || 0,
         overdueWords: overdueWords2, overdueByDate: overdueByDate2
       };
     } catch (e) {
-      return { totalWords: 0, mastered: 0, totalBlocks: 0, blocksDone: 0, overdueWords: 0, overdueByDate: {} };
+      return { totalWords: 0, mastered: 0, learnedWords: 0, totalBlocks: 0, blocksDone: 0, overdueWords: 0, overdueByDate: {} };
     }
   };
 
