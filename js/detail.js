@@ -1457,16 +1457,13 @@
       w.Speech.speakList(
         ws.map(function (x) { return { text: x.term }; }),
         function (i) {
+          /* Chỉ tô sáng dòng đang đọc — KHÔNG tự cuộn màn hình theo nữa
+             (đã thử nhiều cách, càng sửa càng rối, user báo dùng bản đầu
+             tiên [chỉ có nút Mở rộng, không tự cuộn] là thấy ổn rồi, nên
+             bỏ hẳn phần tự cuộn ở đây, giữ nguyên cho bài đọc). */
           w.$$("#vocab-tbody tr").forEach(function (tr, k) {
             tr.classList.toggle("reading", k === i);
           });
-          /* Thu gọn -> #vocab-wrap tự cuộn riêng; mở rộng -> #vocab-wrap
-             không có overflow gì cả, phải cuộn cả trang (#workspace).
-             Chỉ định thẳng, không nhờ speech.js tự dò (từng không chắc
-             ăn với khung lồng nhau kiểu này). */
-          var vwrap = w.$("#vocab-wrap");
-          var box = (vwrap && vwrap.classList.contains("collapsed")) ? vwrap : w.$("#workspace");
-          w.Speech.followWord(w.$$("#vocab-tbody tr")[i], { anchor: "top", scrollBox: box });
         },
         function () { btn.textContent = "🔊 Đọc tất cả từ"; }
       );
