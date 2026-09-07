@@ -1,5 +1,17 @@
 # TJ WordLoop Hub — Bàn giao nhanh
 
+> **Claude đọc file này**: đây là bàn giao từ 1 phiên làm việc khác trên cùng dự án, cùng người dùng (không phải người lạ). Đọc hết file này, rồi đọc `README.md` + `CLAUDE.md` trong repo trước khi làm gì — 2 file đó có toàn bộ chi tiết kỹ thuật, quy ước, và các quyết định đã chốt (đừng đề xuất lại). Sau đó xử lý tiếp mục "Vấn đề đang dở" bên dưới theo đúng thứ tự ưu tiên, hoặc theo yêu cầu mới của người dùng nếu có.
+
+## Tóm tắt đã làm xong (phiên làm việc trước)
+- **Hạ tầng**: tạo repo GitHub private, deploy Netlify, tạo project Supabase + chạy schema (`tools/supabase_schema.sql`), migrate toàn bộ kho từ vựng cũ (3 Hub, 12 Notebook, 382 Page, 569 Batch, 1041 Block, 6988 từ) lên Supabase, cấu hình `js/config.js` để app chạy chế độ Cloud.
+- **Data quality**: 1 subagent rà soát `data/starter.json`, sửa 4 notebook bị lỗi xáo trộn cột (term/level/pos/ipa/def_en/meaning_vi lộn chỗ nhau), xoá 20 dòng rác, sửa 3 IPA sai.
+- **Tính năng bài đọc**: bỏ hẳn bộ mẫu câu cứng cũ (lặp lại, vô nghĩa) và tiêu đề giả; thay bằng khu chọn nguồn LUÔN hiện (1 hàng tab **"📝 Dán" + "Claude 1/2/3"**) — chọn xem trước rồi bấm "Dùng bài này" mới áp dụng; nút "🔄 Tạo lại" ở trên vẫn gọi AI (Gemini/OpenAI) nếu có key.
+- **3 kiểu bài kiểm tra**: Phiếu đầy đủ (giữ nút Nộp bài), Từng câu + Nghĩa (tự chấm câu cuối, không cần nút Nộp bài). "✓ Done" trên Block hiện khi 1-trong-3 thẻ đạt ≥80%.
+- **Journey** (icon 📊 cạnh nút đổi giao diện): tổng quan + lịch học 28 ngày (xanh = học hôm đó, đỏ = quá hạn ôn — tính sống).
+- **Đánh số Block**: đã audit toàn bộ 12 notebook — tất cả đều liên tục từ 1, không trùng/thiếu số (không cần sửa gì thêm).
+- **Notebook "TJ HUB TEST" đổi tên thành "TOEIC_COLOCATION"** (id section `nb_toeic_s2`, 60 Block) — đã renumber Block 102→161 thành Block 1→60. Đã viết xong bài đọc Claude cho **Block 1 và Block 2** (mỗi Block 3 bài khác nhau, lưu ở `context_passage_candidates`), verify bằng Node trước khi đẩy lên Supabase qua REST API trực tiếp (không cần export/import file .json nữa).
+- Viết `README.md` (tài liệu tổng thể) + `CLAUDE.md` (quyết định đã chốt, lỗi đã sửa, checklist viết bài đọc) trong repo.
+
 ## Đường dẫn
 - **Code (GitHub, private)**: https://github.com/teoteo1081/tj-wordloop-hub
 - **Web live (Netlify)**: https://tj-wordloop-hub.netlify.app
