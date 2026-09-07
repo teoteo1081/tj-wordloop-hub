@@ -205,6 +205,20 @@
     return /^(A1|A2|B1|B2|C1|C2)$/.test(k) ? "lvl lvl-" + k : "lvl";
   }
 
+  /* Thu gọn bảng từ vựng còn ~3 dòng để nhường chỗ cho bài đọc — nhớ lựa
+     chọn qua các lần mở app (mặc định: thu gọn). */
+  var LS_VOCAB_COLLAPSE = "tjwl_vocab_collapsed_v1";
+  function vocabCollapsed() {
+    try { return localStorage.getItem(LS_VOCAB_COLLAPSE) !== "0"; } catch (e) { return true; }
+  }
+  function applyVocabCollapse() {
+    var wrap = w.$("#vocab-wrap"), btn = w.$("#btn-toggle-vocab");
+    if (!wrap) return;
+    var collapsed = vocabCollapsed();
+    wrap.classList.toggle("collapsed", collapsed);
+    if (btn) btn.textContent = collapsed ? "▸ Mở rộng" : "▾ Thu gọn";
+  }
+
   D.renderStudy = function () {
     var ws = words(), wp = S().wp;
 
@@ -230,6 +244,7 @@
         "</tr>";
     }).join("") || '<tr><td colspan="6" style="text-align:center;color:#64748b">Block này chưa có từ nào.</td></tr>';
 
+    applyVocabCollapse();
     D.renderPassage();
   };
 
@@ -1304,6 +1319,10 @@
         await D.useClaudeCandidate(D._srcTab);
       }
       w.toast("Đã lưu bài đọc");
+    };
+    w.$("#btn-toggle-vocab").onclick = function () {
+      try { localStorage.setItem(LS_VOCAB_COLLAPSE, vocabCollapsed() ? "0" : "1"); } catch (e) {}
+      applyVocabCollapse();
     };
     w.$("#btn-copy-passage").onclick = function () { copyText(this, D._passagePlain || ""); };
     w.$("#btn-copy-vocab").onclick = function () {

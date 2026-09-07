@@ -247,7 +247,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .nav-item:hover{background:var(--bg-hover);color:var(--text);}
 .nav-item.active{background:var(--bg-card);color:var(--text);border-left-color:var(--blue);}
 .sidebar-right .nav-item.active{border-left-color:var(--green);}
-.nav-item .count{margin-left:auto;font-size:.68rem;color:var(--text-3);}
+.nav-item .count{margin-left:auto;font-size:.68rem;color:var(--text-3);white-space:nowrap;flex-shrink:0;}
 .nav-empty{font-size:.75rem;color:var(--text-3);padding:.4rem .2rem;font-style:italic;}
 
 .sidebar-foot{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border-soft);}
@@ -535,6 +535,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    giữ lại tiêu đề cột dính (position:sticky bên dưới) để bảng nào lỡ dài
    hơn 1 màn hình thì đầu cột vẫn thấy được. */
 .table-wrap{overflow-x:auto;}
+/* Thu gọn còn ~3 dòng để nhường chỗ cho bài đọc bên dưới — che phần dư
+   bằng overflow, có dải mờ dần ở đáy để biết còn nội dung bị ẩn. */
+.table-wrap.collapsed{max-height:10.5rem;overflow-y:hidden;position:relative;}
+.table-wrap.collapsed::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:2.2rem;
+  background:linear-gradient(to bottom, transparent, var(--bg-card));pointer-events:none;
+}
 .vocab-table{width:100%;border-collapse:collapse;font-size:.8rem;text-align:left;min-width:520px;}
 .vocab-table th{background:var(--bg-soft);color:var(--text-2);padding:.5rem .55rem;font-size:.7rem;border-bottom:1px solid var(--border);font-weight:700;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;z-index:1;}
 .vocab-table td{padding:.5rem .55rem;border-bottom:1px solid var(--border-soft);color:var(--text-1);vertical-align:top;}

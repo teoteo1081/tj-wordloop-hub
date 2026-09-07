@@ -161,9 +161,14 @@
       return;
     }
     box.innerHTML = list.map(function (p) {
-      var n = batchesOfPage(p.id).length;
+      var batches = batchesOfPage(p.id);
+      var nWords = 0;
+      batches.forEach(function (bt) {
+        App.blocksOf(bt.id).forEach(function (blk) { nWords += App.wordsOf(blk.id).length; });
+      });
       return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true">' +
-               '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span><span class="count">' + n + "</span>" +
+               '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span>' +
+               '<span class="count" title="' + batches.length + ' batch · ' + nWords + ' từ">' + batches.length + " batch · " + nWords + " từ</span>" +
                '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác">⋯</button>' +
              "</div>";
     }).join("");
