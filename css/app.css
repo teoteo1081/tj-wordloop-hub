@@ -520,8 +520,24 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 /* Bung HẾT từ trong Block (không cắt "+N từ" nữa, xem app.js) - xuống
    hàng (wrap) thay vì cuộn ngang, để thấy đủ từ ngay trên danh sách. */
 .vocab-chips{display:flex;flex-wrap:wrap;gap:.35rem;}
-.vchip{background:var(--bg-soft);border:1px solid var(--border);color:var(--text-1);padding:.18rem .55rem;border-radius:5px;font-size:.76rem;font-weight:500;}
+.vchip{
+  background:var(--bg-soft);border:1px solid var(--border);color:var(--text-1);
+  padding:.18rem .3rem .18rem .55rem;border-radius:5px;font-size:.76rem;font-weight:500;
+  display:inline-flex;align-items:center;gap:.3rem;
+}
 .vchip.ok{border-color:rgba(16,185,129,.35);color:var(--green-l);}
+/* Nút "×" xoá từ - ẩn mặc định, chỉ hiện khi rê chuột vào ĐÚNG chip đó
+   (:hover), đỡ rối mắt khi nhìn cả list nhiều chip cùng lúc. Trên điện
+   thoại (không có hover) luôn hiện sẵn, xem media query cuối file. */
+.vchip-del{
+  background:transparent;border:none;color:var(--text-3);cursor:pointer;
+  font-size:.9rem;line-height:1;padding:0 .1rem;border-radius:3px;opacity:0;
+}
+.vchip:hover .vchip-del{opacity:1;}
+.vchip-del:hover{color:var(--red-l);background:var(--red-sub);}
+/* Thiết bị chạm (điện thoại/tablet) không có hover - luôn hiện sẵn, không
+   thì không có cách nào bấm được nút "×" này cả. */
+@media(hover:none){.vchip-del{opacity:1;}}
 /* Giờ chỉ còn progress-bar (nút Học/Ôn lại đã dời lên block-top) */
 .block-bottom{display:flex;align-items:center;border-top:1px solid var(--border-soft);padding-top:.55rem;}
 .progress-bar{height:4px;border-radius:4px;background:var(--border-soft);overflow:hidden;flex:1;}

@@ -373,9 +373,13 @@
            .vocab-chips giờ cho xuống hàng (flex-wrap: wrap) thay vì cuộn
            ngang, xem đủ từ ngay trên danh sách Block, không cần mở Block
            ra mới thấy hết. */
+        /* Mỗi chip có sẵn nút "×" xoá thẳng từ đó, không cần mở hẳn Block
+           vào rồi tìm đúng từ trong bảng mới xoá được như trước (xem
+           "data-delword" trong #blocks-list onclick bên dưới). */
         '<div class="vocab-chips">' + ws.map(function (x) {
           var ok = S.wp[x.id] && S.wp[x.id].mastered;
-          return '<span class="vchip' + (ok ? " ok" : "") + '">' + w.esc(x.term) + "</span>";
+          return '<span class="vchip' + (ok ? " ok" : "") + '">' + w.esc(x.term) +
+            '<button class="vchip-del" data-delword="' + x.id + '" title="Xoá từ khỏi kho">×</button></span>';
         }).join("") + "</div>" +
         '<div class="block-bottom">' +
           '<span class="progress-bar"><i style="width:' + w.pct(mastered, ws.length) + '%"></i></span>' +
@@ -1607,8 +1611,30 @@
     };
 
     /* --- mở block --- */
-    w.$("#blocks-list").onclick = function (e) {
+    w.$("#blocks-list").onclick = async function (e) {
       if (e.target.closest("[data-menu]")) return;
+
+      /* Nút "×" xoá thẳng 1 từ ngay trên chip - PHẢI xét TRƯỚC (return sớm),
+         không thì click lọt xuống card bên dưới sẽ mở luôn Block ra. */
+      var delBtn = e.target.closest("[data-delword]");
+      if (delBtn) {
+        var wordId = delBtn.dataset.delword;
+        var word = S.words.find(function (x) { return x.id === wordId; });
+        var ok = await App.askConfirm({
+          title: "🗑 Bỏ từ khỏi kho",
+          desc: "Xoá hẳn '" + (word ? word.term : "từ này") + "' khỏi kho từ vựng? Không hoàn tác được."
+        });
+        if (!ok) return;
+        try {
+          await w.DB.remove("words", wordId);
+          S.words = S.words.filter(function (x) { return x.id !== wordId; });
+          delete S.wp[wordId];
+          App.renderBlocks();
+          w.toast("Đã bỏ từ khỏi kho");
+        } catch (err) { w.toast("Không xoá được: " + (err.message || err), "err"); }
+        return;
+      }
+
       var openBtn = e.target.closest("[data-open]");
       var card = e.target.closest("[data-block]");
       var id = openBtn ? openBtn.dataset.open : (card ? card.dataset.block : null);
