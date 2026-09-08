@@ -626,17 +626,42 @@
     w.$("#menu-sub").textContent = u.cloud ? (u.email || "Tài khoản Cloud") : "Hồ sơ trên máy này";
 
     var pill = w.$("#mode-pill");
+    var modeSlug;
     if (w.DB.mode === "cloud") {
       pill.textContent = u.cloud ? "CLOUD" : "CLOUD · KHÁCH";
       pill.className = "mode-pill cloud";
       pill.title = u.cloud ? "Từ vựng và tiến trình đều lưu trên server"
                            : "Từ vựng lấy từ server, tiến trình còn lưu tạm trong máy — đăng nhập để đồng bộ";
+      modeSlug = u.cloud ? "cloud" : "cloud-khach";
     } else {
       pill.textContent = "LOCAL";
       pill.className = "mode-pill local";
       pill.title = "Dữ liệu chỉ nằm trong trình duyệt này. Cấu hình js/config.js để lên cloud.";
+      modeSlug = "local";
     }
     w.$("#mi-cloud").style.display = w.Auth.canCloud() ? "" : "none";
+    reflectAddressBar(modeSlug, u.name);
+  }
+
+  /* Ghi lại chế độ (local/cloud/cloud-khách) + tên người đang học vào
+     thanh địa chỉ (?mode=...&user=...) — CHỈ để nhìn 1 cái biết máy này
+     đang đăng nhập ai, KHÔNG dùng để đăng nhập lại (khác hẳn "?u=<uuid>"
+     — mã đăng nhập thật đó vẫn bị xoá khỏi URL ngay sau khi nhận diện,
+     xem tryLinkLogin trong auth.js). Mở thẳng 1 link kiểu
+     "?mode=cloud&user=TJ" trên máy lạ sẽ KHÔNG tự đăng nhập được vào TJ —
+     chỉ đúng link "?u=<uuid>" (uuid dài, khó đoán) mới làm được việc đó. */
+  var _lastAddrState = null;
+  function reflectAddressBar(modeSlug, userName) {
+    var state = modeSlug + "|" + userName;
+    if (state === _lastAddrState) return;
+    _lastAddrState = state;
+    try {
+      var url = new URL(location.href);
+      url.search = "";
+      url.searchParams.set("mode", modeSlug);
+      url.searchParams.set("user", userName);
+      history.replaceState(null, "", url.pathname + "?" + url.searchParams.toString() + url.hash);
+    } catch (e) {}
   }
 
   /* ══════════════ HỘP THOẠI NHẬP TÊN DÙNG CHUNG ══════════════ */
