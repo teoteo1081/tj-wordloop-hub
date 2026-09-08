@@ -430,7 +430,9 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
         2: "Bấm vào MỞ THẲNG link học của đúng người đó - không cần mật khẩu/email, "
            "vào là nhận diện luôn.",
         3: "Y hệt link ở cột Tên, dạng chữ thường (không phải nút bấm) - copy dòng này "
-           "gửi qua Zalo/tin nhắn cho người học.",
+           "gửi qua Zalo/tin nhắn cho người học.\n\n"
+           "⚠️ File Excel này chứa link đăng nhập THẬT - không đẩy lên GitHub/chia sẻ công "
+           "khai, chỉ gửi RIÊNG cho đúng người trong link đó.",
         4: "TỔNG ĐIỂM = cộng điểm mọi TỪ (sheet 'Chi tiết Từ') + điểm mọi BLOCK "
            "(sheet 'Chi tiết Block') của người này.\n\n"
            f"Điểm 1 từ: Đã thuộc = {SCORE_WORD_MASTERED}đ. Chưa thuộc nhưng đã thử qua = "
@@ -582,11 +584,15 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
     ws4.freeze_panes = "A2"
     ws4.auto_filter.ref = f"A1:{get_column_letter(len(bd_headers))}{len(block_rows_sorted) + 1}"
 
-    # Sheet ghi chú ngắn - giải thích cột cho đỡ phải hỏi lại lần sau.
+    # Sheet ghi chú - đọc liền mạch cả bảng công thức 1 lần, khỏi phải rê
+    # chuột từng ô. Giải thích CHI TIẾT hơn cũng có sẵn ở CHÚ THÍCH gắn trên
+    # từng ô tiêu đề (xem _write_headers_with_notes/wd_notes/bd_notes) - 2
+    # chỗ bổ sung cho nhau, không thay thế nhau.
     ws2 = wb.create_sheet("Ghi chú")
     ws2.column_dimensions["A"].width = 100
     notes = [
         f"Xuất lúc: {datetime.datetime.now():%Y-%m-%d %H:%M}",
+        "(Giải thích chi tiết hơn: di chuột vào TỪNG Ô TIÊU ĐỀ ở sheet 'Người học'/'Chi tiết Từ'/'Chi tiết Block' - có sẵn ghi chú riêng cho mỗi cột.)",
         "",
         "• Cột 'Tên': bấm vào MỞ THẲNG link học của đúng người đó (không cần mật khẩu/email).",
         "• Cột 'Link truy cập': y hệt link ở cột Tên, dạng chữ thường để copy gửi qua Zalo/tin nhắn.",
@@ -596,6 +602,9 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
         "• 'Đã vào trí nhớ dài hạn': Block đã ôn đủ hết 6 lần theo Tony Buzan, coi như xong hẳn.",
         "• '⚠️ Block TRỄ HẠN ôn': trong số Block đang ở 4 giai đoạn trên, bao nhiêu cái đã QUÁ NGÀY hẹn ôn lại mà chưa ôn - CÀNG NHIỀU càng cần nhắc người học ôn lại sớm.",
         "",
+        "• Sheet 'Chi tiết Từ': 1 dòng/1 người học x 1 từ đã từng làm bài - đúng từ nào, đúng mấy lần/tổng mấy lần, đã thuộc chưa, mức quen, lần ôn gần nhất, kèm Điểm riêng của từ đó.",
+        "• Sheet 'Chi tiết Block': 1 dòng/1 người học x 1 Block đã học - điểm bài thi cao nhất, đã đạt chưa, đang ở chu kỳ ôn nào, có trễ hạn không, kèm Điểm riêng của Block đó.",
+        "",
         f"• 🏆 ĐIỂM (sheet 'Người học' đã SẮP THEO ĐIỂM GIẢM DẦN - cao nhất lên đầu, thành bảng xếp hạng):",
         f"    - Mỗi TỪ 'Đã thuộc' = {SCORE_WORD_MASTERED} điểm. Chưa thuộc nhưng đã thử qua = tối đa {SCORE_WORD_PARTIAL_MAX} điểm,",
         f"      nhân theo TỈ LỆ ĐÚNG (đúng/tổng số lần thử) - thử đúng gần hết dù chưa 'thuộc' vẫn được gần đủ điểm.",
@@ -604,8 +613,6 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
         f"    - Block đang TRỄ HẠN ôn (chưa ôn dù quá ngày hẹn) bị trừ {abs(SCORE_BLOCK_OVERDUE_PENALTY)} điểm - nhắc khéo đang nợ bài.",
         "    - Đổi trọng số các số trên ở đầu file manage_users.py (mục SCORE_*), chạy lại là điểm tự tính lại ngay,",
         "      không cần sửa code chỗ nào khác.",
-        "• Sheet 'Chi tiết Từ'/'Chi tiết Block': xem TỪNG dòng đã ghi điểm bao nhiêu, đối chiếu/kiểm tra công thức",
-        "  hoặc tự cộng lại theo cách khác nếu muốn 1 công thức riêng không có sẵn ở đây.",
         "",
         "⚠️ FILE NÀY CHỨA LINK ĐĂNG NHẬP THẬT - không đẩy lên GitHub/chia sẻ công khai, chỉ gửi RIÊNG cho đúng người trong link đó.",
     ]
