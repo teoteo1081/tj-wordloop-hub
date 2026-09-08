@@ -173,6 +173,32 @@
   }
 
   /* ══════════════ RENDER: THANH HUB ══════════════ */
+  /* ══════════════ ‹/› CUỘN DẢI TAB KHI TRÀN (hub-tabs, section-tabs) ═════
+     Dải tab vốn đã overflow-x:auto (cuộn được bằng trackpad/chạm), nhưng
+     không có gợi ý nào là còn tab bị che khuất — thêm 2 nút ‹/› chỉ hiện
+     khi scrollWidth > clientWidth thật sự (tab tràn), tự ẩn khi đã cuộn
+     hết 1 đầu. Gọi setup() 1 lần lúc khởi động, rồi gọi update() lại mỗi
+     khi render lại danh sách tab (renderHubs/renderSections) vì đó là lúc
+     scrollWidth có thể đổi mà ResizeObserver (chỉ theo dõi kích thước
+     khung nhìn) không tự bắt được. */
+  function setupTabScroller(trackId, prevId, nextId) {
+    var track = w.$(trackId), prev = w.$(prevId), next = w.$(nextId);
+    if (!track || !prev || !next) return function () {};
+    function update() {
+      var overflow = track.scrollWidth > track.clientWidth + 2;
+      prev.hidden = !overflow || track.scrollLeft <= 2;
+      next.hidden = !overflow || track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+    }
+    prev.onclick = function () { track.scrollBy({ left: -140, behavior: "smooth" }); };
+    next.onclick = function () { track.scrollBy({ left: 140, behavior: "smooth" }); };
+    track.addEventListener("scroll", update, { passive: true });
+    if (w.ResizeObserver) new ResizeObserver(update).observe(track);
+    w.addEventListener("resize", update);
+    update();
+    return update;
+  }
+  var updateHubTabsScroll, updateSectionTabsScroll;
+
   function renderHubs() {
     w.$("#hub-tabs").innerHTML = S.hubs.map(function (h) {
       return '<span class="hub-tab' + (h.id === S.hubId ? " active" : "") +
@@ -180,6 +206,7 @@
              '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác">⋯</button>' +
              "</span>";
     }).join("");
+    if (updateHubTabsScroll) updateHubTabsScroll();
   }
 
   /* ══════════════ RENDER: SIDEBAR TRÁI ══════════════ */
@@ -202,6 +229,7 @@
     var box = w.$("#section-list");
     if (!S.sections.length) {
       box.innerHTML = '<span class="nav-empty">Chưa có section — bấm dấu + bên phải</span>';
+      if (updateSectionTabsScroll) updateSectionTabsScroll();
       return;
     }
     box.innerHTML = S.sections.map(function (s) {
@@ -211,6 +239,7 @@
                '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác">⋯</button>' +
              "</span>";
     }).join("");
+    if (updateSectionTabsScroll) updateSectionTabsScroll();
   }
 
   /* ══════════════ RENDER: SIDEBAR PHẢI (PAGES) ══════════════ */
@@ -1570,6 +1599,9 @@
 
   /* ══════════════ GẮN SỰ KIỆN ══════════════ */
   function bind() {
+    updateHubTabsScroll = setupTabScroller("#hub-tabs", "#hub-tabs-prev", "#hub-tabs-next");
+    updateSectionTabsScroll = setupTabScroller("#section-list", "#section-tabs-prev", "#section-tabs-next");
+
     /* --- hub --- */
     w.$("#hub-tabs").onclick = async function (e) {
       var b = e.target.closest("[data-hub]");

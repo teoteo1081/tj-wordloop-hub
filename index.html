@@ -22,7 +22,12 @@
     <span class="brand-text">TJ WordLoop</span>
   </div>
 
+  <!-- ‹/› chỉ hiện khi hub-tabs bị hẹp tràn (JS đo scrollWidth, xem
+       setupTabScroller trong app.js) - trước đây chỉ cuộn ngang bằng
+       trackpad/chạm, không có gợi ý còn tab bị che khuất. -->
+  <button class="tab-scroll-btn" id="hub-tabs-prev" title="Xem hub trước" hidden>‹</button>
   <nav class="hub-tabs" id="hub-tabs"><!-- JS render --></nav>
+  <button class="tab-scroll-btn" id="hub-tabs-next" title="Xem hub sau" hidden>›</button>
   <button class="tab-add hub-add" id="btn-add-hub" title="Thêm hub">+</button>
 
   <div class="topbar-right">
@@ -92,8 +97,20 @@
     <button class="pin-btn" id="pin-left" title="Ghim / bỏ ghim cột Notebooks">📌</button>
   </div>
 
+  <button class="tab-scroll-btn" id="section-tabs-prev" title="Xem section trước" hidden>‹</button>
   <div class="section-tabs" id="section-list"><!-- JS --></div>
-  <button class="tab-add" id="btn-add-section" title="Thêm section">+</button>
+  <button class="tab-scroll-btn" id="section-tabs-next" title="Xem section sau" hidden>›</button>
+
+  <!-- Cụm nút tạo mới: "+" (Thêm section) đứng đầu, rồi 2 nút Paste (dời
+       lên từ .batches-bar cũ trong #workspace) - dời hẳn ra khỏi vùng
+       cuộn của #workspace nên luôn thấy được, không mất khi kéo xuống
+       đọc bài dài (xem giải thích .workspace{overflow-y:auto} trong
+       app.css - section-bar nằm NGOÀI vùng đó). -->
+  <div class="section-actions">
+    <button class="tab-add" id="btn-add-section" title="Thêm section">+</button>
+    <button class="btn-soft" id="btn-paste-extract" title="Dán bài báo / transcript — AI tự trích từ B1+ và tạo Block">✨<span class="dt-long"> Dán bài, tự trích từ</span></button>
+    <button class="btn-primary" id="btn-paste-new">+<span class="dt-long"> Paste từ mới</span></button>
+  </div>
 
   <div class="pane-head pane-right">
     <button class="pin-btn" id="pin-right" title="Ghim / bỏ ghim cột Pages">📌</button>
@@ -137,8 +154,6 @@
         <button class="btn-soft" id="bn-next" title="Block sau">→</button>
       </div>
       <div class="batch-tabs" id="batch-tabs"><!-- JS --></div>
-      <button class="btn-soft" id="btn-paste-extract" title="Dán bài báo / transcript — AI tự trích từ B1+ và tạo Block">✨<span class="dt-long"> Dán bài, tự trích từ</span></button>
-      <button class="btn-primary" id="btn-paste-new">+<span class="dt-long"> Paste từ mới</span></button>
     </div>
 
     <!-- ===== MÀN HÌNH A: DANH SÁCH BLOCK ===== -->
