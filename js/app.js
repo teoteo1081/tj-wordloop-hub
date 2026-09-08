@@ -328,7 +328,7 @@
       return;
     }
 
-    box.innerHTML = list.map(function (b) {
+    box.innerHTML = list.map(function (b, idx) {
       var ws = App.wordsOf(b.id);
       var bp = S.bp[b.id] || {};
       var st = w.SRS.state(S.bp[b.id]);
@@ -352,7 +352,11 @@
       }).join("");
       if (!tags) tags = '<span class="tag">' + ws.length + " từ</span>";
 
-      return '<div class="block-card' + (st.due ? " due" : "") + '" data-block="' + b.id + '">' +
+      /* data-bidx: chỉ để CSS tô dải màu bên trái phân biệt Block trong
+         cùng Batch (xem .block-card[data-bidx] trong app.css) — không
+         liên quan gì tới trạng thái Done/Due. */
+      return '<div class="block-card' + (st.due ? " due" : "") + '" data-block="' + b.id +
+        '" data-bidx="' + (idx % 8) + '">' +
         '<div class="block-top">' +
           '<div class="block-left">' +
             '<span class="block-title">' + w.esc(b.name) + "</span>" + tags +

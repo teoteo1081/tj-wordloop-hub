@@ -49,6 +49,22 @@
   --lvl-b1:#8db8e0;
   --lvl-b2:#e0b15c;
   --lvl-c1:#e08fa0;
+  /* Dải màu PHÂN BIỆT các Block với nhau trong 1 Batch (không mang nghĩa
+     trạng thái gì cả — trạng thái Done/Due/Chưa thi vẫn do badge + viền đỏ
+     .due lo, xem .block-card bên dưới). 8 tông đá quý trầm, tách biệt hẳn
+     khỏi các hue đã có nghĩa (cam đất=--blue, xanh lá=--green, đỏ=--red,
+     vàng=--amber, tím=--violet, xanh dương nhạt=--vi-color) để không gây
+     hiểu lầm. DÙNG CHUNG 1 bộ giá trị cho cả 2 giao diện (sáng/tối) — độ
+     bão hoà/độ sáng trung bình đã chọn để đọc tốt trên cả nền tối #30302e
+     lẫn nền trắng, không cần tách riêng theo theme. */
+  --blk-1:#c9727b;   /* garnet       */
+  --blk-2:#b8a23e;   /* mù tạt/olive vàng (lệch hẳn khỏi --amber vàng cam) */
+  --blk-3:#83a85b;   /* rêu/moss     */
+  --blk-4:#4fa599;   /* xanh ngọc sâu*/
+  --blk-5:#5c93c4;   /* xanh thép    */
+  --blk-6:#7b7fd1;   /* chàm/indigo  */
+  --blk-7:#a97bc4;   /* tím mận      */
+  --blk-8:#c46f9e;   /* hồng mận     */
   --on-accent:#fff;
   --scrim:rgba(0,0,0,.66);
   --shadow-lg:0 18px 44px rgba(0,0,0,.5);
@@ -498,9 +514,22 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .block-card{
   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
   padding:.85rem 1rem;cursor:pointer;transition:border-color .15s;display:flex;flex-direction:column;gap:.65rem;
+  position:relative;overflow:hidden;   /* để ::before (dải màu) bo tròn theo góc card */
 }
 .block-card:hover{border-color:var(--border-hi);}
 .block-card.due{border-color:rgba(239,68,68,.45);}
+/* Dải màu bên trái phân biệt các Block với nhau trong 1 Batch (thuần trang
+   trí/nhận diện — KHÔNG mang nghĩa trạng thái, xem khai báo --blk-1..8 ở
+   :root). Cycle 8 màu theo data-bidx do app.js gán (idx % 8), lặp lại nếu
+   Batch nhiều hơn 8 Block. */
+.block-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blk-1);}
+.block-card[data-bidx="2"]::before{background:var(--blk-2);}
+.block-card[data-bidx="3"]::before{background:var(--blk-3);}
+.block-card[data-bidx="4"]::before{background:var(--blk-4);}
+.block-card[data-bidx="5"]::before{background:var(--blk-5);}
+.block-card[data-bidx="6"]::before{background:var(--blk-6);}
+.block-card[data-bidx="7"]::before{background:var(--blk-7);}
+.block-card[data-bidx="0"]::before{background:var(--blk-8);}
 .block-top{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;}
 .block-left{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
 /* Nút "Học/Ôn lại" + badge "Chưa thi"/"Done" đi CHUNG bên phải block-top
