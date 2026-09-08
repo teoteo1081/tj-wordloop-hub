@@ -13,12 +13,11 @@
        (Phiếu đầy đủ/Từng câu) — xem js/srs.js.
 
    Bố cục màn hình:
-     1. "📊 Tổng quan" — LUÔN là số của TOÀN BỘ TJ WordLoop (không đổi theo
-        cây thư mục bên phải — xem giải thích ở #screen-journey trong
-        index.html). Đã thuộc/Đã học/Tổng từ + Block Done/Tổng + Block
-        quá hạn, cùng 4 chip giai đoạn Tony Buzan bên dưới.
-     2. "🗓️ Lịch 28 ngày" — số liệu toàn app, không đổi theo scope.
-     3. 2 khung song song: TRÁI = "🚦 Theo tiến độ Tony Buzan" (4 tab,
+     1. "🗓️ Lịch học theo tháng" — số liệu toàn app (không đổi theo cây
+        thư mục bên phải). Đã bỏ hẳn khối "Tổng quan" (3 thẻ số liệu +
+        4 chip giai đoạn) từng đứng trên lịch — trùng lặp với mục 2 bên
+        dưới, theo yêu cầu người dùng.
+     2. 2 khung song song: TRÁI = "🚦 Theo tiến độ Tony Buzan" (4 tab,
         mỗi tab liệt kê Block đến hạn ôn ngay / Block đã ôn chờ hạn kế
         tiếp — liệt kê THEO BLOCK, không theo từng từ, vì tiến trình chỉ
         lưu ở cấp Block); PHẢI = cây drill-down cũ (Hub>...>Block) để
@@ -87,7 +86,6 @@
     var today = new Date();
     J._calMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     J.renderCalendar();
-    renderOverviewTop();
     await J.loadTree();
   };
 
@@ -101,19 +99,6 @@
       w.$("#screen-blocks").hidden = false;
     }
   };
-
-  /* --- 3 thẻ tổng quan trên cùng: dùng số liệu tức thời từ getJourneySummary
-     (không cần đợi cây tải xong) --- */
-  function renderOverviewTop() {
-    var s = J._summary;
-    w.$("#j-words").textContent =
-      s.mastered.toLocaleString("vi-VN") + " / " + (s.learnedWords || 0).toLocaleString("vi-VN") +
-      " / " + s.totalWords.toLocaleString("vi-VN");
-    w.$("#j-blocks").textContent = s.blocksDone + " / " + s.totalBlocks;
-    /* Số Block quá hạn chính xác (đếm theo Block, không ước tính) chỉ có
-       sau khi cây tải xong — renderGroupChips() sẽ cập nhật lại #j-overdue. */
-    w.$("#j-overdue").textContent = s.blocksDone ? "…" : 0;
-  }
 
   var MONTH_LABEL = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
@@ -281,25 +266,6 @@
     return list.map(function (b) { return renderRow("block", b); }).join("");
   }
 
-  /* 4 chip tổng quan (trong thẻ "Tổng quan") — mỗi chip là số Block ĐANG
-     QUÁ HẠN của 1 giai đoạn, bấm vào để nhảy thẳng tới tab đó bên dưới. */
-  function renderGroupChips() {
-    var gs = J._groupStats;
-    var active = getActiveTab();
-    w.$("#journey-group-row").innerHTML = [1, 2, 3, 4].map(function (g) {
-      return '<div class="jgroup-chip' + (g === active ? " active" : "") + '" data-group="' + g + '">' +
-        '<div class="jg-label">' + GROUP_SHORT[g] + "</div>" +
-        '<div class="jg-due">' + gs.groups[g].due.length + " <small>quá hạn</small></div>" +
-      "</div>";
-    }).join("");
-  }
-
-  function renderOverdueTotal() {
-    var gs = J._groupStats;
-    var total = [1, 2, 3, 4].reduce(function (sum, g) { return sum + gs.groups[g].due.length; }, 0);
-    w.$("#j-overdue").textContent = total;
-  }
-
   function renderTabPanel() {
     var g = getActiveTab();
     var gs = J._groupStats;
@@ -315,7 +281,6 @@
   function switchTab(g) {
     setActiveTab(g);
     renderTabs();
-    renderGroupChips();
     renderTabPanel();
   }
 
@@ -369,8 +334,6 @@
       var c = J._crumb[i];
       if (!(J._byId[c.level] && J._byId[c.level][c.id])) { J._crumb = J._crumb.slice(0, i); break; }
     }
-    renderGroupChips();
-    renderOverdueTotal();
     renderTabPanel();
     J.renderScope();
   };
@@ -379,9 +342,8 @@
     return J._crumb.length ? J._crumb[J._crumb.length - 1] : { level: "root", id: null, name: "Toàn bộ" };
   }
 
-  /* Cây thư mục bên phải — CHỈ để duyệt/nhảy vào học, KHÔNG còn ảnh hưởng
-     tới 3 thẻ tổng quan hay 4 tab Tony Buzan (2 khối đó luôn là số toàn
-     app — xem renderOverviewTop/renderGroupChips ở trên). */
+  /* Cây thư mục bên phải — CHỈ để duyệt/nhảy vào học, KHÔNG ảnh hưởng tới
+     4 tab Tony Buzan bên trái (khối đó luôn là số toàn app). */
   J.renderScope = function () {
     var scope = currentScope();
 
@@ -464,29 +426,6 @@
     J._refreshTimer = setTimeout(function () { J.loadTree(); }, 1500);
   }
 
-  /* "Block đang quá hạn ôn" -> bấm để nhảy THẲNG vào Block quá hạn gần
-     nhất (đến hạn sớm nhất trước) mà giải quyết luôn, khỏi tự đi tìm
-     trong cây. Chỉ cần bp.cycle/next_review_at (đã có trong J._tree.bp —
-     xem DB.getFullTree) + w.SRS.state() để biết Block nào đang "due". */
-  function overdueBlocksSorted() {
-    if (!J._tree) return [];
-    var out = [];
-    J._tree.blocks.forEach(function (b) {
-      var st = w.SRS.state(J._tree.bp[b.id]);
-      if (st.started && st.due) out.push({ block: b, nextAt: st.nextAt || 0 });
-    });
-    out.sort(function (a, b) { return a.nextAt - b.nextAt; });
-    return out;
-  }
-
-  async function goToNearestOverdue() {
-    if (!J._tree) await J.loadTree();
-    var list = overdueBlocksSorted();
-    if (!list.length) { w.toast("Không có Block nào quá hạn ôn 🎉", "ok"); return; }
-    var anc = ancestorsOf("block", list[0].block.id);
-    await w.App.jumpTo(anc);
-  }
-
   /* Click/bấm phải trong 1 danh sách Block phẳng (tab Tony Buzan) — chỉ
      có 1 cấp (block, lá), không cần logic "drill sâu hơn" như cây bên
      phải, nên tách hàm riêng cho gọn thay vì dùng chung handler cây. */
@@ -500,7 +439,6 @@
   }
 
   /* ══════════════ GẮN SỰ KIỆN ══════════════ */
-  w.$("#j-overdue-card").onclick = goToNearestOverdue;
   w.$("#btn-journey").onclick = function () { J.open(); };
   w.$("#btn-journey-back").onclick = function () { J.close(); };
   w.$("#btn-learning").onclick = function () { J.close(); };
@@ -540,11 +478,6 @@
     var btn = e.target.closest("[data-group]");
     if (!btn) return;
     switchTab(parseInt(btn.dataset.group, 10));
-  });
-  w.$("#journey-group-row").addEventListener("click", function (e) {
-    var chip = e.target.closest("[data-group]");
-    if (!chip) return;
-    switchTab(parseInt(chip.dataset.group, 10));
   });
   w.$("#jtab-panel").addEventListener("click", handleFlatBlockClick);
   w.$("#jtab-panel").addEventListener("contextmenu", async function (e) {

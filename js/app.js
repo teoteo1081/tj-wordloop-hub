@@ -250,15 +250,11 @@
       box.innerHTML = '<div class="nav-empty">Chưa có page nào</div>';
       return;
     }
+    /* Đã bỏ số liệu "N block · M từ" cạnh tên Page (theo yêu cầu) — bị
+       che mất tiêu đề khi tên Page dài trên thanh hẹp. */
     box.innerHTML = list.map(function (p) {
-      var batches = batchesOfPage(p.id);
-      var nBlocks = 0, nWords = 0;
-      batches.forEach(function (bt) {
-        App.blocksOf(bt.id).forEach(function (blk) { nBlocks++; nWords += App.wordsOf(blk.id).length; });
-      });
       return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true">' +
                '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span>' +
-               '<span class="count" title="' + nBlocks + ' block · ' + nWords + ' từ">' + nBlocks + " block · " + nWords + " từ</span>" +
                '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác">⋯</button>' +
              "</div>";
     }).join("");

@@ -391,19 +391,10 @@
         <button class="btn-ghost" id="journey-refresh" title="Tải lại số liệu">⟳ Tải lại</button>
       </div>
 
-      <div class="card journey-overview">
-        <div class="card-title">📊 Tổng quan — TJ WordLoop</div>
-        <div class="journey-stats-row">
-          <div class="jstat"><div class="jstat-num" id="j-words">0</div><div class="jstat-label">Đã thuộc / Đã học / Tổng từ</div></div>
-          <div class="jstat"><div class="jstat-num" id="j-blocks">0</div><div class="jstat-label">Block đã Done / Tổng Block</div></div>
-          <div class="jstat overdue" id="j-overdue-card" title="Bấm để mở Block quá hạn gần nhất, giải quyết ngay">
-            <div class="jstat-num" id="j-overdue">0</div>
-            <div class="jstat-label">Block đang quá hạn ôn</div>
-          </div>
-        </div>
-        <div class="journey-group-row" id="journey-group-row" title="Bấm 1 giai đoạn để xem chi tiết ở tab bên dưới"><!-- JS: 4 chip giai đoạn Tony Buzan --></div>
-      </div>
-
+      <!-- Đã bỏ hẳn khối "Tổng quan" (3 thẻ số liệu + 4 chip giai đoạn) theo
+           yêu cầu — số liệu chi tiết từng giai đoạn đã có sẵn trong khối
+           "🚦 Theo tiến độ Tony Buzan" bên dưới, giữ lịch tháng làm trọng
+           tâm màn Journey. -->
       <div class="card" id="journey-cal-card">
         <div class="card-title-row">
           <div class="card-title">🗓️ Lịch học theo tháng (toàn app)</div>
