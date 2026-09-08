@@ -373,8 +373,8 @@
         '<span class="jrow-ic">' + (done ? "✓" : "⭕") + "</span>" +
         '<span class="jrow-name">' + w.esc(row.name) + "</span>" +
         '<span class="jrow-status">' + (done ? "✓ Done" : "Chưa xong") + "</span>" +
-        '<button class="jrow-open" data-act="open" title="Mở bài học">↗</button>' +
-        '<button class="jrow-dots" data-act="menu" title="Thao tác">⋯</button>' +
+        '<button class="jrow-open" data-act="open" title="Mở bài học" aria-label="Mở bài học ' + w.esc(row.name) + '">↗</button>' +
+        '<button class="jrow-dots" data-act="menu" title="Thao tác" aria-label="Thao tác với ' + w.esc(row.name) + '">⋯</button>' +
       "</div>";
     }
     var st = statsFor(level, row.id);
@@ -385,8 +385,8 @@
       '<span class="jrow-bar"><i style="width:' + pct + '%"></i></span>' +
       '<span class="jrow-pct">' + pct + '%</span>' +
       '<span class="jrow-count">' + st.done + "/" + st.total + " block</span>" +
-      '<button class="jrow-open" data-act="open" title="Mở tại đây">↗</button>' +
-      '<button class="jrow-dots" data-act="menu" title="Thao tác">⋯</button>' +
+      '<button class="jrow-open" data-act="open" title="Mở tại đây" aria-label="Mở tại đây ' + w.esc(row.name) + '">↗</button>' +
+      '<button class="jrow-dots" data-act="menu" title="Thao tác" aria-label="Thao tác với ' + w.esc(row.name) + '">⋯</button>' +
     "</div>";
   }
 

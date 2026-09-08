@@ -203,7 +203,7 @@
     w.$("#hub-tabs").innerHTML = S.hubs.map(function (h) {
       return '<span class="hub-tab' + (h.id === S.hubId ? " active" : "") +
              '" data-hub="' + h.id + '" draggable="true" tabindex="0" role="button">' + w.esc(h.name) +
-             '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác">⋯</button>' +
+             '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác" aria-label="Thao tác với hub ' + w.esc(h.name) + '">⋯</button>' +
              "</span>";
     }).join("");
     if (updateHubTabsScroll) updateHubTabsScroll();
@@ -219,7 +219,7 @@
     box.innerHTML = S.notebooks.map(function (n) {
       return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") + '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
                "<span>" + w.esc(n.icon || "📓") + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
-               '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác">⋯</button>' +
+               '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
              "</div>";
     }).join("");
   }
@@ -236,7 +236,7 @@
       var n = pagesOfSection(s.id).length;
       return '<span class="section-tab' + (s.id === S.sectionId ? " active" : "") + '" data-sec="' + s.id + '" draggable="true" tabindex="0" role="button">' +
                w.esc(s.name) + '<span class="count">' + n + "</span>" +
-               '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác">⋯</button>' +
+               '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác" aria-label="Thao tác với section ' + w.esc(s.name) + '">⋯</button>' +
              "</span>";
     }).join("");
     if (updateSectionTabsScroll) updateSectionTabsScroll();
@@ -255,7 +255,7 @@
     box.innerHTML = list.map(function (p) {
       return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true" tabindex="0" role="button">' +
                '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span>' +
-               '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác">⋯</button>' +
+               '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác" aria-label="Thao tác với page ' + w.esc(p.name) + '">⋯</button>' +
              "</div>";
     }).join("");
   }
@@ -316,7 +316,7 @@
         : w.esc(b.name) + '<span class="n">' + done + "/" + n + "</span>";
       return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true" tabindex="0" role="button">' +
                label +
-               '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
+               '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác" aria-label="Thao tác với batch ' + w.esc(b.name) + '">⋯</button>' +
              "</span>";
     }).join("") || '<span class="nav-empty">Chưa có batch — bấm "+ Paste từ mới"</span>';
   }
@@ -397,7 +397,7 @@
         '<div class="block-top">' +
           '<div class="block-left">' +
             '<span class="block-title">' + w.esc(b.name) + "</span>" + tags +
-            '<button class="dots" data-menu="blocks" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
+            '<button class="dots" data-menu="blocks" data-id="' + b.id + '" title="Thao tác" aria-label="Thao tác với ' + w.esc(b.name) + '">⋯</button>' +
             '<span class="tag-time' + (st.due ? " due" : "") + '">' +
               (st.due ? "🔴 " : "🟢 ") + w.esc(st.label) + "</span>" +
           "</div>" +
