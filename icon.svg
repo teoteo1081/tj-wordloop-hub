@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#0f1115"/>
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#3b82f6" stroke-width="30"
+  <rect width="512" height="512" rx="112" fill="#1f1e1d"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#d97757" stroke-width="30"
           stroke-linecap="round" stroke-dasharray="700 235" transform="rotate(-90 256 256)"/>
-  <path d="M256 76 l46 46 -46 46 z" fill="#34d399"/>
+  <path d="M256 76 l46 46 -46 46 z" fill="#4fae82"/>
   <text x="256" y="300" font-family="Segoe UI,Arial,sans-serif" font-size="150" font-weight="800"
-        fill="#f1f5f9" text-anchor="middle">TJ</text>
+        fill="#f5f4ef" text-anchor="middle">TJ</text>
 </svg>

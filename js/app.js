@@ -1458,9 +1458,13 @@
       btn.textContent = light ? "☀️" : "🌙";
       btn.title = light ? "Chuyển sang giao diện tối" : "Chuyển sang giao diện sáng";
     }
-    /* màu thanh trạng thái của trình duyệt điện thoại theo luôn */
+    /* màu thanh trạng thái của trình duyệt điện thoại theo luôn — 2 giá
+       trị này PHẢI khớp đúng --bg-sidebar của mỗi giao diện trong
+       css/app.css (#f4f1ec sáng / #1f1e1d tối); trước đây bản tối để
+       "#0f1115" sót lại từ tông xanh-đen CŨ (trước đợt đổi sang tông ấm ở
+       commit c9b8e4b), khiến thanh trạng thái lệch màu so với app thật. */
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", light ? "#f4f1ec" : "#0f1115");
+    if (meta) meta.setAttribute("content", light ? "#f4f1ec" : "#1f1e1d");
   }
 
   App.theme = function () {

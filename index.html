@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0f1115">
+<!-- #1f1e1d = --bg-sidebar giao diện TỐI hiện tại (xem :root trong
+     css/app.css) — trước đây để #0f1115 (tông xanh-đen lạnh của bản
+     TỐI CŨ, trước đợt đổi sang tông ấm ở commit c9b8e4b) nên thanh trạng
+     thái trình duyệt di động / màn splash khi cài PWA lệch màu hẳn so
+     với app thật. js/app.js (applyTheme) đổi lại giá trị này khi bật
+     giao diện sáng, giữ nguyên giá trị tối làm mặc định lúc tải trang. -->
+<meta name="theme-color" content="#1f1e1d">
 <meta name="description" content="TJ WordLoop Hub - Học từ vựng theo phương pháp lặp lại ngắt quãng Tony Buzan">
 <title>TJ WordLoop Hub</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -701,6 +707,6 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=2"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>
