@@ -38,7 +38,6 @@
 """
 
 import datetime
-import json
 import re
 import sys
 import uuid
@@ -194,16 +193,26 @@ def do_export():
     ws.freeze_panes = "C2"
     ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{len(words) + 1}"
 
-    # Sheet "Bài đọc" - context_passage/context_passage_candidates của TỪNG
-    # BLOCK (không phải từng từ - 1 Block có 1 dòng ở đây, khác sheet "Từ
-    # vựng" là 1 dòng/từ). context_passage_candidates là JSONB (mảng bài
-    # đọc ứng cử, tối đa 3 bài/Block theo quy trình viết bài đọc hiện tại,
-    # xem CLAUDE.md) - hiển thị dạng chuỗi JSON để xem/sửa tay được trong
-    # Excel, import lại sẽ tự parse ngược lại.
+    # Từ vựng của TỪNG Block (theo đúng thứ tự "sort") - để hiện cột tóm
+    # tắt bên sheet "Bài đọc", giúp viết/đối chiếu bài đọc có đủ từ cần
+    # thiết mà không phải mở lại sheet "Từ vựng" tra riêng.
+    words_by_block = {}
+    for w_ in words:
+        words_by_block.setdefault(w_.get("block_id"), []).append(w_)
+    for lst in words_by_block.values():
+        lst.sort(key=lambda w_: w_.get("sort") or 0)
+
+    # Sheet "Bài đọc" - 1 dòng/1 BLOCK (khác sheet "Từ vựng" là 1 dòng/1
+    # TỪ). context_passage = bài đang THẬT SỰ dùng để học (chỉ có ĐÚNG 1);
+    # context_passage_candidates (JSONB, mảng tối đa 3 chuỗi) = các bài đọc
+    # ỨNG CỬ chưa chọn - tách riêng thành 3 cột "Đoạn văn đề xuất 1/2/3" để
+    # Thao/Claude điền tay từng ô, KHÔNG cần biết cú pháp JSON. Xem CLAUDE.md
+    # mục quy trình viết bài đọc để biết yêu cầu nội dung mỗi bài.
     ws3 = wb.create_sheet("Bài đọc")
     ba_headers = ["id (block id - GIỮ NGUYÊN)", "Hub", "Notebook", "Section", "Page",
-                  "Batch", "Block", "context_passage (bài đọc chính, nếu có)",
-                  "context_passage_candidates (JSON - danh sách bài đọc ứng cử)"]
+                  "Batch", "Block", "Từ trong Block (tham khảo khi viết bài đọc)",
+                  "Bài đọc ĐANG DÙNG (context_passage)",
+                  "Đoạn văn đề xuất 1", "Đoạn văn đề xuất 2", "Đoạn văn đề xuất 3"]
     for i, h in enumerate(ba_headers, start=1):
         c = ws3.cell(row=1, column=i, value=h)
         c.font = HEADER_FONT
@@ -217,14 +226,21 @@ def do_export():
         c_id.font = ID_FONT
         for i, v in enumerate(chain, start=2):
             ws3.cell(row=r_idx, column=i, value=v)
-        ws3.cell(row=r_idx, column=8, value=blk.get("context_passage") or "")
-        candidates = blk.get("context_passage_candidates")
-        ws3.cell(row=r_idx, column=9,
-                 value=json.dumps(candidates, ensure_ascii=False, indent=2) if candidates else "")
+
+        terms = ", ".join(w_.get("term") or "" for w_ in words_by_block.get(blk["id"], []))
+        ws3.cell(row=r_idx, column=8, value=terms)
+
+        ws3.cell(row=r_idx, column=9, value=blk.get("context_passage") or "")
+
+        candidates = blk.get("context_passage_candidates") or []
+        for slot in range(3):
+            val = candidates[slot] if slot < len(candidates) else ""
+            ws3.cell(row=r_idx, column=10 + slot, value=val)
+
         for c in range(1, len(ba_headers) + 1):
             ws3.cell(row=r_idx, column=c).alignment = Alignment(vertical="top", wrap_text=True)
 
-    ba_widths = [26, 16, 16, 16, 20, 12, 12, 60, 60]
+    ba_widths = [26, 14, 14, 14, 18, 10, 10, 40, 55, 55, 55, 55]
     for i, wd in enumerate(ba_widths, start=1):
         ws3.column_dimensions[get_column_letter(i)].width = wd
     ws3.row_dimensions[1].height = 30
@@ -248,12 +264,15 @@ def do_export():
         "• XOÁ HẲN 1 dòng khỏi Excel KHÔNG xoá từ đó trên Supabase - tool chỉ THÊM/CẬP NHẬT,",
         "  không tự xoá gì cả (an toàn). Muốn xoá từ thật thì vào Supabase Table Editor xoá tay.",
         "",
-        "• Sheet 'Bài đọc': 1 dòng/1 BLOCK (khác sheet 'Từ vựng' là 1 dòng/1 TỪ). Sửa cột",
-        "  'context_passage' (bài đọc chính) thoải mái. Cột 'context_passage_candidates' là",
-        "  DẠNG JSON (danh sách bài đọc ứng cử) - sửa phải giữ ĐÚNG cú pháp JSON (ngoặc vuông",
-        "  [...], mỗi bài trong ngoặc kép \"...\", cách nhau dấu phẩy) - sai cú pháp sẽ bị BỎ QUA",
-        "  dòng đó lúc import (có in cảnh báo), không làm hỏng dữ liệu cũ trên Supabase.",
-        "  Để trống ô này -> KHÔNG đụng gì tới context_passage_candidates cũ (giữ nguyên).",
+        "• Sheet 'Bài đọc': 1 dòng/1 BLOCK (khác sheet 'Từ vựng' là 1 dòng/1 TỪ).",
+        "• Cột 'Từ trong Block': CHỈ để xem, tự lấy từ sheet 'Từ vựng' - viết bài đọc phải LỒNG",
+        "  ĐỦ các từ này vào (đánh dấu bằng [ngoặc vuông] quanh cụm từ đó) - xem quy trình viết",
+        "  bài đọc chi tiết trong CLAUDE.md.",
+        "• 3 cột 'Đoạn văn đề xuất 1/2/3': ô nào ĐANG TRỐNG (chưa có bài) thì tự viết/dán vào -",
+        "  KHÔNG cần sửa ô đã có sẵn nội dung. Import lại sẽ tự gộp 3 ô này thành đúng danh sách",
+        "  bài đọc ứng cử trên Supabase (bỏ qua ô nào vẫn để trống, không chèn dòng rỗng).",
+        "• Cột 'Bài đọc ĐANG DÙNG': đây là bài THẬT SỰ hiện lên khi học (chỉ 1 bài/Block) - để",
+        "  trống thì KHÔNG đụng gì tới bài đang dùng hiện tại trên Supabase.",
     ]
     for i, line in enumerate(notes, start=1):
         ws2.cell(row=i, column=1, value=line).font = Font(name="Arial", size=11)
@@ -342,12 +361,18 @@ def do_import():
 
 
 def do_import_passages(wb):
-    """Đẩy sheet 'Bài đọc' (context_passage/context_passage_candidates của
-    TỪNG BLOCK) lên Supabase - sheet này không bắt buộc phải có (file Excel
-    xuất từ bản cũ trước khi thêm sheet này vẫn chạy được, chỉ bỏ qua bước
-    này). CHỈ PATCH đúng cột có dữ liệu trong Excel - ô để TRỐNG (cả 2 cột)
-    thì KHÔNG đụng gì tới giá trị cũ trên Supabase (tránh xoá oan bài đọc
-    đã có sẵn chỉ vì Thao không sửa gì ở dòng đó)."""
+    """Đẩy sheet 'Bài đọc' (bài đọc ĐANG DÙNG + 3 ô "Đoạn văn đề xuất") lên
+    Supabase - sheet này không bắt buộc phải có (file Excel xuất từ bản cũ
+    trước khi thêm sheet này vẫn chạy được, chỉ bỏ qua bước này). CHỈ PATCH
+    đúng cột có dữ liệu trong Excel:
+      - "Bài đọc ĐANG DÙNG" trống -> KHÔNG đụng context_passage cũ.
+      - CẢ 3 ô "Đoạn văn đề xuất 1/2/3" đều trống -> KHÔNG đụng
+        context_passage_candidates cũ (giữ nguyên các bài đã có sẵn) - chỉ
+        cần ĐIỀN ĐÚNG các ô đang TRỐNG (chưa viết), KHÔNG cần điền lại ô đã
+        có sẵn nội dung.
+    3 ô -> gộp lại thành mảng JSON (context_passage_candidates) theo ĐÚNG
+    thứ tự 1/2/3, bỏ qua ô nào trống ở giữa (VD ô 1+3 có, ô 2 trống thì mảng
+    chỉ còn 2 phần tử - không chèn chuỗi rỗng vào giữa)."""
     if "Bài đọc" not in wb.sheetnames:
         print("(Không thấy sheet 'Bài đọc' trong file - bỏ qua, có thể file xuất từ bản cũ hơn.)")
         return
@@ -362,29 +387,26 @@ def do_import_passages(wb):
         return None
 
     idx_id = _col("id")
-    idx_passage = _col("context_passage (")
-    idx_candidates = _col("context_passage_candidates (")
+    idx_passage = _col("Bài đọc ĐANG DÙNG")
+    idx_slots = [_col("Đoạn văn đề xuất 1"), _col("Đoạn văn đề xuất 2"), _col("Đoạn văn đề xuất 3")]
 
-    n_updated = n_bad_json = 0
+    n_updated = 0
     for row in ws.iter_rows(min_row=2, values_only=True):
         block_id = row[idx_id]
         if not block_id:
             continue
 
         body = {}
-        passage = row[idx_passage]
+        passage = row[idx_passage] if idx_passage is not None else None
         if passage:
             body["context_passage"] = passage
-        candidates_raw = row[idx_candidates]
-        if candidates_raw:
-            try:
-                body["context_passage_candidates"] = json.loads(candidates_raw)
-            except Exception as e:
-                n_bad_json += 1
-                print(f"  ⚠️ BỎ QUA context_passage_candidates của block {block_id}: JSON lỗi ({e})")
+
+        candidates = [row[i].strip() for i in idx_slots if i is not None and row[i] and str(row[i]).strip()]
+        if candidates:
+            body["context_passage_candidates"] = candidates
 
         if not body:
-            continue  # cả 2 cột trống - không có gì để cập nhật, giữ nguyên dữ liệu cũ
+            continue  # không có gì để cập nhật - giữ nguyên dữ liệu cũ
 
         r = requests.patch(f"{REST_URL}/blocks", headers=HEADERS,
                             params={"id": f"eq.{block_id}"}, json=body, timeout=30)
@@ -393,8 +415,7 @@ def do_import_passages(wb):
             continue
         n_updated += 1
 
-    extra = f", {n_bad_json} bị bỏ qua vì JSON lỗi" if n_bad_json else ""
-    print(f"✅ Xong (bài đọc)! Đã cập nhật {n_updated} block{extra}.")
+    print(f"✅ Xong (bài đọc)! Đã cập nhật {n_updated} block.")
 
 
 # ==============================================================================
