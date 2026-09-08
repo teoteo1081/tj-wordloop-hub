@@ -414,10 +414,14 @@
            ra mới thấy hết. */
         /* Mỗi chip có sẵn nút "×" xoá thẳng từ đó, không cần mở hẳn Block
            vào rồi tìm đúng từ trong bảng mới xoá được như trước (xem
-           "data-delword" trong #blocks-list onclick bên dưới). */
+           "data-delword" trong #blocks-list onclick bên dưới). Chip còn
+           kéo-thả được thẳng qua 1 Block card khác (data-word, dùng
+           chung App.bindDrag/applyDrop) — hữu ích khi 1 Batch lẻ 1-2 từ
+           dư ra sau khi chia đủ 10/Block, dồn qua Block khác cho chẵn rồi
+           tự xoá Block rỗng qua menu "⋯". */
         '<div class="vocab-chips">' + ws.map(function (x) {
           var ok = S.wp[x.id] && S.wp[x.id].mastered;
-          return '<span class="vchip' + (ok ? " ok" : "") + '">' + w.esc(x.term) +
+          return '<span class="vchip' + (ok ? " ok" : "") + '" draggable="true" data-word="' + x.id + '" title="Kéo thả qua Block khác để gộp từ">' + w.esc(x.term) +
             '<button class="vchip-del" data-delword="' + x.id + '" title="Xoá từ khỏi kho">×</button></span>';
         }).join("") + "</div>" +
         '<div class="block-bottom">' +
@@ -1295,6 +1299,8 @@
     if (el.dataset.sec)   return { table: "sections",  id: el.dataset.sec };
     if (el.dataset.page)  return { table: "pages",     id: el.dataset.page };
     if (el.dataset.batch) return { table: "batches",   id: el.dataset.batch };
+    if (el.dataset.word)  return { table: "words",     id: el.dataset.word };
+    if (el.dataset.block) return { table: "blocks",    id: el.dataset.block };
     return null;
   }
 
@@ -1312,12 +1318,19 @@
     "notebooks>hubs": "hub_id",
     "sections>notebooks": "notebook_id",
     "pages>sections": "section_id",
-    "batches>pages": "page_id"
+    "batches>pages": "page_id",
+    "words>blocks": "block_id"    /* kéo 1 chip từ vựng thả qua Block card khác — gộp/dồn từ lẻ */
   };
 
   function dropInfo(node) {
+    /* Cố tình KHÔNG có "[data-word]" ở đây — chip từ vựng chỉ là nguồn
+       kéo, không phải nơi thả được; thả trúng ngay 1 chip khác (kể cả
+       khác Block) vẫn phải trồi lên đúng .block-card[data-block] chứa
+       nó (closest() tự bỏ qua .vchip vì không khớp selector), không rơi
+       vào nhánh "reorder" (words>words) — nhánh đó không có nghĩa ở đây
+       vì listFor() không biết ngữ cảnh Block nào. */
     var el = node && node.closest
-      ? node.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch]") : null;
+      ? node.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch],[data-block]") : null;
     if (!el || !DRAG) return null;
     var m = metaOf(el);
     if (!m) return null;
@@ -1337,7 +1350,7 @@
 
   App.bindDrag = function () {
     document.addEventListener("dragstart", function (e) {
-      var el = e.target.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch]");
+      var el = e.target.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch],[data-word]");
       if (!el) return;
       DRAG = metaOf(el);
       if (!DRAG) return;
@@ -1382,10 +1395,19 @@
         var row = (S[drag.table] || []).find(function (x) { return x.id === drag.id; });
         if (!row) return;
         if (row[target.field] === target.id) return;
-        row[target.field] = target.id;
         var patch = {}; patch[target.field] = target.id;
+        /* Kéo 1 từ qua Block khác: chèn vào CUỐI Block đích (không phải
+           đổi thứ tự ngẫu nhiên) — tính sort mới = lớn nhất hiện có + 1,
+           để Batch có 12 từ chia 10+2 kéo dồn 2 từ lẻ qua chỗ khác vẫn
+           xếp đúng cuối, không lẫn vào giữa. */
+        if (drag.table === "words") {
+          var siblingSorts = App.wordsOf(target.id).map(function (x) { return x.sort || 0; });
+          patch.sort = (siblingSorts.length ? Math.max.apply(null, siblingSorts) : 0) + 1;
+          row.sort = patch.sort;
+        }
+        row[target.field] = target.id;
         await w.DB.patch(drag.table, drag.id, patch);
-        w.toast("Đã chuyển sang chỗ mới", "ok");
+        w.toast(drag.table === "words" ? "Đã dồn từ sang Block khác" : "Đã chuyển sang chỗ mới", "ok");
       }
     } catch (e) {
       w.toast("Không chuyển được: " + (e.message || e), "err");
