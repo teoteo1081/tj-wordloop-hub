@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/app.css?v=1">
 </head>
 <body>
 
@@ -676,24 +676,31 @@ mitigate | giảm nhẹ"></textarea>
 <div id="toast-wrap" class="toast-wrap"></div>
 <input type="file" id="file-import" accept="application/json" hidden>
 
-<!-- ══════════════════ 4. SCRIPTS ══════════════════ -->
+<!-- ══════════════════ 4. SCRIPTS ══════════════════
+     ?v=... ở cuối mỗi file nội bộ là "cache-buster" thủ công — KHÔNG có
+     build step tự động đánh version, nên mỗi lần đổi code JS/CSS phải tự
+     BUMP SỐ NÀY LÊN (đổi ?v=1 thành ?v=2, ví dụ đổi thành ngày hôm đó),
+     nếu không trình duyệt/CDN của GitHub Pages có thể vẫn giữ file cũ dù
+     đã push code mới, gây ra kiểu bug "sửa rồi mà vẫn thấy y chang cũ"
+     (đã gặp thật — xem CLAUDE.md). Đổi URL là cách CHẮC CHẮN 100% ép tải
+     lại, không phụ thuộc người dùng có refresh cứng/xoá cache hay không. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
+<script src="js/config.js?v=1"></script>
 <!-- keys.local.js: key OpenAI cá nhân, KHÔNG có trong git (.gitignore) — nếu
      thiếu file này (máy khác / clone lại repo) thì trình duyệt chỉ log lỗi
      404 rồi bỏ qua, app tự dùng bài đọc mẫu, không vỡ chức năng nào khác. -->
-<script src="js/keys.local.js"></script>
-<script src="js/util.js"></script>
-<script src="js/srs.js"></script>
-<script src="js/context.js"></script>
-<script src="js/speech.js"></script>
-<script src="js/db.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/reader.js"></script>
-<script src="js/detail.js"></script>
-<script src="js/export.js"></script>
-<script src="js/journey.js"></script>
-<script src="js/home.js"></script>
-<script src="js/app.js"></script>
+<script src="js/keys.local.js?v=1"></script>
+<script src="js/util.js?v=1"></script>
+<script src="js/srs.js?v=1"></script>
+<script src="js/context.js?v=1"></script>
+<script src="js/speech.js?v=1"></script>
+<script src="js/db.js?v=1"></script>
+<script src="js/auth.js?v=1"></script>
+<script src="js/reader.js?v=1"></script>
+<script src="js/detail.js?v=1"></script>
+<script src="js/export.js?v=1"></script>
+<script src="js/journey.js?v=1"></script>
+<script src="js/home.js?v=1"></script>
+<script src="js/app.js?v=1"></script>
 </body>
 </html>
