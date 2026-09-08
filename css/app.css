@@ -499,6 +499,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .block-card.due{border-color:rgba(239,68,68,.45);}
 .block-top{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;}
 .block-left{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+/* Nút "Học/Ôn lại" + badge "Chưa thi"/"Done" đi CHUNG bên phải block-top
+   (trước đây nút nằm riêng ở block-bottom, tách khỏi badge) - gộp lại
+   thành 1 hàng để đỡ tốn thêm hàng dưới, xem app.js renderBlocks. */
+.block-right{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
 .block-title{font-size:.88rem;font-weight:800;}
 .tag{font-size:.66rem;font-weight:600;padding:.14rem .5rem;border-radius:12px;background:var(--border);color:var(--text-1);border:1px solid var(--border-hi);}
 .tag-time{
@@ -509,18 +513,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .done-badge{color:var(--green-l);font-weight:700;font-size:.78rem;white-space:nowrap;}
 .done-badge.pending{color:var(--text-3);font-weight:600;}
 .done-badge.warn{color:var(--amber-l);}
-/* Chỉ tối đa VCHIP_MAX+1 chip (xem app.js) nên thường vừa 1 hàng; phòng
-   khi từ dài (accountability...) vẫn tràn thì cho cuộn ngang thay vì
-   xuống hàng — đỡ mỗi Block card cao lênh khênh khi list dài. */
-.vocab-chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:.35rem;scrollbar-width:none;}
-.vocab-chips::-webkit-scrollbar{display:none;}
-.vchip{flex-shrink:0;}
-.vchip.more{color:var(--text-3);font-style:italic;background:transparent;border-style:dashed;}
+/* Bung HẾT từ trong Block (không cắt "+N từ" nữa, xem app.js) - xuống
+   hàng (wrap) thay vì cuộn ngang, để thấy đủ từ ngay trên danh sách. */
+.vocab-chips{display:flex;flex-wrap:wrap;gap:.35rem;}
 .vchip{background:var(--bg-soft);border:1px solid var(--border);color:var(--text-1);padding:.18rem .55rem;border-radius:5px;font-size:.76rem;font-weight:500;}
 .vchip.ok{border-color:rgba(16,185,129,.35);color:var(--green-l);}
-.block-bottom{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-soft);padding-top:.55rem;gap:.5rem;}
-.audio-hint{font-size:.72rem;color:var(--text-2);}
-.progress-bar{height:4px;border-radius:4px;background:var(--border-soft);overflow:hidden;flex:1;max-width:160px;}
+/* Giờ chỉ còn progress-bar (nút Học/Ôn lại đã dời lên block-top) */
+.block-bottom{display:flex;align-items:center;border-top:1px solid var(--border-soft);padding-top:.55rem;}
+.progress-bar{height:4px;border-radius:4px;background:var(--border-soft);overflow:hidden;flex:1;}
 .progress-bar > i{display:block;height:100%;background:var(--green);}
 
 .empty-state{

@@ -289,7 +289,6 @@
   }
 
   /* ══════════════ RENDER: DANH SÁCH BLOCK ══════════════ */
-  var VCHIP_MAX = 4;   /* số chip từ vựng tối đa hiện trong mỗi Block card, xem bên dưới */
   App.renderBlocks = function () {
     var batch = S.batches.find(function (b) { return b.id === S.batchId; });
     var list = S.batchId ? App.blocksOf(S.batchId) : [];
@@ -361,19 +360,25 @@
             '<span class="tag-time' + (st.due ? " due" : "") + '">' +
               (st.due ? "🔴 " : "🟢 ") + w.esc(st.label) + "</span>" +
           "</div>" +
-          '<div class="done-badge' + badgeCls + '">' + badge + "</div>" +
+          /* Nút "Học / Ôn lại" dời LÊN đây (trước badge "Chưa thi"/"Done") -
+             trước đây nằm dưới cùng, giờ gộp chung hàng trên để đỡ tốn
+             thêm 1 hàng riêng phía dưới (xem block-bottom, giờ chỉ còn
+             progress-bar). */
+          '<div class="block-right">' +
+            '<button class="btn-soft" data-open="' + b.id + '">Học / Ôn lại →</button>' +
+            '<div class="done-badge' + badgeCls + '">' + badge + "</div>" +
+          "</div>" +
         "</div>" +
-        /* Chỉ hiện tối đa VCHIP_MAX từ, còn lại gộp "+N từ" — 10 từ hiện hết
-           thì mỗi Block chiếm 2-3 hàng chữ, list nhiều Block cuộn rất dài.
-           Xem đủ 10 từ thì mở hẳn Block ra (nút "Học / Ôn lại"). */
-        '<div class="vocab-chips">' + ws.slice(0, VCHIP_MAX).map(function (x) {
+        /* Bung hết TOÀN BỘ từ trong Block (không cắt "+N từ" như trước) -
+           .vocab-chips giờ cho xuống hàng (flex-wrap: wrap) thay vì cuộn
+           ngang, xem đủ từ ngay trên danh sách Block, không cần mở Block
+           ra mới thấy hết. */
+        '<div class="vocab-chips">' + ws.map(function (x) {
           var ok = S.wp[x.id] && S.wp[x.id].mastered;
           return '<span class="vchip' + (ok ? " ok" : "") + '">' + w.esc(x.term) + "</span>";
-        }).join("") + (ws.length > VCHIP_MAX ? '<span class="vchip more">+' + (ws.length - VCHIP_MAX) + " từ</span>" : "") + "</div>" +
+        }).join("") + "</div>" +
         '<div class="block-bottom">' +
-          '<div class="audio-hint">🎧 Nghe US · Karaoke highlight</div>' +
           '<span class="progress-bar"><i style="width:' + w.pct(mastered, ws.length) + '%"></i></span>' +
-          '<button class="btn-soft" data-open="' + b.id + '">Học / Ôn lại →</button>' +
         "</div>" +
       "</div>";
     }).join("");
