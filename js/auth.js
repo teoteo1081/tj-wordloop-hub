@@ -1,20 +1,38 @@
 /* auth.js — NGƯỜI DÙNG
    ---------------------------------------------------------------
-   Có 2 tầng, cố tình thiết kế như vậy để không ai bị chặn ở cửa:
+   Có 3 tầng, cố tình thiết kế như vậy để không ai bị chặn ở cửa:
 
    1) HỒ SƠ TRÊN MÁY (luôn có, không cần mạng)
       Nhiều người học chung 1 máy/1 máy tính bảng: mỗi người 1 hồ sơ,
       tiến trình ôn tập tách riêng. Bấm avatar > "Đổi / Thêm người học".
 
-   2) TÀI KHOẢN CLOUD (khi đã cấu hình Supabase)
+   2) TÀI KHOẢN CLOUD QUA EMAIL (khi đã cấu hình Supabase)
       Đăng nhập bằng email (magic link — không cần mật khẩu). Lúc này
       tiến trình được lưu lên server nên đổi máy/đổi điện thoại vẫn còn.
+      Bị giới hạn bởi quota gửi email miễn phí của Supabase (2 email/giờ)
+      nên không dùng được cho nhiều người học hàng ngày.
+
+   3) TÀI KHOẢN CLOUD QUA LINK (MỚI, 2026-09-07 — thay thế (2) cho việc
+      dùng hàng ngày) — host (Thao) tự tạo 1 dòng trong bảng "profiles"
+      trên Supabase (Table Editor, không cần code), copy "id" (uuid) của
+      dòng đó, ghép thành link dạng
+      "?u=<id>" (VD .../tj-wordloop-hub/?u=xxxxxxxx-xxxx-...") rồi gửi
+      cho người học. Mở link đó 1 lần trên bất kỳ thiết bị nào -> nhận
+      diện luôn là ĐÚNG người đó (lưu lại trong localStorage, không cần
+      mở lại link mỗi lần) - tiến trình đồng bộ qua Supabase y hệt cách
+      (2), nhưng không cần email/không giới hạn số người. Xem
+      tryLinkLogin() bên dưới. ĐÁNH ĐỔI: không xác minh danh tính gì cả -
+      ai có đúng link (uuid dài, khó đoán) đều xem/ghi được tiến trình
+      của người đó - chấp nhận được cho app gia đình dùng nội bộ (đã bỏ
+      khoá ngoại profiles.id/word_progress.user_id/... về auth.users +
+      mở RLS cho vai trò anon, xem SQL đã chạy trên Supabase Dashboard).
    --------------------------------------------------------------- */
 (function (w) {
   "use strict";
 
   var LS_USERS = "tjwl_users_v1";
   var LS_CUR = "tjwl_current_user_v1";
+  var LS_LINK_ID = "tjwl_link_user_id_v1";
 
   var EMOJIS = ["🐣","🦊","🐼","🐨","🦁","🐯","🐸","🐙","🦉","🐝","🌟","🚀","📚","🎯","🔥","💎","🍀","⚡"];
 
@@ -123,7 +141,64 @@
     return h;
   }
 
+  /* ---------- tài khoản cloud qua LINK (không cần email) ---------- */
+  /* Ưu tiên đọc mã ID từ query string "?u=" (link host mới gửi) - có thì
+     LUÔN ghi đè lên bất kỳ mã ID cũ nào đã lưu (đổi người học bằng cách
+     mở link mới). Không có "?u=" trên URL thì thử mã ID đã lưu từ lần mở
+     link trước (LS_LINK_ID) - để không phải mở lại link mỗi lần vào app.
+     Trả về true nếu nhận diện được (Auth.user đã được set), false nếu
+     không có gì để thử (rơi về hồ sơ trên máy / email như cũ). */
+  async function tryLinkLogin() {
+    if (!(w.DB && w.DB.mode === "cloud" && w.DB.sb)) return false;
+
+    var qid = null;
+    try { qid = new URLSearchParams(location.search).get("u"); } catch (e) {}
+    var id = qid;
+    if (!id) {
+      try { id = localStorage.getItem(LS_LINK_ID); } catch (e) { id = null; }
+    }
+    if (!id) return false;
+
+    try {
+      var r = await w.DB.sb.from("profiles").select("*").eq("id", id).maybeSingle();
+      if (!r.data) {
+        // Mã ID sai/không tồn tại (VD gõ nhầm link) - đừng lưu lại, để
+        // rơi về hồ sơ trên máy như bình thường, không chặn oan.
+        return false;
+      }
+      try { localStorage.setItem(LS_LINK_ID, id); } catch (e) {}
+      Auth.user = {
+        id: id,
+        name: r.data.display_name || "Học viên",
+        emoji: r.data.avatar_emoji || "🐣",
+        email: null,
+        cloud: true
+      };
+      w.DB.progressCloud = true;
+
+      // Xoá "?u=..." khỏi thanh địa chỉ sau khi nhận diện xong - link đã
+      // làm xong việc (lưu vào localStorage rồi), để lộ mã ID trên URL dễ
+      // vô tình copy/chia sẻ nhầm (VD copy link trang đang xem gửi người
+      // khác) hơn là cần thiết.
+      if (qid) {
+        try {
+          var url = new URL(location.href);
+          url.searchParams.delete("u");
+          history.replaceState(null, "", url.pathname + (url.search || "") + url.hash);
+        } catch (e) {}
+      }
+      fire();
+      return true;
+    } catch (e) {
+      console.warn("[Auth] link login lỗi:", e.message || e);
+      return false;
+    }
+  }
+
   Auth.init = async function () {
+    var linked = await tryLinkLogin();
+    if (linked) return Auth.user;
+
     if (w.DB && w.DB.mode === "cloud" && w.DB.sb) {
       try {
         var r = await w.DB.sb.auth.getSession();
@@ -152,6 +227,7 @@
     if (w.DB && w.DB.sb && Auth.user && Auth.user.cloud) {
       try { await w.DB.sb.auth.signOut(); } catch (e) {}
     }
+    try { localStorage.removeItem(LS_LINK_ID); } catch (e) {}
     Auth.cloudSession = null;
     loadLocalCurrent();
     fire();
