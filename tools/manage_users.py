@@ -246,6 +246,9 @@ def _fmt_ms(ms):
         return ""
 
 
+ESTIMATE_PASS_RATIO = 0.8  # % đúng tối thiểu để tính "ước tính đạt 80%" (khớp MASTER_THRESHOLD)
+
+
 def build_stats():
     profiles, _ = sb_get("profiles", {"select": "id,display_name,avatar_emoji", "order": "display_name.asc"})
     word_progress = fetch_all("word_progress", "user_id,word_id,attempts,correct,mastered,familiarity,last_reviewed_at")
@@ -256,6 +259,13 @@ def build_stats():
     _, total_blocks = sb_get("blocks", {"select": "id"}, exact_count=True)
     blocks, words, chain_of_block = _hierarchy()
 
+    # Danh sách word_id thuộc mỗi block - cần để biết 1 Block có TỔNG CỘNG
+    # bao nhiêu từ (mẫu số) và để gom "user này đã đụng/đúng bao nhiêu từ
+    # trong Block đó" (tử số) - phục vụ tính ƯỚC TÍNH bên dưới.
+    words_by_block = {}
+    for wid, w in words.items():
+        words_by_block.setdefault(w.get("block_id"), []).append(wid)
+
     now_ms = time.time() * 1000
     stats_by_user = {}
     for p in profiles:
@@ -263,11 +273,14 @@ def build_stats():
             "profile": p,
             "words_mastered": 0,
             "blocks_passed": 0,
+            "blocks_estimated_only": 0,   # ước tính đạt 80% nhưng CHƯA thi chính thức
             "group": {1: 0, 2: 0, 3: 0, 4: 0}, "long_term": 0,
             "overdue": 0,
         }
 
     word_detail_rows = []
+    # user_id -> block_id -> {"attempts":.., "correct":.., "touched":..}
+    wp_by_user_block = {}
     for r in word_progress:
         s = stats_by_user.get(r["user_id"])
         if not s:
@@ -276,7 +289,8 @@ def build_stats():
             s["words_mastered"] += 1
 
         w = words.get(r["word_id"], {})
-        chain = chain_of_block(w.get("block_id"))
+        block_id = w.get("block_id")
+        chain = chain_of_block(block_id)
         attempts = r.get("attempts") or 0
         correct = r.get("correct") or 0
         word_detail_rows.append({
@@ -292,35 +306,82 @@ def build_stats():
             "last_reviewed_at": _fmt_ms(r.get("last_reviewed_at")),
         })
 
-    block_detail_rows = []
+        agg = wp_by_user_block.setdefault(r["user_id"], {}).setdefault(
+            block_id, {"attempts": 0, "correct": 0, "touched": 0})
+        agg["attempts"] += attempts
+        agg["correct"] += correct
+        agg["touched"] += 1
+
+    bp_by_user_block = {}
     for r in block_progress:
-        s = stats_by_user.get(r["user_id"])
-        if not s:
-            continue
+        bp_by_user_block.setdefault(r["user_id"], {})[r["block_id"]] = r
 
-        cycle = r.get("cycle") or 0
-        is_overdue = False
-        if r.get("passed"):
-            s["blocks_passed"] += 1
-            if cycle >= MAX_CYCLE:
-                s["long_term"] += 1
+    # ĐỦ DỮ LIỆU MỌI BLOCK (kể cả chưa đụng tới) x MỌI user - không chỉ
+    # những Block đã có sẵn dòng trong block_progress, theo đúng yêu cầu
+    # Thao "phải có dữ liệu từng Block".
+    block_detail_rows = []
+    for p in profiles:
+        uid = p["id"]
+        s = stats_by_user[uid]
+        for block_id, blk in blocks.items():
+            bp = bp_by_user_block.get(uid, {}).get(block_id)
+            wp_agg = wp_by_user_block.get(uid, {}).get(block_id)
+            total_in_block = len(words_by_block.get(block_id, []))
+
+            passed = bool(bp and bp.get("passed"))
+            cycle = (bp.get("cycle") or 0) if bp else 0
+            is_overdue = False
+            if passed:
+                s["blocks_passed"] += 1
+                if cycle >= MAX_CYCLE:
+                    s["long_term"] += 1
+                else:
+                    s["group"][_group_of(cycle)] += 1
+                    next_at = bp.get("next_review_at")
+                    is_overdue = not next_at or next_at <= now_ms
+                    if is_overdue:
+                        s["overdue"] += 1
+
+            # ƯỚC TÍNH (suy ra từ dữ liệu TỪNG TỪ, KHÔNG phải bài thi chính
+            # thức của app) - chỉ tính khi đã đụng tới TẤT CẢ từ trong Block
+            # đó ít nhất 1 lần, để không kết luận vội khi mới thử vài từ.
+            est_ratio = None
+            est_pass = False
+            if wp_agg and total_in_block > 0 and wp_agg["touched"] >= total_in_block and wp_agg["attempts"] > 0:
+                est_ratio = wp_agg["correct"] / wp_agg["attempts"]
+                est_pass = est_ratio >= ESTIMATE_PASS_RATIO
+                if est_pass and not passed:
+                    s["blocks_estimated_only"] += 1
+
+            # LIỆT KÊ HẾT MỌI Block x mọi user (kể cả chưa đụng tới chút
+            # nào) - theo đúng yêu cầu Thao "tất cả phải theo dõi và thống
+            # kê" - không lọc bớt, để nhìn được BỨC TRANH ĐẦY ĐỦ ai đã/chưa
+            # học Block nào, không chỉ những Block có sẵn hoạt động.
+            touched = wp_agg["touched"] if wp_agg else 0
+            if passed:
+                status = "✓ Done (đã thi, Pass ≥80%)"
+            elif est_pass:
+                status = "🟡 Ước tính đạt 80% (chưa thi chính thức)"
+            elif touched > 0:
+                status = f"🔸 Đang học ({touched}/{total_in_block} từ)"
             else:
-                s["group"][_group_of(cycle)] += 1
-                next_at = r.get("next_review_at")
-                is_overdue = not next_at or next_at <= now_ms
-                if is_overdue:
-                    s["overdue"] += 1
+                status = "⚪ Chưa học"
 
-        chain = chain_of_block(r["block_id"])
-        block_detail_rows.append({
-            "user": s["profile"].get("display_name") or "",
-            "chain": chain,
-            "best_score": r.get("best_score"),
-            "passed": bool(r.get("passed")),
-            "cycle": cycle,
-            "next_review_at": _fmt_ms(r.get("next_review_at")),
-            "overdue": is_overdue,
-        })
+            chain = chain_of_block(block_id)
+            block_detail_rows.append({
+                "user": p.get("display_name") or "",
+                "chain": chain,
+                "status": status,
+                "best_score": bp.get("best_score") if bp else None,
+                "passed": passed,
+                "cycle": cycle,
+                "next_review_at": _fmt_ms(bp.get("next_review_at")) if bp else "",
+                "overdue": is_overdue,
+                "words_touched": touched,
+                "words_total": total_in_block,
+                "est_ratio": est_ratio,
+                "est_pass": est_pass,
+            })
 
     return list(stats_by_user.values()), total_words, total_blocks, word_detail_rows, block_detail_rows
 
@@ -517,37 +578,59 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
     ws3.auto_filter.ref = f"A1:{get_column_letter(len(wd_headers))}{len(word_rows_sorted) + 1}"
     ws3.sheet_view.showGridLines = False
 
-    # Sheet "Chi tiết Block" - 1 dòng/1 user x 1 Block đã học.
+    # Sheet "Chi tiết Block" - 1 dòng/1 user x 1 Block, ĐẦY ĐỦ MỌI Block
+    # (kể cả chưa đụng tới - "⚪ Chưa học") theo yêu cầu Thao "tất cả phải
+    # theo dõi và thống kê". Cột "Trạng thái" gộp cả tín hiệu CHÍNH THỨC
+    # (Done từ block_progress) lẫn ƯỚC TÍNH (suy ra từ % đúng trong
+    # word_progress - CHỈ tính khi đã đụng đủ hết từ trong Block đó, xem
+    # build_stats) - 2 nguồn tách riêng ở các cột phía sau để đối chiếu.
     ws4 = wb.create_sheet("Chi tiết Block")
     bd_headers = ["Người học", "Hub", "Notebook", "Section", "Page", "Batch", "Block",
-                  "Điểm bài thi cao nhất", "Pass ≥80%\n(Done)?", "Chu kỳ ôn (0-6)",
-                  "Ôn lại lúc", "⚠️ Trễ hạn?"]
+                  "Trạng thái", "Điểm bài thi\ncao nhất", "Pass ≥80%\n(Done chính thức)?",
+                  "Chu kỳ ôn\n(0-6)", "Ôn lại lúc", "⚠️ Trễ hạn?",
+                  "Từ đã ôn\n/ tổng từ", "% đúng\n(ước tính)"]
     bd_notes = {
-        8: "% điểm CAO NHẤT người này từng đạt ở bài kiểm tra cuối Block (có thể đã thi lại "
-           "nhiều lần, đây là lần điểm cao nhất).",
-        9: "✅ = đã Pass ≥80% -> Block tính là DONE - chỉ Block Done mới vào chu kỳ ôn Tony "
-           "Buzan (các cột bên phải).",
-        10: "Đã ôn ĐÚNG HẠN xong bao nhiêu lần theo Tony Buzan (0 = vừa Done, chưa ôn lần nào; "
-            "6 = đã ôn đủ hết, vào trí nhớ dài hạn).",
-        11: "Ngày/giờ HẸN ôn lại kế tiếp (theo đúng chu kỳ Tony Buzan: 10 phút -> 24 giờ -> 1 "
+        8: "Tổng hợp nhanh: '✓ Done' = đã thi chính thức đạt ≥80%. '🟡 Ước tính đạt 80%' = "
+           "CHƯA thi chính thức nhưng đã ôn hết từ trong Block với tỉ lệ đúng ≥80% (suy ra từ "
+           "dữ liệu từng từ - KHÔNG phải app tự công nhận, xem cột '% đúng (ước tính)'). "
+           "'🔸 Đang học' = đã đụng 1 vài từ, chưa đủ để kết luận. '⚪ Chưa học' = chưa đụng gì.",
+        9: "% điểm CAO NHẤT người này từng đạt ở bài kiểm tra cuối Block (có thể đã thi lại "
+           "nhiều lần, đây là lần điểm cao nhất). Trống = chưa thi chính thức lần nào.",
+        10: "✅ = đã Pass ≥80% Ở BÀI THI CHÍNH THỨC trong app -> Block tính là DONE THẬT, mới "
+            "vào chu kỳ ôn Tony Buzan (3 cột bên phải). Ước tính (cột Trạng thái) KHÔNG tự "
+            "động làm cột này thành ✅ - phải tự vào app thi mới tính.",
+        11: "Đã ôn ĐÚNG HẠN xong bao nhiêu lần theo Tony Buzan (0 = vừa Done, chưa ôn lần nào; "
+            "6 = đã ôn đủ hết, vào trí nhớ dài hạn). Chỉ có giá trị khi đã Done chính thức.",
+        12: "Ngày/giờ HẸN ôn lại kế tiếp (theo đúng chu kỳ Tony Buzan: 10 phút -> 24 giờ -> 1 "
             "tuần -> 1 tháng -> 3 tháng -> 6 tháng).",
-        12: "⚠️ TRỄ = đã QUÁ ngày hẹn ở cột trước mà chưa ôn lại.",
+        13: "⚠️ TRỄ = đã QUÁ ngày hẹn ở cột trước mà chưa ôn lại.",
+        14: "Số từ trong Block người này ĐÃ TỪNG làm bài / tổng số từ Block đó có - VD '7/10' "
+            "= còn 3 từ chưa đụng tới lần nào.",
+        15: "Tỉ lệ đúng THEO TỪNG TỪ (số lần đúng / tổng số lần thử, cộng dồn mọi từ trong "
+            "Block) - CHỈ tính khi đã ôn ĐỦ HẾT mọi từ (cột trước = x/x). Đây là số liệu ƯỚC "
+            "TÍNH riêng của report, KHÔNG phải điểm bài thi chính thức của app.",
     }
     _write_headers_with_notes(ws4, bd_headers, bd_notes)
     block_rows_sorted = sorted(block_rows, key=lambda r: (r["user"].lower(), r["chain"]))
     for i, r in enumerate(block_rows_sorted):
         r_idx = i + 2
         vals = [r["user"]] + list(r["chain"]) + [
-            r["best_score"], "✅" if r["passed"] else "", r["cycle"], r["next_review_at"],
+            r["status"], r["best_score"], "✅" if r["passed"] else "", r["cycle"],
+            r["next_review_at"], "", f"{r['words_touched']}/{r['words_total']}",
+            (f"{r['est_ratio']*100:.0f}%" if r["est_ratio"] is not None else ""),
         ]
         for c, v in enumerate(vals, start=1):
             ws4.cell(row=r_idx, column=c, value=v)
         _style_row(ws4, r_idx, len(bd_headers), banded=(i % 2 == 1))
-        c_od = ws4.cell(row=r_idx, column=12, value="⚠️ TRỄ" if r["overdue"] else "")
+        c_od = ws4.cell(row=r_idx, column=13, value="⚠️ TRỄ" if r["overdue"] else "")
         if r["overdue"]:
             c_od.fill = OVERDUE_FILL
             c_od.font = OVERDUE_FONT
-    bd_widths = [16, 14, 14, 14, 18, 10, 10, 12, 10, 12, 15, 11]
+        elif r["passed"]:
+            ws4.cell(row=r_idx, column=8).font = Font(name="Calibri", bold=True, color=GREEN_TXT)
+        elif r["est_pass"]:
+            ws4.cell(row=r_idx, column=8).font = Font(name="Calibri", bold=True, color="B37A1E")
+    bd_widths = [16, 14, 14, 14, 18, 10, 10, 28, 12, 13, 10, 15, 11, 11, 12]
     for i, w in enumerate(bd_widths, start=1):
         ws4.column_dimensions[get_column_letter(i)].width = w
     ws4.freeze_panes = "A2"
