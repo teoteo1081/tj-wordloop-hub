@@ -2155,6 +2155,11 @@
   /* ══════════════ KHỞI ĐỘNG ══════════════ */
   async function boot() {
     applyTheme(App.theme());          /* đặt màu trước khi vẽ, tránh nháy sáng */
+    /* try/finally CHỈ để đảm bảo #boot-bar (thanh loading mảnh trên cùng,
+       xem index.html + .boot-bar trong app.css) luôn được ẩn đi dù boot()
+       có ném lỗi giữa chừng (mất mạng lúc DB.init() chẳng hạn) — không
+       đổi hành vi nào khác, lỗi vẫn ném ra y như trước (không catch). */
+    try {
     w.Speech.init();
     var mode = await w.DB.init();
     await w.Auth.init();
@@ -2191,6 +2196,10 @@
     }
     if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
       navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
+    } finally {
+      var bootBar = w.$("#boot-bar");
+      if (bootBar) bootBar.hidden = true;
     }
   }
 

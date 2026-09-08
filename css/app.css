@@ -1578,3 +1578,25 @@ button,a,input,select,textarea,.jrow,.home-card,.g-row,[role="button"]{
 .nav-item:focus-visible,.g-row:focus-visible,.opt:focus-visible,.slot:focus-visible,
 .wb-chip:focus-visible,.section-tab:focus-visible,.batch-tab:focus-visible,
 .hub-tab:focus-visible,.dtab:focus-visible,.vchip:focus-visible{outline-offset:-2px;}
+
+/* ═══════════ THANH LOADING MẢNH LÚC boot() ĐANG TẢI ═══════════
+   Trước đây mở app ở chế độ Cloud/mạng chậm không có gì báo đang tải —
+   topbar hiện sẵn "…"/"Khách" tĩnh, dễ tưởng app đứng hình. Vệt màu chạy
+   ngang kiểu YouTube/GitHub, KHÔNG che nội dung bên dưới (chỉ cao 3px,
+   đứng trên cùng) nên an toàn dù boot() có lỗi nửa chừng — id="boot-bar"
+   được ẩn trong finally của boot() (app.js) nên không bao giờ kẹt mãi. */
+.boot-bar{
+  position:fixed;top:0;left:0;width:100%;height:3px;z-index:3000;
+  overflow:hidden;pointer-events:none;background:transparent;
+}
+.boot-bar::after{
+  content:"";position:absolute;top:0;left:-35%;width:35%;height:100%;
+  background:var(--blue);border-radius:0 4px 4px 0;
+  animation:boot-bar-sweep 1.1s ease-in-out infinite;
+}
+.boot-bar[hidden]{display:none;}
+@keyframes boot-bar-sweep{
+  0%{left:-35%;}
+  60%{left:100%;}
+  100%{left:100%;}
+}

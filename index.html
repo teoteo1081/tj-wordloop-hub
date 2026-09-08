@@ -15,9 +15,16 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=3">
+<link rel="stylesheet" href="css/app.css?v=4">
 </head>
 <body>
+
+<!-- Thanh loading mảnh trên cùng — hiện trong lúc boot() (js/app.js) đang
+     tải dữ liệu (đặc biệt chế độ Cloud/mạng chậm, trước đây KHÔNG có gì
+     báo đang tải, chỉ thấy topbar/khung rỗng với "…" tĩnh). boot() tự ẩn
+     nó đi khi xong (kể cả lúc lỗi, xem finally trong app.js) nên không
+     bao giờ bị kẹt hiện mãi. -->
+<div class="boot-bar" id="boot-bar" aria-hidden="true"></div>
 
 <!-- ══════════════════ 1. THANH TRÊN CÙNG (HUB + USER) ══════════════════ -->
 <header class="topbar">
@@ -707,6 +714,6 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=2"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=3"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>
