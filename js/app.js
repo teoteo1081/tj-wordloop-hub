@@ -360,12 +360,10 @@
             '<span class="tag-time' + (st.due ? " due" : "") + '">' +
               (st.due ? "🔴 " : "🟢 ") + w.esc(st.label) + "</span>" +
           "</div>" +
-          /* Nút "Học / Ôn lại" dời LÊN đây (trước badge "Chưa thi"/"Done") -
-             trước đây nằm dưới cùng, giờ gộp chung hàng trên để đỡ tốn
-             thêm 1 hàng riêng phía dưới (xem block-bottom, giờ chỉ còn
-             progress-bar). */
+          /* Bỏ hẳn nút "Học / Ôn lại" (theo yêu cầu Thao) - bấm BẤT KỲ ĐÂU
+             trên card đã mở Block rồi (xem "card" fallback trong
+             #blocks-list onclick bên dưới), nút riêng chỉ dư thừa. */
           '<div class="block-right">' +
-            '<button class="btn-soft" data-open="' + b.id + '">Học / Ôn lại →</button>' +
             '<div class="done-badge' + badgeCls + '">' + badge + "</div>" +
           "</div>" +
         "</div>" +
