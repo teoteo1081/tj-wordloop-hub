@@ -7,7 +7,7 @@ var ASSETS = [
   "./", "./index.html", "./css/app.css",
   "./js/config.js", "./js/util.js", "./js/srs.js", "./js/context.js",
   "./js/speech.js", "./js/db.js", "./js/auth.js", "./js/detail.js", "./js/export.js",
-  "./js/journey.js", "./js/home.js", "./js/reader.js", "./js/ticker.js", "./js/app.js",
+  "./js/journey.js", "./js/home.js", "./js/reader.js", "./js/app.js",
   "./icon.svg", "./manifest.webmanifest"
 ];
 

@@ -1160,64 +1160,6 @@ textarea:focus{border-color:var(--blue);}
 .cloud-status.ok{color:var(--green-l);}
 .cloud-status.err{color:var(--red-l);}
 
-/* ═══════════ THANH "ĐÁNH MÁY" — TỪ ĐÃ HỌC (js/ticker.js) ═══════════
-   Nổi góc dưới-phải, kéo được (desktop) để né nội dung đang đọc; điện
-   thoại thì cố định trên thanh mobile-nav, không kéo (chật, dễ vướng).
-   Mỗi từ là 1 "chip" màu riêng (đủ bộ + tương thích sáng/tối vì dùng lại
-   đúng token theme sẵn có của app — --*-sub/--*-l), gõ ra lấp đầy hàng
-   ngang; đầy rồi thì cứ gõ 1 từ mới là cả dải lại trôi sang trái 1 nhịp
-   (conveyor), không xoá sạch làm lại như kiểu cũ. */
-.word-ticker{
-  position:fixed;right:16px;bottom:16px;z-index:950;
-  display:flex;align-items:center;gap:.3rem;
-  background:var(--bg-sidebar);border:1px solid var(--border);border-radius:999px;
-  padding:.35rem .3rem .35rem .6rem;box-shadow:0 4px 18px rgba(0,0,0,.25);
-  max-width:min(460px,calc(100vw - 32px));user-select:none;
-}
-.word-ticker[hidden]{display:none;}
-.wt-drag{cursor:grab;color:var(--text-3);font-size:.85rem;padding:0 .1rem;touch-action:none;flex-shrink:0;}
-.wt-viewport{flex:1;min-width:130px;max-width:360px;height:1.7rem;overflow:hidden;position:relative;}
-.wt-strip{
-  display:flex;align-items:center;gap:.35rem;position:absolute;left:0;top:50%;
-  transform:translateY(-50%);white-space:nowrap;transition:transform .6s ease;
-}
-.wt-chip{
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:.74rem;font-weight:600;white-space:nowrap;line-height:1.5rem;
-  padding:0 .5rem;border-radius:7px;cursor:pointer;flex-shrink:0;
-}
-.wt-chip.typing::after{content:"▌";opacity:.6;animation:wtBlink 1s step-end infinite;margin-left:1px;}
-@keyframes wtBlink{50%{opacity:0;}}
-/* 5 màu nền phối theo đúng bộ token đã dùng khắp app — tự đổi cùng
-   giao diện sáng/tối, không cần định nghĩa riêng màu chip. */
-.wt-chip.k0{background:var(--blue-sub);color:var(--blue-l);}
-.wt-chip.k1{background:var(--green-sub);color:var(--green-l);}
-.wt-chip.k2{background:var(--amber-sub);color:var(--amber-l);}
-.wt-chip.k3{background:var(--violet-sub);color:var(--violet-l);}
-.wt-chip.k4{background:var(--red-sub);color:var(--red-l);}
-.wt-btn{
-  background:transparent;border:none;color:var(--text-3);cursor:pointer;
-  font-size:.85rem;width:22px;height:22px;border-radius:50%;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-}
-.wt-btn:hover{background:var(--bg-hover);color:var(--text-1);}
-.wt-toggle{
-  position:fixed;right:16px;bottom:16px;z-index:949;
-  width:38px;height:38px;border-radius:50%;border:1px solid var(--border);
-  background:var(--bg-sidebar);color:var(--text-2);font-size:1rem;cursor:pointer;
-  box-shadow:0 4px 14px rgba(0,0,0,.25);
-}
-@media(max-width:760px){
-  .word-ticker{
-    left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom)) !important;
-    max-width:none;border-radius:0;border-left:none;border-right:none;
-    justify-content:center;
-  }
-  .wt-viewport{max-width:none;}
-  .wt-drag{display:none;}
-  .wt-toggle{bottom:calc(56px + 10px + env(safe-area-inset-bottom));}
-}
-
 /* Toast */
 .toast-wrap{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:.4rem;align-items:center;pointer-events:none;}
 .toast{

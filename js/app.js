@@ -582,7 +582,6 @@
     renderPages(); renderCrumb(); renderBatches();
     App.renderBlocks();
     renderUserChip();
-    if (w.Ticker && w.Ticker.refresh) w.Ticker.refresh();
   }
   App.renderAll = renderAll;
   App.renderBatches = renderBatches;

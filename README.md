@@ -110,9 +110,6 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
 - **2 khung song song bên dưới**: TRÁI = "🚦 Theo tiến độ Tony Buzan" — 4 tab (khớp `w.SRS.STEPS[].group`), mỗi tab liệt kê 2 danh sách **theo Block** (không theo từng từ, vì tiến trình chỉ lưu ở cấp Block): "🔴 Đến hạn ôn ngay" và "🟢 Đã ôn, chưa tới hạn kế tiếp". PHẢI = cây drill-down cũ (Hub›Notebook›Section›Page›Batch›Block) để duyệt/nhảy vào học theo cấu trúc thư mục — cây này CHỈ để duyệt, không ảnh hưởng tới số liệu bên trái.
 - `DB.getJourneySummary` (số tổng quan, nhanh) và `DB.getFullTree` (toàn bộ cấu trúc + `bp` map, dùng cho cây + 4 tab) là 2 đường load riêng — cả 2 đều PHẢI check `progressLocal()` (không phải `DB.mode`) khi quyết định đọc `block_progress` ở đâu, vì kho từ vựng có thể là Cloud trong khi tiến trình vẫn Local (chưa đăng nhập thật) — nhầm 2 cái này từng gây lỗi `invalid input syntax for type uuid` sập cả cây Journey (đã sửa).
 
-## Thanh "đánh máy" — từ đã học (`js/ticker.js`)
-Widget nổi góc dưới-phải, chạy kiểu băng chuyền các từ thuộc Block ĐÃ DONE trong **cả Notebook đang mở**: mỗi từ là 1 chip màu riêng (5 màu, tái dùng token theme `--*-sub`/`--*-l` sẵn có nên tự đổi đúng theo sáng/tối), gõ ra lấp đầy hàng ngang; đầy khung thì mỗi từ mới gõ ra là cả dải trôi (CSS `transform` transition) sang trái nhường chỗ, chip cũ nhất trôi khuất thì gỡ khỏi DOM. Có nút đổi thứ tự thường/ngẫu nhiên, ẩn/hiện, kéo đổi vị trí (desktop) — điện thoại cố định 1 chỗ trên thanh mobile-nav. Bấm 1 chip nhảy thẳng vào Block chứa từ đó.
-
 ## Cách thêm từ vựng mới
 - **"+ Paste từ mới"**: dán danh sách từ (mỗi dòng 1 từ, các cột cách nhau `|` hoặc tab) → tự cắt Block 10 từ/batch mới, đánh số lại từ 1. Có key AI thì tự tra điền nốt cột thiếu (level/pos/ipa/def_en/meaning_vi).
 - **"✨ Dán bài, tự trích từ"**: dán bài báo/transcript YouTube → AI trích từ vựng B1+ → tự tạo Block.
