@@ -1365,6 +1365,26 @@ textarea:focus{border-color:var(--blue);}
   .mobile-nav button span{font-size:.62rem;font-weight:700;}
   .mobile-nav button.active{color:var(--blue-l);}
   .toast-wrap{bottom:4.5rem;}
+
+  /* Vùng bấm tối thiểu ~40px trên di động (WCAG 2.5.5) cho các icon-button
+     đang nhỏ hơn hẳn ngón tay — KHÔNG đổi cỡ chữ/icon bên trong, chỉ nới
+     khung ngoài bằng padding/kích thước, nên bố cục desktop không đổi
+     (những rule này chỉ áp dụng trong @media(max-width:860px) hiện tại). */
+  .dots{padding:.55rem;}
+  .jrow-open,.jrow-dots{width:36px;height:36px;}
+  .home-card-go{width:2.4rem;height:2.4rem;}
+  .wp-close{padding:.6rem;}
+  .tab-scroll-btn{width:2rem;height:2rem;}
+  .vchip-del{padding:.3rem .35rem;}
+  .g-copy{padding:.4rem .65rem;}
+  .jcal-nav .btn-ghost.mini{padding:.5rem .7rem;}
+
+  /* .batches-bar (Batch trước/sau + tab Batch) từng chật khi màn quá hẹp
+     và đang mở Chi tiết Block (3 cụm cùng hàng: "← Quay lại", nút Block
+     trước/sau, dải tab Batch) — cho phép xuống hàng thay vì ép co lại
+     (đã nêu trong README mục "Việc còn dang dở"). */
+  .batches-bar{flex-wrap:wrap;row-gap:.4rem;}
+  .batch-tabs{flex:1 1 100%;}
 }
 
 /* ═══════════ IN PDF (window.print, xem js/export.js) ═══════════
