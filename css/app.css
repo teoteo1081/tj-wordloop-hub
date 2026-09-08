@@ -319,7 +319,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 /* scroll-padding-top: chừa chỗ cho .detail-tabs dính ở trên khi
    scrollIntoView() cuộn tới 1 phần tử nào đó (vd đọc bảng từ vựng lúc
    đang MỞ RỘNG, không dùng khung cuộn riêng của #vocab-wrap nữa). */
-.workspace{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:.5rem 1.2rem 3rem;min-width:0;scroll-padding-top:3.2rem;}
+/* KHÔNG đặt padding-top ở đây — .batches-bar giờ sticky top:0 (xem
+   dưới), mà padding-top của chính CONTAINER cuộn lại tạo ra 1 dải hở
+   PHÍA TRÊN vị trí dính (sticky đo "top" từ mép padding-box, không phải
+   mép content đã cuộn qua) — dải hở đó vẫn nằm TRONG vùng cuộn nên chữ
+   cuộn qua vẫn lộ ra ở đúng dải đó. Khoảng cách trên cùng giờ chuyển hẳn
+   vào padding-top của .batches-bar (đã sticky, luôn phủ kín, không hở). */
+.workspace{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:0 1.2rem 3rem;min-width:0;scroll-padding-top:3.2rem;}
 /* SECTIONS — hàng ngay dưới Hub: tên cột Notebooks · tab Sections · tên cột Pages.
    Tab bo tròn hai góc trên, dính liền vào nội dung bên dưới — kiểu OneNote. */
 .section-bar{
@@ -450,7 +456,18 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .crumb .sep{opacity:.4;flex-shrink:0;}
 .crumb-ellipsis{cursor:help;flex-shrink:0;}
 
-.batches-bar{display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;}
+/* Sticky luôn — trước đây chỉ .detail-tabs dính, còn hàng này (nút "Quay
+   lại"/Block trước-sau/tab Batch) cuộn thường -> lúc cuộn qua đúng khoảng
+   hàng này rời khỏi khung mà .detail-tabs CHƯA kịp dính, có 1 khoảng
+   ngắn (~cao 1 hàng) lộ chữ bên dưới đang cuộn qua, trông như "khe hở"
+   lỗi. Dính cả 2 hàng liền nhau (top:0 rồi top:var(--bbar-h)) là hết hẳn
+   khoảng hở đó — không lúc nào có "vùng chuyển tiếp" nữa. --bbar-h do
+   ResizeObserver đo + set trong app.js (setupStickyOffsets). */
+.batches-bar{
+  display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;
+  position:sticky;top:0;z-index:7;background:var(--bg-main);
+  padding-top:.5rem;   /* thay cho .workspace{padding-top} đã bỏ — đặt Ở ĐÂY (trong phần tử sticky, luôn phủ kín) thay vì ở container cuộn, để không tạo dải hở phía trên vị trí dính */
+}
 .batch-tabs{display:flex;gap:.45rem;overflow-x:auto;flex:1;padding-bottom:.2rem;scrollbar-width:none;}
 .batch-tabs::-webkit-scrollbar{display:none;}
 .batch-tab{
@@ -613,7 +630,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    không lộ viền lúc dính. */
 .detail-tabs{
   display:flex;align-items:center;gap:.35rem;border-bottom:1px solid var(--border);padding:.5rem 0 .4rem;
-  position:sticky;top:0;z-index:6;background:var(--bg-main);
+  position:sticky;top:var(--bbar-h,0px);z-index:6;background:var(--bg-main);
 }
 /* CHỈ dải nút tab mới cuộn ngang khi chật chỗ — #bn-pos + nút "⤒" đứng
    ngoài, KHÔNG bao giờ bị cuộn khuất (gộp 1 hàng để tiết kiệm chỗ, không
@@ -974,8 +991,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   display:flex;align-items:center;justify-content:space-between;gap:.8rem;
   margin:.6rem 0 .4rem;
 }
-.exam-idx{font-size:.78rem;font-weight:800;letter-spacing:.08em;color:var(--text-2);text-transform:uppercase;white-space:nowrap;}
-.exam-score{font-size:.82rem;font-weight:700;color:var(--blue-l);white-space:nowrap;}
+.exam-idx{font-size:.68rem;font-weight:800;letter-spacing:.08em;color:var(--text-2);text-transform:uppercase;white-space:nowrap;}
+.exam-score{font-size:.72rem;font-weight:700;color:var(--blue-l);white-space:nowrap;}
+/* "Done x%" = đúng % đã trả lời (khớp .quiz-bar bên dưới) — sang xanh lá
+   khi đạt mốc PASS_MARK 80% trở lên, để biết ngay đang trên đà đạt hay
+   chưa mà khỏi phải nhìn thanh progress. */
+.exam-done{font-weight:800;}
+.exam-done.hi{color:var(--green-l);}
 .gap-card{
   background:var(--bg-soft);border:1px solid var(--border);border-radius:14px;
   padding:.75rem .9rem;margin:.6rem 0 .7rem;

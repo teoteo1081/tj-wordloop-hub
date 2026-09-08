@@ -1602,6 +1602,21 @@
     updateHubTabsScroll = setupTabScroller("#hub-tabs", "#hub-tabs-prev", "#hub-tabs-next");
     updateSectionTabsScroll = setupTabScroller("#section-list", "#section-tabs-prev", "#section-tabs-next");
 
+    /* .batches-bar (nút "Quay lại"/Block trước-sau/tab Batch) giờ cũng
+       sticky top:0 (xem app.css) — đo chiều cao thật của nó (đổi tuỳ lúc
+       hiện/ẩn nút back, số tab...) rồi gán vào biến CSS --bbar-h để
+       .detail-tabs dính LIỀN ngay dưới, không còn khoảng hở khi cuộn qua
+       đúng lúc 2 hàng này chuyển giao (xem giải thích trong app.css). */
+    var bbar = w.$(".batches-bar");
+    if (bbar) {
+      var setBbarH = function () {
+        document.documentElement.style.setProperty("--bbar-h", bbar.offsetHeight + "px");
+      };
+      setBbarH();
+      if (w.ResizeObserver) new ResizeObserver(setBbarH).observe(bbar);
+      w.addEventListener("resize", setBbarH);
+    }
+
     /* --- hub --- */
     w.$("#hub-tabs").onclick = async function (e) {
       var b = e.target.closest("[data-hub]");

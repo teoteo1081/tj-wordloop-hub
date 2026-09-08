@@ -923,8 +923,9 @@
       : '<button class="btn-primary" id="sg-next">Câu tiếp →</button>';
     w.$("#single-card").innerHTML =
       '<div class="exam-bar-row">' +
+        '<span class="exam-score">Đã làm ' + answered + "/" + ex.total +
+          ' · <span class="exam-done' + (pct >= 80 ? " hi" : "") + '">Done ' + pct + "%</span></span>" +
         '<span class="exam-idx">CÂU ' + (D.si + 1) + " / " + list.length + "</span>" +
-        '<span class="exam-score">đã làm ' + answered + "/" + ex.total + "</span>" +
       "</div>" +
       '<div class="quiz-bar"><i style="width:' + pct + '%"></i></div>' +
       body +
@@ -1112,9 +1113,12 @@
       return c + " dim";
     }
 
+    /* Bỏ hẳn nhãn "Chọn đúng nghĩa tiếng Việt của từ" — thừa, tab đã tên
+       "Nghĩa" + 4 đáp án rõ ràng là nghĩa tiếng Việt rồi, không cần nhắc
+       lại (khác chế độ Từng câu vẫn giữ nhãn vì đó là hướng dẫn cần
+       thiết cho câu điền-từ, không thừa). */
     var promptHtml =
       '<div class="gap-card">' +
-        '<div class="gap-label">Chọn đúng nghĩa tiếng Việt của từ</div>' +
         '<div class="gap-sentence mc-term-big">' + w.esc(q.term) + "</div>" +
       "</div>";
     var optsHtml = q.options.map(function (o, j) {
