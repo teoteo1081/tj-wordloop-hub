@@ -577,7 +577,18 @@
     w.$("#screen-home").hidden = true;
     w.$("#btn-learning").hidden = true;
 
-    if (opts.blockId) w.Detail.open(opts.blockId);
+    /* Bug đã gặp: nhảy từ Trang chủ/Journey vào 1 Notebook/Section/Page/
+       Batch (KHÔNG mở thẳng 1 Block cụ thể) thì màn hình trống trơn —
+       leaveDetail() chỉ hiện lại #screen-blocks khi #screen-detail ĐANG
+       mở; nhảy từ Home/Journey thì #screen-detail vốn đã ẩn từ trước (họ
+       tự ẩn nó lúc mở), nên #screen-blocks không được bật lại. Luôn chốt
+       lại đúng 1 trong 2 màn hiện, không phụ thuộc màn nào đang mở trước đó. */
+    if (opts.blockId) {
+      w.Detail.open(opts.blockId);
+    } else {
+      w.$("#screen-detail").hidden = true;
+      w.$("#screen-blocks").hidden = false;
+    }
   };
 
   /* Nút "📖 Learning" dùng chung cho cả Journey lẫn Trang chủ — đóng
