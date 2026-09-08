@@ -24,7 +24,8 @@
 
  QUY TRÌNH DÙNG:
    1. Sửa MODE = "export" bên dưới, chạy: python tools/sync_vocab.py
-      -> ra file Excel (đường dẫn in cuối cùng, mặc định tools/reports/).
+      -> ra file Excel NGAY TRONG tools/tu_vung.xlsx (chung thư mục với
+      file .py này, đường dẫn cũng in ra ở dòng cuối cùng).
    2. Mở Excel, sửa tay (đổi nghĩa, thêm dòng mới cho từ mới...).
    3. Sửa MODE = "import", chạy lại: python tools/sync_vocab.py
       -> đẩy thẳng lên Supabase.
@@ -32,8 +33,15 @@
       NHẤT (VD sau khi có người học thêm/sửa qua chính app).
 
  ⚠️ File Excel này CHỈ chứa nội dung học (không phải link đăng nhập như
- manage_users.py) nên không nhạy cảm - nhưng vẫn lưu cục bộ (tools/reports/,
+ manage_users.py) nên không nhạy cảm - nhưng vẫn lưu cục bộ (tools/tu_vung.xlsx,
  đã có trong .gitignore), không cần đẩy lên GitHub.
+
+ MÀU TIÊU ĐỀ CỘT (xem ngay trong file Excel):
+   🟧 CAM  = sửa/xoá nội dung cột này -> CÓ ẩnh hưởng thật khi import lên
+             Supabase (kể cả xoá trống 1 trong 3 ô "Đoạn văn đề xuất" -
+             xem chi tiết ở phần "Ghi chú" trong chính file Excel).
+   🟦 XANH = chỉ để XEM cho dễ đối chiếu (Hub/Notebook/.../Block/Từ trong
+             Block) - sửa gì ở các cột này cũng KHÔNG ảnh hưởng lúc import.
 ================================================================================
 """
 
@@ -60,7 +68,9 @@ from openpyxl.utils import get_column_letter
 
 MODE = "export"   # "export" (Supabase -> Excel) hoặc "import" (Excel -> Supabase)
 
-EXCEL_FILE = Path(__file__).resolve().parent / "reports" / "tu_vung.xlsx"
+# CHUNG thư mục với sync_vocab.py (tools/) - không để trong thư mục con
+# nào cả, theo yêu cầu Thao, cho dễ tìm.
+EXCEL_FILE = Path(__file__).resolve().parent / "tu_vung.xlsx"
 
 # import mode: số dòng gửi lên Supabase mỗi lượt (PostgREST upsert theo lô,
 # tránh gửi 1 lần cả ~7000 dòng dễ bị timeout/lỗi payload quá lớn).
@@ -117,9 +127,21 @@ def fetch_all(table, select, page_size=1000):
 # EXPORT: Supabase -> Excel
 # ==============================================================================
 
-HEADER_FILL = PatternFill("solid", fgColor="4472C4")
+HEADER_FILL = PatternFill("solid", fgColor="4472C4")      # xanh dương - chỉ để xem, sửa không ảnh hưởng
+IMPACT_FILL = PatternFill("solid", fgColor="ED7D31")       # cam - sửa/xoá CÓ ảnh hưởng thật lên Supabase
 HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF")
 ID_FONT = Font(name="Arial", size=9, color="999999")
+
+
+def _write_headers(ws, headers, impact_cols):
+    """impact_cols: set các SỐ CỘT (1-based) mà sửa/xoá trong Excel sẽ THẬT
+    SỰ ảnh hưởng lên Supabase lúc import - tô CAM để nổi bật, phân biệt với
+    các cột chỉ để xem (Hub/Notebook/.../Block...) tô XANH như cũ."""
+    for i, h in enumerate(headers, start=1):
+        c = ws.cell(row=1, column=i, value=h)
+        c.font = HEADER_FONT
+        c.fill = IMPACT_FILL if i in impact_cols else HEADER_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
 def do_export():
@@ -156,11 +178,10 @@ def do_export():
     headers = ["id (ĐỂ TRỐNG = tạo từ mới)", "block_id (bắt buộc nếu tạo mới)",
                "Hub", "Notebook", "Section", "Page", "Batch", "Block",
                "sort", "term", "level", "pos", "ipa", "def_en", "meaning_vi"]
-    for i, h in enumerate(headers, start=1):
-        c = ws.cell(row=1, column=i, value=h)
-        c.font = HEADER_FONT
-        c.fill = HEADER_FILL
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    # Cột 3-8 (Hub..Block) CHỈ để xem - import không đọc lại. Còn lại (id,
+    # block_id, sort, term, level, pos, ipa, def_en, meaning_vi) đều được
+    # gửi thẳng lên Supabase mỗi lần import.
+    _write_headers(ws, headers, impact_cols={1, 2, 9, 10, 11, 12, 13, 14, 15})
 
     # Sort theo đúng thứ tự cây (hub > notebook > ... > block > sort trong
     # block) cho dễ đọc/đối chiếu, thay vì thứ tự ngẫu nhiên Supabase trả về.
@@ -213,11 +234,11 @@ def do_export():
                   "Batch", "Block", "Từ trong Block (tham khảo khi viết bài đọc)",
                   "Bài đọc ĐANG DÙNG (context_passage)",
                   "Đoạn văn đề xuất 1", "Đoạn văn đề xuất 2", "Đoạn văn đề xuất 3"]
-    for i, h in enumerate(ba_headers, start=1):
-        c = ws3.cell(row=1, column=i, value=h)
-        c.font = HEADER_FONT
-        c.fill = HEADER_FILL
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    # Cột 2-8 (Hub..Từ trong Block) CHỈ để xem. Cột 1 (id) + 9-12 (bài đọc
+    # đang dùng + 3 ô đề xuất) đều được đọc lại lúc import - riêng 3 ô đề
+    # xuất LUÔN đi CHUNG BỘ (xoá 1 trong 3 ô, còn ô khác có chữ, vẫn ghi đè
+    # lại nguyên mảng - xem do_import_passages) nên cũng tô CAM cả 3.
+    _write_headers(ws3, ba_headers, impact_cols={1, 9, 10, 11, 12})
 
     block_list = sorted(blocks.values(), key=lambda b: _chain_of(b["id"]) + (b.get("sort") or 0,))
     for r_idx, blk in enumerate(block_list, start=2):

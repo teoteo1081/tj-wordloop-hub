@@ -6,6 +6,10 @@ js/keys.local.js
 # - tuyệt đối không đẩy lên repo public này.
 tools/reports/
 
+# Excel từ vựng/bài đọc do tools/sync_vocab.py xuất ra - file làm việc cục
+# bộ (không nhạy cảm nhưng cũng không cần versioning ở repo public này).
+tools/tu_vung.xlsx
+
 # Local Netlify folder
 .netlify
 
