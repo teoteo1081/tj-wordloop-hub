@@ -529,9 +529,18 @@
     renderAll();
     closeDrawers();
     w.$("#screen-journey").hidden = true;
+    w.$("#screen-home").hidden = true;
     w.$("#btn-learning").hidden = true;
 
     if (opts.blockId) w.Detail.open(opts.blockId);
+  };
+
+  /* Nút "📖 Learning" dùng chung cho cả Journey lẫn Trang chủ — đóng
+     đúng màn đang mở (chỉ 1 trong 2 hiện tại 1 lúc), gán ở app.js vì tải
+     SAU journey.js/home.js nên đè được handler riêng của từng file đó. */
+  w.$("#btn-learning").onclick = function () {
+    if (w.Home && !w.$("#screen-home").hidden) { w.Home.close(); return; }
+    if (w.Journey && !w.$("#screen-journey").hidden) { w.Journey.close(); return; }
   };
 
   /* ══════════════ BỘ ĐẾM TỔNG SỐ TỪ (góc phải thanh trên cùng) ══════════════

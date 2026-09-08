@@ -61,6 +61,7 @@
     J._prevWasDetail = !w.$("#screen-detail").hidden;
     w.$("#screen-blocks").hidden = true;
     w.$("#screen-detail").hidden = true;
+    w.$("#screen-home").hidden = true;
     w.$("#btn-back").hidden = true;
     w.$("#screen-journey").hidden = false;
     w.$("#btn-learning").hidden = false;
@@ -77,10 +78,15 @@
     J._summary = uid
       ? await w.DB.getJourneySummary(uid)
       : { totalWords: 0, mastered: 0, learnedWords: 0, totalBlocks: 0, blocksDone: 0, overdueWords: 0, overdueByDate: {} };
-    var log = uid ? await w.DB.getDailyLog(uid) : {};
+    /* Nhật ký học ("đã học" + "quá hạn") tải TOÀN BỘ lịch sử 1 lần (không
+       giới hạn theo khoảng ngày) — chuyển lịch sang xem theo tháng chỉ cần
+       lọc lại phía client khi bấm ←/→, không phải gọi lại server. */
+    J._log = uid ? await w.DB.getDailyLog(uid) : {};
     if (w.App && w.App.setWordCounter) w.App.setWordCounter(J._summary.mastered, J._summary.totalWords);
 
-    J.renderCalendar(log, J._summary.overdueByDate || {});
+    var today = new Date();
+    J._calMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    J.renderCalendar();
     renderOverviewTop();
     await J.loadTree();
   };
@@ -109,27 +115,34 @@
     w.$("#j-overdue").textContent = s.blocksDone ? "…" : 0;
   }
 
-  /* Lịch 28 ngày gần nhất, xếp cột T2 → CN giống lịch học/Duolingo. */
-  J.renderCalendar = function (log, overdueByDate) {
+  var MONTH_LABEL = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+
+  /* Lịch theo THÁNG DƯƠNG LỊCH (không còn "28 ngày gần nhất") — đủ ô đầu/
+     cuối tháng cho thẳng cột T2→CN như 1 cuốn lịch bình thường, có nút ←/→
+     đổi tháng. J._log/J._summary.overdueByDate đã tải TOÀN BỘ lịch sử 1
+     lần lúc mở Journey (xem J.open) nên đổi tháng chỉ lọc lại phía client,
+     không gọi lại server. */
+  J.renderCalendar = function () {
+    var month = J._calMonth;
+    var log = J._log || {};
+    var overdueByDate = (J._summary && J._summary.overdueByDate) || {};
+
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var todayKey = keyOf(today);
 
-    var days = [];
-    for (var i = 27; i >= 0; i--) {
-      var d = new Date(today);
-      d.setDate(d.getDate() - i);
-      days.push(d);
-    }
-
-    /* độn ô trống đầu tuần cho thẳng cột — JS: getDay() 0=Chủ nhật,
+    var y = month.getFullYear(), m = month.getMonth();
+    var firstOfMonth = new Date(y, m, 1);
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    /* độn ô trống đầu tháng cho thẳng cột — JS: getDay() 0=Chủ nhật,
        đổi về 0=Thứ 2 cho khớp thứ tự cột DOW ở trên. */
-    var firstDow = (days[0].getDay() + 6) % 7;
+    var firstDow = (firstOfMonth.getDay() + 6) % 7;
 
     var html = DOW.map(function (x) { return '<div class="jcal-dow">' + x + "</div>"; }).join("");
     for (var p = 0; p < firstDow; p++) html += '<div class="jcell pad"></div>';
 
-    days.forEach(function (d) {
+    for (var day = 1; day <= daysInMonth; day++) {
+      var d = new Date(y, m, day);
       var k = keyOf(d);
       var learned = (log[k] && log[k].learned) || 0;
       var due = overdueByDate[k] || 0;
@@ -148,11 +161,22 @@
       if (due > 0) titleBits.push("quá hạn " + due + " từ");
 
       html += '<div class="' + cls + '" title="' + k + (titleBits.length ? " · " + titleBits.join(" · ") : "") + '">' +
-                '<span class="jd">' + d.getDate() + "</span>" + nums +
+                '<span class="jd">' + day + "</span>" + nums +
               "</div>";
-    });
+    }
 
     w.$("#journey-cal").innerHTML = html;
+    w.$("#jcal-month-label").textContent = "Tháng " + MONTH_LABEL[m] + " / " + y;
+    /* Không cho xem sang tháng TƯƠNG LAI (chưa có gì để xem) — quá khứ thì
+       không giới hạn, xem lại được bao xa cũng được vì dữ liệu đã tải hết. */
+    var isCurrentMonth = y === today.getFullYear() && m === today.getMonth();
+    w.$("#jcal-next").disabled = isCurrentMonth;
+  };
+
+  J.shiftCalMonth = function (delta) {
+    var m = J._calMonth;
+    J._calMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+    J.renderCalendar();
   };
 
   /* ══════════════ CÂY TIẾN ĐỘ — tải + tính rollup ══════════════ */
@@ -481,6 +505,8 @@
   w.$("#btn-journey-back").onclick = function () { J.close(); };
   w.$("#btn-learning").onclick = function () { J.close(); };
   w.$("#journey-refresh").onclick = function () { J.loadTree(); };
+  w.$("#jcal-prev").onclick = function () { J.shiftCalMonth(-1); };
+  w.$("#jcal-next").onclick = function () { J.shiftCalMonth(1); };
 
   w.$("#journey-crumb").addEventListener("click", function (e) {
     var item = e.target.closest(".jcrumb-item");

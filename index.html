@@ -26,6 +26,7 @@
   <button class="tab-add hub-add" id="btn-add-hub" title="Thêm hub">+</button>
 
   <div class="topbar-right">
+    <button class="theme-btn btn-journey-label" id="btn-home" title="Trang chủ — toàn bộ cây thư mục">🏠 Trang chủ</button>
     <button class="theme-btn btn-journey-label" id="btn-journey" title="Journey — thống kê học theo ngày">📊 Journey</button>
     <button class="btn-learning" id="btn-learning" title="Quay lại trang đang học" hidden>📖 Learning</button>
     <button class="theme-btn" id="theme-btn" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện sáng / tối">🌙</button>
@@ -354,6 +355,17 @@
       </div>
     </section>
 
+    <!-- ===== MÀN HÌNH B2: TRANG CHỦ — toàn bộ cây thư mục dạng thẻ lớn,
+         mỗi Notebook 1 thẻ (kiểu trang chọn khoá học Memrise), gom theo Hub.
+         Bấm thẻ = App.jumpTo thẳng vào Notebook đó. =====-->
+    <section id="screen-home" hidden>
+      <div class="journey-topbar">
+        <button class="btn-ghost" id="btn-home-back">← Về học tiếp</button>
+        <button class="btn-ghost" id="home-refresh" title="Tải lại số liệu">⟳ Tải lại</button>
+      </div>
+      <div class="home-hubs" id="home-hubs"><!-- JS: mỗi Hub 1 khối, bên trong là lưới thẻ Notebook --></div>
+    </section>
+
     <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày + cây tiến độ =====
          Tổng quan (số liệu + 4 tab theo giai đoạn Tony Buzan) LUÔN là số của
          TOÀN BỘ TJ WordLoop, không đổi theo cây thư mục bên phải — cây bên
@@ -379,7 +391,12 @@
 
       <div class="card" id="journey-cal-card">
         <div class="card-title-row">
-          <div class="card-title">🗓️ Lịch học 28 ngày (toàn app)</div>
+          <div class="card-title">🗓️ Lịch học theo tháng (toàn app)</div>
+          <div class="jcal-nav">
+            <button class="btn-ghost mini" id="jcal-prev" title="Tháng trước">←</button>
+            <span class="jcal-month-label" id="jcal-month-label">…</span>
+            <button class="btn-ghost mini" id="jcal-next" title="Tháng sau">→</button>
+          </div>
           <div class="journey-legend">
             <span><i class="jdot learn"></i> +N = số từ đã học hôm đó</span>
             <span><i class="jdot due"></i> ⚠N = số từ quá hạn ôn hôm đó</span>
@@ -680,6 +697,7 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/detail.js"></script>
 <script src="js/export.js"></script>
 <script src="js/journey.js"></script>
+<script src="js/home.js"></script>
 <script src="js/app.js"></script>
 <script src="js/ticker.js"></script>
 </body>
