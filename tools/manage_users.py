@@ -60,6 +60,7 @@ except Exception:
 
 import requests
 from openpyxl import Workbook
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -390,6 +391,27 @@ def _hyperlink(url, display):
     return f'=HYPERLINK("{safe_url}","{safe_display}")'
 
 
+COMMENT_AUTHOR = "manage_users.py"
+
+
+def _write_headers_with_notes(ws, headers, notes_by_index):
+    """Ghi tiêu đề + gắn CHÚ THÍCH (di chuột vào tiêu đề là hiện, không cần
+    mở sheet 'Ghi chú' riêng) - notes_by_index: {số cột (1-based): chuỗi
+    giải thích}. Cột không có trong dict thì không gắn chú thích gì cả
+    (VD cột chỉ để trang trí/rỗng)."""
+    for i, h in enumerate(headers, start=1):
+        c = ws.cell(row=1, column=i, value=h)
+        c.font = HEADER_FONT
+        c.fill = HEADER_FILL
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        note = notes_by_index.get(i)
+        if note:
+            cm = Comment(note, COMMENT_AUTHOR)
+            cm.width = 320
+            cm.height = 140
+            c.comment = cm
+
+
 def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
@@ -403,11 +425,45 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
         "Lần 1–2\n(10p/24h)", "Lần 3\n(1 tuần)", "Lần 4\n(1 tháng)", "Lần 5–6\n(3–6 tháng)",
         "Đã vào\ntrí nhớ dài hạn 💎", "⚠️ Block\nTRỄ HẠN ôn",
     ]
-    for i, h in enumerate(headers, start=1):
-        c = ws.cell(row=1, column=i, value=h)
-        c.font = HEADER_FONT
-        c.fill = HEADER_FILL
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    notes = {
+        1: "Emoji đại diện người học (tự chọn lúc tạo hoặc trong app).",
+        2: "Bấm vào MỞ THẲNG link học của đúng người đó - không cần mật khẩu/email, "
+           "vào là nhận diện luôn.",
+        3: "Y hệt link ở cột Tên, dạng chữ thường (không phải nút bấm) - copy dòng này "
+           "gửi qua Zalo/tin nhắn cho người học.",
+        4: "TỔNG ĐIỂM = cộng điểm mọi TỪ (sheet 'Chi tiết Từ') + điểm mọi BLOCK "
+           "(sheet 'Chi tiết Block') của người này.\n\n"
+           f"Điểm 1 từ: Đã thuộc = {SCORE_WORD_MASTERED}đ. Chưa thuộc nhưng đã thử qua = "
+           f"tối đa {SCORE_WORD_PARTIAL_MAX}đ, nhân theo tỉ lệ (số lần đúng / tổng số lần thử).\n\n"
+           f"Điểm 1 block (chỉ tính khi ĐÃ ĐẠT bài thi): {SCORE_BLOCK_PASSED_BASE}đ nền + "
+           f"{SCORE_BLOCK_PER_CYCLE}đ cho mỗi lần đã ôn ĐÚNG HẠN xong (tối đa 6 lần Tony Buzan). "
+           f"Đang TRỄ HẠN ôn thì bị trừ {abs(SCORE_BLOCK_OVERDUE_PENALTY)}đ.\n\n"
+           "Sheet 'Người học' đã tự sắp XẾP HẠNG theo điểm này, cao nhất lên đầu. Đổi trọng số ở "
+           "đầu file manage_users.py (mục SCORE_*) rồi chạy lại là điểm tự tính lại ngay.",
+        5: "Số từ người này đã TỪNG làm bài ít nhất 1 lần (có dòng trong bảng word_progress) - "
+           "kể cả chưa 'thuộc' hẳn, chỉ cần đã thử qua là tính.",
+        6: "Trong số 'Từ đã chạm', bao nhiêu từ được app TỰ ĐỘNG đánh dấu ĐÃ THUỘC "
+           "(mặc định: đúng >=80% VÀ đã thử >=3 lần - xem MASTER_THRESHOLD/MASTER_MIN_ATTEMPTS "
+           "trong js/config.js).",
+        7: "Tổng số từ đang có trong TOÀN BỘ kho từ vựng (dùng chung mọi người học) - để so sánh "
+           "tỉ lệ 'đã thuộc bao nhiêu trên tổng số'.",
+        8: "Số Block người này đã học XONG và ĐẠT bài kiểm tra cuối bài (điểm >=80%) - chỉ Block "
+           "đã đạt mới được tính vào 4 cột chu kỳ ôn Tony Buzan bên phải.",
+        9: "Tổng số Block đang có trong toàn bộ kho (dùng chung mọi người học).",
+        10: "Giai đoạn ôn tập Tony Buzan LẦN 1 (sau 10 phút) và LẦN 2 (sau 24 giờ) - số Block "
+            "đang ở 1 trong 2 mốc này, CHƯA đến hạn ôn lại.",
+        11: "Giai đoạn ôn LẦN 3 (ôn lại sau 1 tuần kể từ lần ôn trước) - số Block đang ở mốc "
+            "này, CHƯA đến hạn.",
+        12: "Giai đoạn ôn LẦN 4 (ôn lại sau 1 tháng) - số Block đang ở mốc này, CHƯA đến hạn.",
+        13: "Giai đoạn ôn LẦN 5 (sau 3 tháng) và LẦN 6 (sau 6 tháng, mốc DUY TRÌ cuối cùng) - "
+            "số Block đang ở 1 trong 2 mốc này, CHƯA đến hạn.",
+        14: "Block đã ôn ĐỦ hết 6 lần theo Tony Buzan - coi như đã vào trí nhớ dài hạn, không "
+            "cần ôn lại theo lịch nữa (vẫn tính điểm như Block đã đạt).",
+        15: "Trong số Block đang ở 4 giai đoạn ôn (cột 'Lần 1-2/3/4/5-6' - KHÔNG tính Block đã "
+            "vào trí nhớ dài hạn), bao nhiêu cái đã QUÁ NGÀY hẹn ôn lại mà CHƯA ôn. Càng nhiều "
+            "càng cần nhắc người học ôn sớm - mỗi Block trễ hạn cũng đang bị TRỪ ĐIỂM (xem cột Điểm).",
+    }
+    _write_headers_with_notes(ws, headers, notes)
 
     # Sắp theo ĐIỂM giảm dần - thành bảng xếp hạng luôn, cao nhất lên đầu.
     stats_list = sorted(stats_list, key=lambda s: (-s["score"], (s["profile"].get("display_name") or "").lower()))
@@ -459,11 +515,19 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
     wd_headers = ["Người học", "Hub", "Notebook", "Section", "Page", "Batch", "Block",
                   "Từ", "Nghĩa", "Số lần thử", "Số lần đúng", "Đã thuộc?",
                   "Mức quen (familiarity)", "Ôn gần nhất", "🏆 Điểm"]
-    for i, h in enumerate(wd_headers, start=1):
-        c = ws3.cell(row=1, column=i, value=h)
-        c.font = HEADER_FONT
-        c.fill = HEADER_FILL
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    wd_notes = {
+        8: "Từ tiếng Anh thật (cột 'term' trong bảng words trên Supabase).",
+        10: "Tổng số lần người này đã LÀM BÀI với từ này (mọi kiểu bài - trắc nghiệm, điền từ...).",
+        11: "Trong số lần thử đó, bao nhiêu lần TRẢ LỜI ĐÚNG.",
+        12: "✅ = app đã tự đánh dấu ĐÃ THUỘC (mặc định: đúng >=80% VÀ đã thử >=3 lần).",
+        13: "Số 0-100 app tự tính, thể hiện mức độ 'quen' với từ này (không phải % đúng thuần "
+            "tuý - có tính cả yếu tố thời gian/độ khó). Số càng cao càng nhớ chắc.",
+        14: "Thời điểm gần nhất người này ôn/làm bài với từ này.",
+        15: f"Điểm CỦA RIÊNG từ này: {SCORE_WORD_MASTERED}đ nếu đã thuộc, hoặc tối đa "
+            f"{SCORE_WORD_PARTIAL_MAX}đ theo tỉ lệ đúng nếu chưa thuộc - cộng dồn hết các dòng "
+            "của 1 người ra đúng số ở cột 'Điểm' bên sheet 'Người học'.",
+    }
+    _write_headers_with_notes(ws3, wd_headers, wd_notes)
     word_rows_sorted = sorted(word_rows, key=lambda r: (r["user"].lower(), r["chain"]))
     for r_idx, r in enumerate(word_rows_sorted, start=2):
         vals = [r["user"]] + list(r["chain"]) + [
@@ -483,11 +547,23 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
     bd_headers = ["Người học", "Hub", "Notebook", "Section", "Page", "Batch", "Block",
                   "Điểm bài thi cao nhất", "Đã đạt?", "Chu kỳ ôn (0-6)",
                   "Ôn lại lúc", "⚠️ Trễ hạn?", "🏆 Điểm"]
-    for i, h in enumerate(bd_headers, start=1):
-        c = ws4.cell(row=1, column=i, value=h)
-        c.font = HEADER_FONT
-        c.fill = HEADER_FILL
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    bd_notes = {
+        8: "% điểm CAO NHẤT người này từng đạt ở bài kiểm tra cuối Block (có thể đã thi lại "
+           "nhiều lần, đây là lần điểm cao nhất).",
+        9: "✅ = đã ĐẠT bài kiểm tra (điểm >=80%) - chỉ Block đã đạt mới vào chu kỳ ôn Tony "
+           "Buzan (các cột bên phải) và mới được tính điểm.",
+        10: "Đã ôn ĐÚNG HẠN xong bao nhiêu lần theo Tony Buzan (0 = vừa đạt bài thi, chưa ôn "
+            "lần nào; 6 = đã ôn đủ hết, vào trí nhớ dài hạn).",
+        11: "Ngày/giờ HẸN ôn lại kế tiếp (theo đúng chu kỳ Tony Buzan: 10 phút -> 24 giờ -> 1 "
+            "tuần -> 1 tháng -> 3 tháng -> 6 tháng).",
+        12: "⚠️ TRỄ = đã QUÁ ngày hẹn ở cột trước mà chưa ôn lại - Block này đang bị TRỪ ĐIỂM "
+            f"({abs(SCORE_BLOCK_OVERDUE_PENALTY)}đ) ở cột Điểm bên cạnh.",
+        13: f"Điểm CỦA RIÊNG Block này: 0 nếu chưa đạt bài thi; đã đạt thì {SCORE_BLOCK_PASSED_BASE}đ "
+            f"nền + {SCORE_BLOCK_PER_CYCLE}đ/lần đã ôn đúng hạn, trừ {abs(SCORE_BLOCK_OVERDUE_PENALTY)}đ "
+            "nếu đang trễ hạn - cộng dồn hết các dòng của 1 người ra đúng số ở cột 'Điểm' bên sheet "
+            "'Người học'.",
+    }
+    _write_headers_with_notes(ws4, bd_headers, bd_notes)
     block_rows_sorted = sorted(block_rows, key=lambda r: (r["user"].lower(), r["chain"]))
     for r_idx, r in enumerate(block_rows_sorted, start=2):
         vals = [r["user"]] + list(r["chain"]) + [
