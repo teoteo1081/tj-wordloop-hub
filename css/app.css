@@ -7,48 +7,52 @@
      :root[data-theme="light"]  -> giao diện SÁNG kiểu Claude
    Nút đổi nằm ở thanh trên cùng, ghi nhớ lựa chọn trong máy.
    ═══════════════════════════════════════════════════════════════ */
+/* ───────── GIAO DIỆN TỐI — cùng gốc tông ấm với bản sáng bên dưới, KHÔNG
+   phải slate-blue lạnh chung chung (bản trước) - nền nâu-đen ấm, điểm nhấn
+   vẫn đúng cam đất Claude (chỉ sáng hơn 1 chút cho đủ tương phản trên nền
+   tối), 2 giao diện thấy rõ CÙNG 1 thương hiệu, chỉ đảo sáng/tối. ───────── */
 :root{
-  --bg-main:#0f1115;
-  --bg-card:#161920;
-  --bg-sidebar:#12141a;
-  --bg-deep:#0b0d11;
-  --bg-soft:#12141a;
-  --bg-raise:#20242e;
-  --bg-hover:#171a21;
-  --border:#262b36;
-  --border-soft:#222733;
-  --border-hi:#4b5563;
-  --text:#f1f5f9;
-  --text-1:#cbd5e1;
-  --text-2:#94a3b8;
-  --text-3:#64748b;
-  --blue:#3b82f6;
-  --blue-l:#60a5fa;
-  --blue-hi:#2563eb;
-  --blue-sub:rgba(59,130,246,.15);
-  --green:#10b981;
-  --green-l:#34d399;
-  --green-sub:rgba(16,185,129,.15);
-  --amber:#f59e0b;
-  --amber-l:#fbbf24;
-  --amber-sub:rgba(245,158,11,.15);
-  --warn:#d97706;
-  --warn-hi:#b45309;
-  --red:#ef4444;
-  --red-l:#fca5a5;
-  --red-sub:rgba(239,68,68,.15);
-  --violet:#a78bfa;
-  --violet-l:#c4b5fd;
-  --violet-sub:rgba(167,139,250,.18);
-  --vi-color:#93c5fd;
-  --lvl-a:#6ee7a8;
-  --lvl-b1:#7fb4e6;
-  --lvl-b2:#e6b15c;
-  --lvl-c1:#f08fa8;
+  --bg-main:#262624;
+  --bg-card:#30302e;
+  --bg-sidebar:#1f1e1d;
+  --bg-deep:#1a1918;
+  --bg-soft:#2b2a28;
+  --bg-raise:#3a3936;
+  --bg-hover:#332f2c;
+  --border:#3d3b37;
+  --border-soft:#343230;
+  --border-hi:#5a564f;
+  --text:#f5f4ef;
+  --text-1:#dedad2;
+  --text-2:#a8a296;
+  --text-3:#77726b;
+  --blue:#d97757;
+  --blue-l:#e2916f;
+  --blue-hi:#c2663f;
+  --blue-sub:rgba(217,119,87,.18);
+  --green:#4fae82;
+  --green-l:#6ec69c;
+  --green-sub:rgba(79,174,130,.16);
+  --amber:#d9a03c;
+  --amber-l:#e6b968;
+  --amber-sub:rgba(217,160,60,.16);
+  --warn:#d9a03c;
+  --warn-hi:#c2872a;
+  --red:#d9695f;
+  --red-l:#e8938b;
+  --red-sub:rgba(217,105,95,.16);
+  --violet:#b499e0;
+  --violet-l:#c9b6ea;
+  --violet-sub:rgba(180,153,224,.18);
+  --vi-color:#8fb8e8;
+  --lvl-a:#7fd9a0;
+  --lvl-b1:#8db8e0;
+  --lvl-b2:#e0b15c;
+  --lvl-c1:#e08fa0;
   --on-accent:#fff;
   --scrim:rgba(0,0,0,.66);
-  --shadow-lg:0 18px 44px rgba(0,0,0,.6);
-  --shadow-md:0 12px 30px rgba(0,0,0,.45);
+  --shadow-lg:0 18px 44px rgba(0,0,0,.5);
+  --shadow-md:0 12px 30px rgba(0,0,0,.38);
   --topbar-h:52px;
   --sidebar-w:210px;
   --sidebar-w-left:210px;
