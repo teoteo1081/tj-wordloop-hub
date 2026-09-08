@@ -276,11 +276,19 @@
     var openBlock = (w.Detail && w.Detail.blockId)
       ? S.blocks.find(function (x) { return x.id === w.Detail.blockId; }) : null;
     w.$("#batch-tabs").innerHTML = list.map(function (b) {
-      var n = App.blocksOf(b.id).length;
+      var ids = App.blocksOf(b.id);
+      var n = ids.length;
+      /* Gọn kiểu "Batch 1 20/108" (đã đạt bài thi/tổng Block) thay vì
+         "Batch 1 (6 block)" cũ — thấy ngay tiến độ từng Batch mà không
+         cần bấm vào, không phải chỉ đếm số Block có trong đó. */
+      var done = ids.filter(function (x) {
+        var bpx = S.bp[x.id];
+        return bpx && (bpx.passed || bpx.meaning_passed);
+      }).length;
       var showBlockName = openBlock && openBlock.batch_id === b.id;
       var label = showBlockName
         ? "📕 " + w.esc(openBlock.name)
-        : w.esc(b.name) + '<span class="n">(' + n + " block)</span>";
+        : w.esc(b.name) + '<span class="n">' + done + "/" + n + "</span>";
       return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true">' +
                label +
                '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
