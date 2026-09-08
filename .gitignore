@@ -1,6 +1,11 @@
 # Bí mật cá nhân — KHÔNG đưa lên git/GitHub dưới bất kỳ hình thức nào
 js/keys.local.js
 
+# Báo cáo người học do tools/manage_users.py xuất ra - CHỨA LINK ĐĂNG NHẬP
+# THẬT (mở là vào thẳng tiến trình của người đó, không cần email/mật khẩu)
+# - tuyệt đối không đẩy lên repo public này.
+tools/reports/
+
 # Local Netlify folder
 .netlify
 
