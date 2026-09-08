@@ -369,7 +369,7 @@
     if (level === "block") {
       var bp = J._tree.bp[row.id] || {};
       var done = bp.passed || bp.meaning_passed;
-      return '<div class="jrow jrow-block' + (done ? " done" : "") + '" data-level="block" data-id="' + row.id + '">' +
+      return '<div class="jrow jrow-block' + (done ? " done" : "") + '" data-level="block" data-id="' + row.id + '" tabindex="0" role="button">' +
         '<span class="jrow-ic">' + (done ? "✓" : "⭕") + "</span>" +
         '<span class="jrow-name">' + w.esc(row.name) + "</span>" +
         '<span class="jrow-status">' + (done ? "✓ Done" : "Chưa xong") + "</span>" +
@@ -379,7 +379,7 @@
     }
     var st = statsFor(level, row.id);
     var pct = st.total ? Math.round(st.done / st.total * 100) : 0;
-    return '<div class="jrow" data-level="' + level + '" data-id="' + row.id + '">' +
+    return '<div class="jrow" data-level="' + level + '" data-id="' + row.id + '" tabindex="0" role="button">' +
       '<span class="jrow-ic">' + LEVEL_ICON[level] + "</span>" +
       '<span class="jrow-name">' + w.esc(row.name) + "</span>" +
       '<span class="jrow-bar"><i style="width:' + pct + '%"></i></span>' +
@@ -467,6 +467,21 @@
     drillInto(level, id);                                            // các cấp khác -> đi sâu vào trong cây
   });
 
+  /* .jrow là <div role="button" tabindex="0"> (xem renderRow ở trên) —
+     không phải <button> thật nên bàn phím không tự kích hoạt bằng Enter/
+     Space, phải tự bắt phím. Bỏ qua khi phím đang gõ trên chính nút
+     "↗"/"⋯" lồng bên trong (đã là <button> thật, tự nhận Enter/Space rồi
+     nảy ra sự kiện click ở trên). */
+  w.$("#journey-tree").addEventListener("keydown", async function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var row = e.target.closest(".jrow");
+    if (!row || e.target.closest("[data-act]")) return;
+    e.preventDefault();
+    var level = row.dataset.level, id = row.dataset.id;
+    if (level === "block") { await jumpToRow(level, id); return; }
+    drillInto(level, id);
+  });
+
   w.$("#journey-tree").addEventListener("contextmenu", async function (e) {
     var row = e.target.closest(".jrow");
     if (!row) return;
@@ -480,6 +495,13 @@
     switchTab(parseInt(btn.dataset.group, 10));
   });
   w.$("#jtab-panel").addEventListener("click", handleFlatBlockClick);
+  w.$("#jtab-panel").addEventListener("keydown", async function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var row = e.target.closest(".jrow");
+    if (!row || e.target.closest("[data-act]")) return;
+    e.preventDefault();
+    await jumpToRow("block", row.dataset.id);
+  });
   w.$("#jtab-panel").addEventListener("contextmenu", async function (e) {
     var row = e.target.closest(".jrow");
     if (!row) return;

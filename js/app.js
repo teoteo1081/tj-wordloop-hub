@@ -202,7 +202,7 @@
   function renderHubs() {
     w.$("#hub-tabs").innerHTML = S.hubs.map(function (h) {
       return '<span class="hub-tab' + (h.id === S.hubId ? " active" : "") +
-             '" data-hub="' + h.id + '" draggable="true">' + w.esc(h.name) +
+             '" data-hub="' + h.id + '" draggable="true" tabindex="0" role="button">' + w.esc(h.name) +
              '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác">⋯</button>' +
              "</span>";
     }).join("");
@@ -217,7 +217,7 @@
       return;
     }
     box.innerHTML = S.notebooks.map(function (n) {
-      return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") + '" data-nb="' + n.id + '" draggable="true">' +
+      return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") + '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
                "<span>" + w.esc(n.icon || "📓") + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
                '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác">⋯</button>' +
              "</div>";
@@ -234,7 +234,7 @@
     }
     box.innerHTML = S.sections.map(function (s) {
       var n = pagesOfSection(s.id).length;
-      return '<span class="section-tab' + (s.id === S.sectionId ? " active" : "") + '" data-sec="' + s.id + '" draggable="true">' +
+      return '<span class="section-tab' + (s.id === S.sectionId ? " active" : "") + '" data-sec="' + s.id + '" draggable="true" tabindex="0" role="button">' +
                w.esc(s.name) + '<span class="count">' + n + "</span>" +
                '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác">⋯</button>' +
              "</span>";
@@ -253,7 +253,7 @@
     /* Đã bỏ số liệu "N block · M từ" cạnh tên Page (theo yêu cầu) — bị
        che mất tiêu đề khi tên Page dài trên thanh hẹp. */
     box.innerHTML = list.map(function (p) {
-      return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true">' +
+      return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true" tabindex="0" role="button">' +
                '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span>' +
                '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác">⋯</button>' +
              "</div>";
@@ -314,7 +314,7 @@
       var label = showBlockName
         ? "📕 " + w.esc(openBlock.name)
         : w.esc(b.name) + '<span class="n">' + done + "/" + n + "</span>";
-      return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true">' +
+      return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true" tabindex="0" role="button">' +
                label +
                '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác">⋯</button>' +
              "</span>";
@@ -387,9 +387,13 @@
 
       /* data-bidx: chỉ để CSS tô dải màu bên trái phân biệt Block trong
          cùng Batch (xem .block-card[data-bidx] trong app.css) — không
-         liên quan gì tới trạng thái Done/Due. */
+         liên quan gì tới trạng thái Done/Due.
+         tabindex/role="button": card này bấm được để mở Block nhưng vốn
+         là <div> — không có 2 thuộc tính này thì không Tab tới được bằng
+         bàn phím / trình đọc màn hình không biết đây là 1 nút (xem
+         keydown handler cùng cặp với "#blocks-list".onclick bên dưới). */
       return '<div class="block-card' + (st.due ? " due" : "") + '" data-block="' + b.id +
-        '" data-bidx="' + (idx % 8) + '">' +
+        '" data-bidx="' + (idx % 8) + '" tabindex="0" role="button" aria-label="Mở Block ' + w.esc(b.name) + '">' +
         '<div class="block-top">' +
           '<div class="block-left">' +
             '<span class="block-title">' + w.esc(b.name) + "</span>" + tags +
@@ -1672,30 +1676,51 @@
     }
 
     /* --- hub --- */
-    w.$("#hub-tabs").onclick = async function (e) {
+    /* Các hàng/tab điều hướng (Hub/Notebook/Section/Page/Batch) đều là
+       <span>/<div> có tabindex/role="button" (xem renderHubs/renderNotebooks/
+       renderSections/renderPages/renderBatches ở trên) — không phải <button>
+       thật nên bàn phím không tự bấm được bằng Enter/Space, phải tự bắt
+       phím. Viết mỗi handler thành 1 hàm đặt tên rồi dùng CHUNG cho cả
+       click lẫn keydown (không lặp logic 2 lần, tránh lệch nhau về sau). */
+    function onHubTabActivate(e) {
       var b = e.target.closest("[data-hub]");
       if (!b) return;
       leaveDetail();
       S.hubId = b.dataset.hub;
-      S.notebooks = await w.DB.getNotebooks(S.hubId);
-      S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
-      if (S.notebookId) await loadNotebook(S.notebookId);
-      else clearContent();
-      saveSel(); renderAll();
-    };
+      w.DB.getNotebooks(S.hubId).then(async function (nbs) {
+        S.notebooks = nbs;
+        S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+        if (S.notebookId) await loadNotebook(S.notebookId);
+        else clearContent();
+        saveSel(); renderAll();
+      });
+    }
+    w.$("#hub-tabs").onclick = onHubTabActivate;
+    w.$("#hub-tabs").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!e.target.closest("[data-hub]")) return;
+      e.preventDefault();
+      onHubTabActivate(e);
+    });
 
     /* --- notebook / section --- */
-    w.$("#notebook-list").onclick = async function (e) {
+    function onNotebookActivate(e) {
       if (e.target.closest("[data-menu]")) return;
       var el = e.target.closest("[data-nb]");
       if (!el) return;
       leaveDetail();
       S.notebookId = el.dataset.nb;
-      await loadNotebook(S.notebookId);
-      saveSel(); renderAll(); closeDrawers();
-    };
+      loadNotebook(S.notebookId).then(function () { saveSel(); renderAll(); closeDrawers(); });
+    }
+    w.$("#notebook-list").onclick = onNotebookActivate;
+    w.$("#notebook-list").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!e.target.closest("[data-nb]") || e.target.closest("[data-menu]")) return;
+      e.preventDefault();
+      onNotebookActivate(e);
+    });
 
-    w.$("#section-list").onclick = function (e) {
+    function onSectionTabActivate(e) {
       if (e.target.closest("[data-menu]")) return;
       var el = e.target.closest("[data-sec]");
       if (!el) return;
@@ -1706,9 +1731,16 @@
       var bts = S.pageId ? batchesOfPage(S.pageId) : [];
       S.batchId = bts.length ? bts[0].id : null;
       saveSel(); renderAll(); closeDrawers();
-    };
+    }
+    w.$("#section-list").onclick = onSectionTabActivate;
+    w.$("#section-list").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!e.target.closest("[data-sec]") || e.target.closest("[data-menu]")) return;
+      e.preventDefault();
+      onSectionTabActivate(e);
+    });
 
-    w.$("#page-list").onclick = function (e) {
+    function onPageItemActivate(e) {
       if (e.target.closest("[data-menu]")) return;
       var el = e.target.closest("[data-page]");
       if (!el) return;
@@ -1717,9 +1749,16 @@
       var bts = batchesOfPage(S.pageId);
       S.batchId = bts.length ? bts[0].id : null;
       saveSel(); renderCrumb(); renderPages(); renderBatches(); App.renderBlocks(); closeDrawers();
-    };
+    }
+    w.$("#page-list").onclick = onPageItemActivate;
+    w.$("#page-list").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!e.target.closest("[data-page]") || e.target.closest("[data-menu]")) return;
+      e.preventDefault();
+      onPageItemActivate(e);
+    });
 
-    w.$("#batch-tabs").onclick = function (e) {
+    function onBatchTabActivate(e) {
       if (e.target.closest("[data-menu]")) return;
       var el = e.target.closest("[data-batch]");
       if (!el) return;
@@ -1727,7 +1766,14 @@
       saveSel();
       leaveDetail();
       renderBatches(); App.renderBlocks();
-    };
+    }
+    w.$("#batch-tabs").onclick = onBatchTabActivate;
+    w.$("#batch-tabs").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!e.target.closest("[data-batch]") || e.target.closest("[data-menu]")) return;
+      e.preventDefault();
+      onBatchTabActivate(e);
+    });
 
     /* --- mở block --- */
     w.$("#blocks-list").onclick = async function (e) {
@@ -1759,6 +1805,18 @@
       var id = openBtn ? openBtn.dataset.open : (card ? card.dataset.block : null);
       if (id) w.Detail.open(id);
     };
+
+    /* Block card giờ có tabindex/role="button" (bấm được bằng bàn phím) —
+       Enter/Space mở Block y hệt bấm chuột, trừ khi phím đó đang gõ trên
+       chính nút "⋯"/nút xoá từ (để khỏi cướp mất Enter/Space của nút đó). */
+    w.$("#blocks-list").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.target.closest("[data-menu]") || e.target.closest("[data-delword]")) return;
+      var card = e.target.closest("[data-block]");
+      if (!card) return;
+      e.preventDefault();
+      w.Detail.open(card.dataset.block);
+    });
 
     /* --- chip trong 4 ô chu kỳ --- */
     w.$$(".chips-row").forEach(function (row) {

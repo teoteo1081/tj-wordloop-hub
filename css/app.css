@@ -1531,3 +1531,30 @@ textarea:focus{border-color:var(--blue);}
 .jtab-group-title{font-size:.76rem;font-weight:700;color:var(--text-2);margin:.9rem 0 .4rem;display:flex;align-items:center;gap:.35rem;}
 .jtab-group-title:first-child{margin-top:0;}
 .jtab-empty{font-size:.74rem;color:var(--text-3);padding:.3rem 0 .6rem;}
+
+/* ═══════════ FOCUS BÀN PHÍM + TRANSITION MƯỢT (toàn app) ═══════════
+   1) Nhiều nút/thẻ chỉ có hiệu ứng hover đổi màu tức thì (không transition)
+      — nhìn "giật", khác hẳn cảm giác SaaS thương mại. Bổ sung transition
+      mượt cho các thẻ CHƯA có transition riêng (những chỗ đã tự khai báo
+      transition tinh chỉnh riêng — .block-card/.time-card/.batch-tab/.kw —
+      giữ nguyên, không đụng vào để khỏi lặp/ghi đè lý do đã ghi chú tại đó).
+   2) .block-card/.jrow/.home-card/.g-row giờ bấm được bằng bàn phím
+      (tabindex+role="button", xem app.js/journey.js/detail.js) nên cần
+      con trỏ + transition khớp các thẻ nút khác. */
+button,a,input,select,textarea,.jrow,.home-card,.g-row,[role="button"]{
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease,box-shadow .15s ease;
+}
+.block-card,.jrow,.home-card,.g-row{cursor:pointer;}
+
+/* Vòng focus khi điều hướng bằng bàn phím (Tab) — :focus-visible chỉ hiện
+   khi dùng bàn phím, không hiện khi bấm chuột/chạm, nên không đổi cảm
+   giác dùng chuột bình thường. Trước đây nhiều input/textarea tự đặt
+   outline:none mà không thay bằng gì khác -> bấm Tab không biết đang
+   đứng ở đâu, người dùng bàn phím/trình đọc màn hình rất khó dùng app.
+   Đặt khối này Ở CUỐI file để thắng các rule outline:none cùng độ đặc
+   hiệu (class-level) đã khai báo trước đó (.text-input, textarea…). */
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px;}
+.block-card:focus-visible,.jrow:focus-visible,.home-card:focus-visible,
+.nav-item:focus-visible,.g-row:focus-visible,.opt:focus-visible,.slot:focus-visible,
+.wb-chip:focus-visible,.section-tab:focus-visible,.batch-tab:focus-visible,
+.hub-tab:focus-visible,.dtab:focus-visible,.vchip:focus-visible{outline-offset:-2px;}

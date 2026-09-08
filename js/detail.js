@@ -357,7 +357,7 @@
       ? '<div class="g-title-row"><span class="g-title">Glossary — từ khoá trong bài</span>' +
           '<button class="g-copy" id="glossary-copy" title="Copy glossary">📋 Copy</button></div>' +
         withDef.map(function (x) {
-          return '<div class="g-row"><b>' + w.esc(x.term) + "</b> — " + w.esc(x.def_en) +
+          return '<div class="g-row" tabindex="0" role="button"><b>' + w.esc(x.term) + "</b> — " + w.esc(x.def_en) +
                  (x.meaning_vi ? " <i>(" + w.esc(x.meaning_vi) + ")</i>" : "") + "</div>";
         }).join("")
       : "";
@@ -1485,6 +1485,17 @@
       }
       var row = e.target.closest(".g-row");
       if (!row) return;
+      var b = row.querySelector("b");
+      if (b) w.Reader.open(b.textContent.trim(), "");
+    });
+    /* .g-row là <div role="button" tabindex="0"> (xem renderPassage ở
+       trên) — cần tự bắt Enter/Space vì không phải <button> thật. */
+    w.$("#passage-glossary").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.target.closest("#glossary-copy")) return;
+      var row = e.target.closest(".g-row");
+      if (!row) return;
+      e.preventDefault();
       var b = row.querySelector("b");
       if (b) w.Reader.open(b.textContent.trim(), "");
     });

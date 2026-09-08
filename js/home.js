@@ -106,7 +106,7 @@
         '<div class="home-card-bar"><i style="width:' + pct + '%"></i></div>' +
         '<div class="home-card-meta">' + pct + "% · " + done + "/" + total + " block done</div>" +
       "</div>" +
-      '<button class="home-card-go" title="Vào học">→</button>' +
+      '<button class="home-card-go" title="Vào học" aria-label="Vào học ' + w.esc(nb.name) + '">→</button>' +
     "</div>";
   }
 
