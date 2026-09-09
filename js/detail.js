@@ -408,10 +408,11 @@
     var myBlockId = b.id;
 
     var cfg2 = w.APP_CONFIG || {};
-    if (!cfg2.GEMINI_API_KEY) {
+    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
       w.toast("Chưa cấu hình API key AI — hãy dán bài đọc của bạn vào ô bên dưới", "err");
       return;
     }
+    if (w.App && w.App.hideAiError) w.App.hideAiError();   /* xoá banner lỗi lần trước, khỏi lẫn với lượt thử mới */
 
     if (D.blockId === myBlockId) {
       w.$("#passage-empty").hidden = true;
@@ -426,7 +427,8 @@
       newPassage = await w.Context.generateAI(ws, cfg2);
     } catch (e) {
       console.warn("Sinh bài đọc bằng AI thất bại:", e);
-      w.toast("AI chưa sẵn sàng (" + (e.message || "lỗi mạng") + ") — hãy dán bài đọc của bạn vào thay", "err");
+      if (w.App && w.App.showAiError) w.App.showAiError(e);
+      w.toast("AI chưa sẵn sàng — hãy dán bài đọc của bạn vào thay", "err");
       if (D.blockId === myBlockId) await D.renderPassage();   /* vẽ lại đúng trạng thái trống, khỏi kẹt ở màn "đang sinh" */
       return;
     }

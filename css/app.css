@@ -841,6 +841,21 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .rm-btn:hover{color:var(--text);border-color:var(--text-3);}
 .rm-btn.active{background:var(--blue-sub);color:var(--blue-l);border-color:var(--blue);}
 
+/* ═══════════ BANNER LỖI GỌI AI (in rõ lên giao diện, không chỉ toast) ═══════════
+   Dùng chung cho mọi nơi gọi OpenAI/Gemini thất bại — xem App.showAiError
+   trong app.js + Context.describeError trong context.js. */
+.ai-error-banner{
+  position:relative;background:var(--red-sub);border:1px solid var(--red);border-radius:10px;
+  padding:.7rem 2.2rem .7rem .9rem;margin-bottom:.7rem;
+}
+.ai-error-title{font-weight:700;font-size:.85rem;color:var(--red-l);}
+.ai-error-detail{font-size:.78rem;color:var(--text-1);margin-top:.25rem;line-height:1.5;}
+.ai-error-close{
+  position:absolute;top:.5rem;right:.5rem;background:transparent;border:none;
+  color:var(--text-3);cursor:pointer;font-size:.85rem;width:24px;height:24px;border-radius:6px;
+}
+.ai-error-close:hover{background:var(--bg-hover);color:var(--text);}
+
 /* ═══════════ BÀI ĐỌC TRỐNG — dán bài của bạn hoặc nhờ AI viết ═══════════ */
 .passage-empty{
   border:1px dashed var(--border);border-radius:10px;padding:1rem;

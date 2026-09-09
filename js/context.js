@@ -168,6 +168,42 @@
       };
     },
 
+    /* ═══════════ HẠ TẦNG GỌI AI: PHÂN LOẠI LỖI RÕ RÀNG ═══════════
+       Mọi lỗi ném ra từ đây đều có thêm 3 field để nơi gọi (detail.js/
+       app.js) hiển thị đúng nguyên nhân cho người dùng THẤY NGAY trên
+       giao diện (không chỉ console.warn):
+         err.kind     : "network" (mất mạng/không kết nối được) |
+                        "timeout" (máy chủ nhận request nhưng không trả
+                        lời kịp trong 25s) | "api" (máy chủ AI trả lỗi rõ
+                        ràng — sai key, hết hạn mức, hết tiền...) |
+                        "empty" (200 OK nhưng nội dung rỗng/bị lọc) |
+                        "no_key" (chưa cấu hình key nào cả)
+         err.provider : "openai" | "gemini" | null
+         err.status   : mã HTTP nếu có (vd 401, 429, 500) */
+    _fetchAI: async function (url, opts, provider) {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 25000);
+      try {
+        return await fetch(url, Object.assign({ signal: ctrl.signal }, opts));
+      } catch (e) {
+        var err = new Error(
+          e.name === "AbortError"
+            ? (provider + ": máy chủ nhận yêu cầu nhưng không phản hồi kịp trong 25 giây (timeout)")
+            : (provider + ": không kết nối được internet/máy chủ AI")
+        );
+        err.kind = e.name === "AbortError" ? "timeout" : "network";
+        err.provider = provider;
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    _apiError: function (provider, status, bodyText) {
+      var err = new Error(provider + ": lỗi API (mã " + status + ") — " + String(bodyText || "").slice(0, 180));
+      err.kind = "api"; err.provider = provider; err.status = status;
+      return err;
+    },
+
     /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey).
        TỰ THỬ LẠI tối đa 3 lần khi Google báo 503/429 (quá tải tạm thời —
        hay gặp với model "flash" free tier giờ cao điểm, KHÔNG phải lỗi
@@ -188,21 +224,108 @@
         if (attempt > 0) await new Promise(function (r) { setTimeout(r, 1500 * Math.pow(2, attempt - 1)); });
         var res;
         try {
-          res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body });
-        } catch (e) { lastErr = e; continue; }   /* mất mạng thoáng qua -> thử lại luôn */
+          res = await w.Context._fetchAI(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }, "gemini");
+        } catch (e) { lastErr = e; if (e.kind !== "network") break; continue; }   /* mất mạng thoáng qua -> thử lại; timeout thì dừng luôn */
         if (res.ok) {
           var data = await res.json();
           var cand = data.candidates && data.candidates[0];
           var raw = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
           if (raw) return raw;
-          lastErr = new Error("Gemini trả về rỗng (có thể bị chặn bởi bộ lọc an toàn nội dung)");
+          lastErr = new Error("gemini: trả về rỗng (có thể bị chặn bởi bộ lọc an toàn nội dung)");
+          lastErr.kind = "empty"; lastErr.provider = "gemini";
           break;   /* rỗng không phải lỗi quá tải -> thử lại vô ích, dừng ngay */
         }
         var errText = await res.text().catch(function () { return ""; });
-        lastErr = new Error("Gemini HTTP " + res.status + ": " + errText.slice(0, 180));
+        lastErr = w.Context._apiError("gemini", res.status, errText);
         if (res.status !== 503 && res.status !== 429) break;   /* lỗi khác (key sai, quota hết...) -> dừng ngay, thử lại vô ích */
       }
       throw lastErr;
+    },
+
+    /* Gọi OpenAI — cần có credit trong tài khoản (không miễn phí như
+       Gemini). Không tự thử lại nhiều lần như Gemini (OpenAI hiếm khi
+       503 tạm thời kiểu free-tier), chỉ thử lại đúng 1 lần nếu lỗi 500+
+       (server OpenAI trục trặc thoáng qua), lỗi 4xx (401/429 hết tiền,
+       sai key...) thì báo ngay, thử lại vô ích. */
+    _callOpenAI: async function (cfg, sys, user) {
+      var model = cfg.OPENAI_MODEL || "gpt-4o-mini";
+      var url = "https://api.openai.com/v1/chat/completions";
+      var body = JSON.stringify({
+        model: model, temperature: 0.9, response_format: { type: "json_object" },
+        messages: [{ role: "system", content: sys }, { role: "user", content: user }]
+      });
+      var headers = { "Authorization": "Bearer " + cfg.OPENAI_API_KEY, "Content-Type": "application/json" };
+
+      var lastErr = null;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) await new Promise(function (r) { setTimeout(r, 2000); });
+        var res;
+        try {
+          res = await w.Context._fetchAI(url, { method: "POST", headers: headers, body: body }, "openai");
+        } catch (e) { lastErr = e; break; }   /* network/timeout -> không cần thử lại, báo luôn cho rõ */
+        if (res.ok) {
+          var data = await res.json();
+          var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+          if (raw) return raw;
+          lastErr = new Error("openai: trả về rỗng"); lastErr.kind = "empty"; lastErr.provider = "openai";
+          break;
+        }
+        var errText = await res.text().catch(function () { return ""; });
+        /* 401 = sai/hết hạn key, 429 = hết hạn mức hoặc hết tiền — cả 2 đều
+           KHÔNG thử lại vô ích. Chỉ thử lại khi 500+ (lỗi tạm thời phía OpenAI). */
+        lastErr = w.Context._apiError("openai", res.status, errText);
+        if (res.status < 500) break;
+      }
+      throw lastErr;
+    },
+
+    /* Chọn nhà cung cấp: có OPENAI_API_KEY thì DÙNG TRƯỚC (theo yêu cầu
+       thay thế Gemini) — Gemini free tier chỉ còn là DỰ PHÒNG tự động
+       nếu OpenAI lỗi VÀ máy cũng có sẵn GEMINI_API_KEY. Không có cả 2 key
+       thì báo rõ "chưa cấu hình" (kind: "no_key") thay vì lỗi mơ hồ. */
+    _callProvider: async function (cfg, sys, user) {
+      if (!cfg || (!cfg.OPENAI_API_KEY && !cfg.GEMINI_API_KEY)) {
+        var noKey = new Error("Chưa cấu hình API key AI nào (OpenAI/Gemini) trong js/keys.local.js");
+        noKey.kind = "no_key";
+        throw noKey;
+      }
+      if (cfg.OPENAI_API_KEY) {
+        try {
+          return await w.Context._callOpenAI(cfg, sys, user);
+        } catch (eOpenAI) {
+          if (!cfg.GEMINI_API_KEY) throw eOpenAI;
+          try {
+            return await w.Context._callGemini(cfg, sys, user);
+          } catch (eGemini) {
+            /* Cả 2 đều lỗi -> báo lỗi của OpenAI (nhà cung cấp CHÍNH theo
+               yêu cầu), nhưng ghi chú thêm để không mất thông tin Gemini. */
+            eOpenAI.message += " (Gemini dự phòng cũng lỗi: " + eGemini.message + ")";
+            throw eOpenAI;
+          }
+        }
+      }
+      return await w.Context._callGemini(cfg, sys, user);
+    },
+
+    /* Vietnamese-hoá 1 lỗi AI để in thẳng lên giao diện cho người dùng
+       thấy (không chỉ console) — dùng ở mọi nơi gọi generateAI/extractVocab/
+       enrichWords. Trả về {title, detail} — title ngắn để làm tiêu đề
+       banner, detail là câu giải thích đầy đủ hơn. */
+    describeError: function (e) {
+      var provider = (e && e.provider) ? e.provider.toUpperCase() : "AI";
+      switch (e && e.kind) {
+        case "no_key": return { title: "Chưa cấu hình API key", detail: e.message };
+        case "network": return { title: provider + ": không kết nối được", detail: "Kiểm tra lại mạng internet của máy này rồi thử lại." };
+        case "timeout": return { title: provider + ": quá thời gian chờ", detail: "Máy chủ đã nhận yêu cầu nhưng không trả lời kịp trong 25 giây — thường do mạng chậm hoặc máy chủ AI đang quá tải, thử lại sau." };
+        case "empty": return { title: provider + ": trả về rỗng", detail: "Có thể bị bộ lọc nội dung chặn — thử lại hoặc đổi bối cảnh." };
+        case "api":
+          var hint = "";
+          if (e.status === 401) hint = " — key sai hoặc đã hết hạn/bị thu hồi.";
+          else if (e.status === 429) hint = " — hết hạn mức (quota) hoặc hết tiền trong tài khoản.";
+          else if (e.status >= 500) hint = " — máy chủ AI đang gặp sự cố, thử lại sau.";
+          return { title: provider + ": lỗi API (mã " + e.status + ")", detail: (e.message || "") + hint };
+        default: return { title: "Lỗi không xác định", detail: (e && e.message) || String(e) };
+      }
     },
 
     /* Escape ký tự đặc biệt của regex trong 1 chuỗi thường */
@@ -299,8 +422,8 @@
     generateAI: async function (words, cfg, difficulty) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
-      if (!cfg || !cfg.GEMINI_API_KEY) {
-        throw new Error("chưa có GEMINI_API_KEY");
+      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
+        throw new Error("chưa có API key AI nào (OpenAI/Gemini)");
       }
       var diffKey = w.Context.DIFFICULTY[difficulty] ? difficulty : "medium";
       var diffDesc = w.Context.DIFFICULTY[diffKey];
@@ -340,7 +463,7 @@
         '{"title":"...", "source_vi":"...", "passage_en":"...", ' +
         '"translations":[{"term":"...","vi":"..."}]}';
 
-      var raw = await w.Context._callGemini(cfg, sys, user);
+      var raw = await w.Context._callProvider(cfg, sys, user);
       var parsed = JSON.parse(raw);
       if (!parsed.passage_en) throw new Error("Thiếu 'passage_en' trong JSON trả về");
 
@@ -386,8 +509,8 @@
     extractVocab: async function (text, cfg) {
       var raw = w.Context.stripPasteNoise(text);
       if (!raw) throw new Error("Chưa dán đoạn văn nào");
-      if (!cfg || !cfg.GEMINI_API_KEY) {
-        throw new Error("chưa có GEMINI_API_KEY");
+      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
+        throw new Error("chưa có API key AI nào (OpenAI/Gemini)");
       }
       if (raw.length > 12000) {
         throw new Error("Đoạn văn dài " + raw.length + " ký tự, quá giới hạn 12000 (~1 bài báo dài / ~15 phút transcript) — cắt bớt rồi dán lại");
@@ -418,7 +541,7 @@
         "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
         '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","sentence_vi":"..."}]}';
 
-      var raw2 = await w.Context._callGemini(cfg, sys, user);
+      var raw2 = await w.Context._callProvider(cfg, sys, user);
       var parsed = JSON.parse(raw2);
       var lower = raw.toLowerCase();
       var seen = {};
@@ -442,8 +565,8 @@
        words: [{term, level?, pos?, ipa?, def_en?, meaning_vi?}] — SỬA
        TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}. */
     enrichWords: async function (words, cfg) {
-      if (!cfg || !cfg.GEMINI_API_KEY) {
-        throw new Error("chưa có GEMINI_API_KEY");
+      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
+        throw new Error("chưa có API key AI nào (OpenAI/Gemini)");
       }
       var needy = (words || []).filter(function (x) {
         return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi);
@@ -475,7 +598,7 @@
           "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
           '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"..."}]}';
 
-        var raw = await w.Context._callGemini(cfg, sys, user);
+        var raw = await w.Context._callProvider(cfg, sys, user);
         var parsed = JSON.parse(raw);
         var got = parsed.words || [];
 

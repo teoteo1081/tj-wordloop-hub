@@ -659,6 +659,24 @@
   App.renderAll = renderAll;
   App.renderBatches = renderBatches;
 
+  /* ══════════════ BANNER LỖI GỌI AI (in rõ lên giao diện) ══════════════
+     Dùng chung cho mọi nơi gọi Context.generateAI/extractVocab/enrichWords
+     thất bại — thay vì chỉ console.warn/toast tự biến mất, in hẳn ra
+     #ai-error-banner (nhà cung cấp nào, loại lỗi gì: mất mạng/timeout/lỗi
+     API kèm mã) để người dùng THẤY NGAY, không cần mở console. */
+  App.showAiError = function (e) {
+    var info = (w.Context && w.Context.describeError) ? w.Context.describeError(e) : { title: "Lỗi AI", detail: (e && e.message) || String(e) };
+    var box = w.$("#ai-error-banner");
+    if (!box) { w.toast(info.title, "err"); return; }
+    w.$("#ai-error-title").textContent = "⚠️ " + info.title;
+    w.$("#ai-error-detail").textContent = info.detail;
+    box.hidden = false;
+  };
+  App.hideAiError = function () {
+    var box = w.$("#ai-error-banner");
+    if (box) box.hidden = true;
+  };
+
   /* ══════════════ NGƯỜI DÙNG (CHIP GÓC TRÊN) ══════════════ */
   function renderUserChip() {
     var u = w.Auth.user;
@@ -885,7 +903,7 @@
          Block). "AI chỉ Admin" đã BỎ theo yêu cầu — giờ ai có máy cấu hình
          key cũng gọi được AI, không phân biệt vai trò. */
       var cfg2 = w.APP_CONFIG || {};
-      if (cfg2.GEMINI_API_KEY) {
+      if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
         var needy = parsed.filter(function (x) {
           return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
         });
@@ -896,6 +914,7 @@
             if (r.filled) w.toast("AI đã tự điền " + r.filled + " ô còn thiếu", "ok");
           } catch (e) {
             console.warn("enrichWords thất bại, vẫn tạo Block với dữ liệu đang có:", e);
+            if (w.App && w.App.showAiError) w.App.showAiError(e);   /* không chặn tạo Block, chỉ báo rõ lý do AI không điền được */
           }
           btn.textContent = "Đang tạo…";
         }
@@ -934,10 +953,11 @@
     /* "AI chỉ Admin" đã BỎ theo yêu cầu — mọi User đều dùng được, chỉ cần
        máy đã cấu hình GEMINI_API_KEY. */
     var cfg2 = w.APP_CONFIG || {};
-    if (!cfg2.GEMINI_API_KEY) {
-      w.toast("Cần key Gemini trong js/keys.local.js để dùng tính năng này", "err");
+    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
+      w.toast("Cần key OpenAI/Gemini trong js/keys.local.js để dùng tính năng này", "err");
       return;
     }
+    if (w.App && w.App.hideAiError) w.App.hideAiError();
     var rawInput = w.$("#extract-input").value;
     if (!rawInput.trim()) { w.toast("Chưa dán bài nào", "err"); return; }
 
@@ -989,6 +1009,7 @@
       renderBatches(); renderPages(); App.renderBlocks();
       w.toast("Đã trích " + parsedWords.length + " từ B1+ → " + res.blocks.length + " block ✔", "ok");
     } catch (e) {
+      if (e && e.kind && w.App && w.App.showAiError) w.App.showAiError(e);   /* lỗi từ AI (kind có sẵn) -> banner chi tiết */
       w.toast("Lỗi: " + (e.message || e), "err");
     } finally {
       btn.disabled = false; btn.textContent = "✨ Trích từ vựng & tạo Block";
@@ -1783,6 +1804,9 @@
 
   /* ══════════════ GẮN SỰ KIỆN ══════════════ */
   function bind() {
+    var elAiErrClose = w.$("#ai-error-close");
+    if (elAiErrClose) elAiErrClose.onclick = App.hideAiError;
+
     updateHubTabsScroll = setupTabScroller("#hub-tabs", "#hub-tabs-prev", "#hub-tabs-next");
     updateSectionTabsScroll = setupTabScroller("#section-list", "#section-tabs-prev", "#section-tabs-next");
 

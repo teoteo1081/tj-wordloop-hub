@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=10">
+<link rel="stylesheet" href="css/app.css?v=11">
 </head>
 <body>
 
@@ -357,6 +357,17 @@
                detail.js. Có bài rồi thì cứ đọc bình thường, chỉ ẩn khu
                dán/chọn nguồn (đã ẩn #passage-empty), không cần hint riêng. -->
           <p id="passage-noperm-hint" class="muted" hidden>Bài đọc này còn trống — chỉ Admin hoặc tài khoản được cấp quyền "Sửa đoạn văn" mới thêm được.</p>
+
+          <!-- Banner lỗi AI — in RÕ lên giao diện (không chỉ toast tự biến
+               mất) khi gọi OpenAI/Gemini thất bại: loại lỗi (mất mạng/
+               timeout/lỗi API kèm mã) + nhà cung cấp nào. Dùng chung cho
+               mọi nơi gọi AI (viết bài đọc, trích từ vựng, tự điền cột) —
+               xem App.showAiError trong app.js. -->
+          <div class="ai-error-banner" id="ai-error-banner" hidden role="alert">
+            <div class="ai-error-title" id="ai-error-title"></div>
+            <div class="ai-error-detail" id="ai-error-detail"></div>
+            <button class="ai-error-close" id="ai-error-close" type="button" aria-label="Đóng thông báo lỗi">✕</button>
+          </div>
 
           <div class="glossary" id="passage-glossary"></div>
           <div class="passage-hint">💡 Bấm <b>Nghe US</b> — chữ sẽ sáng theo giọng đọc (karaoke). Bấm vào bất kỳ từ nào để xem nghĩa và lưu lại.</div>
@@ -760,15 +771,15 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/keys.local.js?v=1"></script>
 <script src="js/util.js?v=1"></script>
 <script src="js/srs.js?v=1"></script>
-<script src="js/context.js?v=3"></script>
+<script src="js/context.js?v=4"></script>
 <script src="js/speech.js?v=1"></script>
 <script src="js/db.js?v=5"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=9"></script>
+<script src="js/detail.js?v=10"></script>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=14"></script>
+<script src="js/app.js?v=15"></script>
 </body>
 </html>
