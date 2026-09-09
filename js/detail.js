@@ -376,10 +376,14 @@
     if (badge) {
       /* Ghi rõ ĐÚNG nhà cung cấp (OpenAI trả phí / Gemini free) thay vì
          chỉ "✨ AI" chung chung — để TJ nhìn 1 cái biết bài nào tốn tiền
-         thật, bài nào chạy free (kiểm soát chi phí OpenAI). */
+         thật, bài nào chạy free (kiểm soát chi phí OpenAI). Kèm luôn máy
+         nào đã gọi API sinh ra bài này (Local = máy nhà, Web = trên link
+         thật) — theo yêu cầu "ghi rõ sinh ra ở Local hay Cloud". */
+      var originLabel = meta.origin === "web" ? "Web" : meta.origin === "local" ? "Local" : "";
       var aiLabel = meta.provider === "openai" ? "✨ OpenAI"
                   : meta.provider === "gemini" ? "✨ Gemini"
                   : "✨ AI";
+      if (originLabel) aiLabel += " · " + originLabel;
       badge.textContent = meta.ai ? aiLabel : (meta.claude ? "✍️ Claude" : (meta.pasted ? "📝 Tự dán" : ""));
       badge.className = "ai-badge" + (meta.ai ? " ai" : ((meta.claude || meta.pasted) ? " tpl" : ""));
     }

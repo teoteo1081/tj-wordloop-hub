@@ -165,7 +165,8 @@
         ai: !!meta.ai,
         pasted: !!meta.pasted,
         claude: !!meta.claude,
-        provider: meta.provider || null   /* "openai" | "gemini" | null — chỉ có ý nghĩa khi ai===true */
+        provider: meta.provider || null,  /* "openai" | "gemini" | null — chỉ có ý nghĩa khi ai===true */
+        origin: meta.origin || null       /* "local" | "web" | null — máy nào gọi AI lúc sinh bài này */
       };
     },
 
@@ -488,13 +489,24 @@
 
       /* provider: "openai" | "gemini" — ghi lại đúng nhà cung cấp THẬT SỰ
          vừa sinh bài này (đọc từ _callProvider ở trên) để TJ kiểm soát
-         chi phí (OpenAI trả phí, Gemini free) — hiện ở badge nguồn bài đọc. */
+         chi phí (OpenAI trả phí, Gemini free) — hiện ở badge nguồn bài đọc.
+         origin: "local" | "web" — máy nào gọi (dựa vào location.hostname,
+         không có "location" thì coi là "local" — đúng cho trường hợp chạy
+         qua Node script, xem tools/ hoặc lịch sử phiên làm việc). Không
+         thay thế provider — 1 bài Gemini có thể sinh từ local HOẶC web,
+         còn OpenAI thì luôn "local" (key chỉ nằm trong keys.local.js). */
+      var origin = "local";
+      try {
+        if (typeof location !== "undefined" && location.hostname &&
+            location.hostname !== "localhost" && location.hostname !== "127.0.0.1") origin = "web";
+      } catch (e) {}
       var meta = {
         ai: true,
         vi: viMap,
         title: parsed.title || "",
         source: parsed.source_vi || "Bài đọc do AI sinh riêng cho Block này.",
-        provider: w.Context._lastProvider || ""
+        provider: w.Context._lastProvider || "",
+        origin: origin
       };
       return marked + w.Context.META_SEP + JSON.stringify(meta);
     },
