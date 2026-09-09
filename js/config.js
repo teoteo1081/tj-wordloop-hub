@@ -13,9 +13,11 @@ window.APP_CONFIG = {
   SUPABASE_URL: "https://pqarpszsipbdugrumhfy.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxYXJwc3pzaXBiZHVncnVtaGZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDc0NTcsImV4cCI6MjEwNDI4MzQ1N30.zB6uvPPt-vQ78TVwPUTMmfulbFVz-lNz9F5RJF9owwc",
 
-  // ⚠️ Key dưới đây BỘC LỘ RÕ (nằm trong code chạy trên trình duyệt + repo GitHub Public)
-  // - AI dùng quota của chính tài khoản Google này. Chỉ dùng cho AI viết/tạo lại bài đọc.
-  GEMINI_API_KEY: "AQ.Ab8RN6Ivas2U75D32v968gtqAEJCfRNQLo7VW2jts-I_ryBJew",
+  /* GEMINI_API_KEY KHÔNG đặt ở đây nữa — file này có Git track + repo
+     Public, key Google từng bị GitHub Push Protection chặn/dễ bị Google
+     tự thu hồi nếu lỡ lọt lên (xem lịch sử commit). Đặt key thật trong
+     js/keys.local.js (đã gitignore, không bao giờ lên GitHub) — copy
+     js/keys.local.example.js thành js/keys.local.js rồi điền key vào. */
 
   APP_NAME: "TJ WordLoop Hub",
   WORDS_PER_BLOCK: 10,        // chuẩn 10 từ / block

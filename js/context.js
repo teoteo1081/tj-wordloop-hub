@@ -168,29 +168,41 @@
       };
     },
 
-    /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey) */
+    /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey).
+       TỰ THỬ LẠI tối đa 3 lần khi Google báo 503/429 (quá tải tạm thời —
+       hay gặp với model "flash" free tier giờ cao điểm, KHÔNG phải lỗi
+       key/code) — đợi 1.5s/3s/6s giữa các lần, chỉ thật sự báo lỗi cho
+       người dùng nếu thử hết cả 3 lần vẫn không được. */
     _callGemini: async function (cfg, sys, user) {
       var model = cfg.GEMINI_MODEL || "gemini-3.6-flash";
       var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model +
                 ":generateContent?key=" + encodeURIComponent(cfg.GEMINI_API_KEY);
-      var res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: sys }] },
-          contents: [{ parts: [{ text: user }] }],
-          generationConfig: { temperature: 0.9, responseMimeType: "application/json" }
-        })
+      var body = JSON.stringify({
+        systemInstruction: { parts: [{ text: sys }] },
+        contents: [{ parts: [{ text: user }] }],
+        generationConfig: { temperature: 0.9, responseMimeType: "application/json" }
       });
-      if (!res.ok) {
+
+      var lastErr = null;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise(function (r) { setTimeout(r, 1500 * Math.pow(2, attempt - 1)); });
+        var res;
+        try {
+          res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body });
+        } catch (e) { lastErr = e; continue; }   /* mất mạng thoáng qua -> thử lại luôn */
+        if (res.ok) {
+          var data = await res.json();
+          var cand = data.candidates && data.candidates[0];
+          var raw = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+          if (raw) return raw;
+          lastErr = new Error("Gemini trả về rỗng (có thể bị chặn bởi bộ lọc an toàn nội dung)");
+          break;   /* rỗng không phải lỗi quá tải -> thử lại vô ích, dừng ngay */
+        }
         var errText = await res.text().catch(function () { return ""; });
-        throw new Error("Gemini HTTP " + res.status + ": " + errText.slice(0, 180));
+        lastErr = new Error("Gemini HTTP " + res.status + ": " + errText.slice(0, 180));
+        if (res.status !== 503 && res.status !== 429) break;   /* lỗi khác (key sai, quota hết...) -> dừng ngay, thử lại vô ích */
       }
-      var data = await res.json();
-      var cand = data.candidates && data.candidates[0];
-      var raw = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-      if (!raw) throw new Error("Gemini trả về rỗng (có thể bị chặn bởi bộ lọc an toàn nội dung)");
-      return raw;
+      throw lastErr;
     },
 
     /* Escape ký tự đặc biệt của regex trong 1 chuỗi thường */
