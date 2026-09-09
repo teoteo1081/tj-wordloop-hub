@@ -294,6 +294,17 @@
      dấu]+meta như bài thật) — LUÔN hiện để chọn thử, dù bài đọc chính
      đang trống hay đã có sẵn (tự dán/AI/Claude), không tự động dùng,
      phải bấm "Dùng bài này" mới đẩy lên chính thức. */
+  /* Đổi bài đọc CHUNG (dán/chọn Claude, hoặc nhờ AI viết lại) ảnh hưởng
+     NGAY tới mọi người học Block đó — không phải bản riêng từng người.
+     CHỈ Admin (luôn có quyền) hoặc tài khoản được cấp cờ riêng
+     canEditPassage mới thấy khu dán/chọn nguồn + nút "🔄 Tạo lại" (AI —
+     tách riêng, CHỈ Admin, không theo cờ này, để không ai vô tình tốn
+     quota AI chung). Xem #modal-admin trong app.js. */
+  function canEditPassage() {
+    var u = w.Auth.user;
+    return !!(u && (u.admin || u.canEditPassage));
+  }
+
   D.renderPassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
@@ -302,16 +313,25 @@
     var contentBox = w.$("#passage-content-block");
     var readModes = w.$("#read-modes");
     var hint = w.$("#passage-empty-hint");
+    var editOk = canEditPassage();
 
-    /* Khu "Dán bài / Nhờ AI viết / Claude đã viết sẵn" LUÔN hiện, dù đang
-       có bài đọc chính hay chưa — để đổi bài bất cứ lúc nào. Chỉ đổi
-       chữ gợi ý cho đúng với trạng thái hiện tại. */
+    var regenBtn = w.$("#btn-regen");
+    if (regenBtn) regenBtn.hidden = !(w.Auth.user && w.Auth.user.admin);
+
+    var emptyBox = w.$("#passage-empty");
+    var noPermHint = w.$("#passage-noperm-hint");
+    if (emptyBox) emptyBox.hidden = !editOk;
+    if (noPermHint) noPermHint.hidden = editOk || !!raw;
+
+    /* Khu "Dán bài / Nhờ AI viết / Claude đã viết sẵn" LUÔN hiện (với
+       tài khoản CÓ quyền), dù đang có bài đọc chính hay chưa — để đổi bài
+       bất cứ lúc nào. Chỉ đổi chữ gợi ý cho đúng với trạng thái hiện tại. */
     if (hint) {
       hint.textContent = raw
         ? "Muốn đổi bài đọc? Chọn 1 nguồn bên dưới rồi bấm Dùng bài này."
         : "Bài đọc này còn trống — chọn 1 nguồn bên dưới.";
     }
-    D.renderSourcePicker(b);
+    if (editOk) D.renderSourcePicker(b);
 
     if (!raw) {
       /* Chưa có bài đọc — để trống thật sự, không tự sinh gì hết. */
@@ -374,6 +394,7 @@
   D.generatePassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
+    if (!(w.Auth.user && w.Auth.user.admin)) { w.toast("Chỉ Admin dùng được AI viết bài đọc", "err"); return; }
     var myBlockId = b.id;
 
     var cfg2 = w.APP_CONFIG || {};
@@ -414,6 +435,7 @@
   D.usePastedPassage = async function (text) {
     var b = block(), ws = words();
     if (!b) return;
+    if (!canEditPassage()) { w.toast("Bạn không có quyền đổi bài đọc chung", "err"); return; }
     var terms = ws.map(function (x) { return x.term; }).filter(Boolean);
     var marked = w.Context._markTerms(text, terms);
     var meta = { ai: false, pasted: true, vi: {}, title: "", source: "Bài đọc do bạn tự dán vào." };
@@ -466,6 +488,7 @@
   D.useClaudeCandidate = async function (idx) {
     var b = block();
     if (!b) return;
+    if (!canEditPassage()) { w.toast("Bạn không có quyền đổi bài đọc chung", "err"); return; }
     var list = Array.isArray(b.context_passage_candidates) ? b.context_passage_candidates : [];
     var val = list[idx];
     if (!val) return;

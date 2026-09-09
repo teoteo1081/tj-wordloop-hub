@@ -788,6 +788,12 @@
           '<input type="checkbox" data-toggle-admin="' + p.id + '"' + (p.is_admin ? " checked" : "") + (isMe ? " disabled" : "") + ">" +
           "<span>👑 Admin</span>" +
         "</label>" +
+        '<label class="admin-toggle" title="' +
+          (p.is_admin ? "Admin luôn có quyền này, không cần bật riêng" : "Cho phép đổi bài đọc CHUNG (dán/chọn Claude) mà không cần lên Admin — ảnh hưởng mọi người học Block đó") + '">' +
+          '<input type="checkbox" data-toggle-passage="' + p.id + '"' +
+            (p.is_admin || p.can_edit_passage ? " checked" : "") + (p.is_admin ? " disabled" : "") + ">" +
+          "<span>✏️ Sửa đoạn văn</span>" +
+        "</label>" +
         '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
         '<button class="btn-soft danger" data-del-profile="' + p.id + '"' + (isMe ? " disabled" : "") +
           ' title="' + (isMe ? "Không tự xoá được chính mình" : "Xoá hẳn tài khoản này") + '">🗑</button>' +
@@ -2059,19 +2065,38 @@
       }
     });
     w.$("#admin-list").addEventListener("change", async function (e) {
-      var box = e.target.closest("[data-toggle-admin]");
-      if (!box) return;
-      var id = box.dataset.toggleAdmin;
-      var next = box.checked;
-      var ok = await App.askConfirm({
-        title: next ? "👑 Cấp quyền Admin" : "Bỏ quyền Admin",
-        desc: next
-          ? "Tài khoản này sẽ thấy nút \"Quản lý tài khoản\" và tự tạo được tài khoản mới, giống bạn."
-          : "Tài khoản này sẽ không còn thấy màn Quản lý tài khoản nữa."
-      });
-      if (!ok) { box.checked = !next; return; }
-      try { await w.DB.setProfileAdmin(id, next); w.toast("Đã cập nhật", "ok"); }
-      catch (e2) { box.checked = !next; w.toast("Không cập nhật được: " + (e2.message || e2), "err"); }
+      var adminBox = e.target.closest("[data-toggle-admin]");
+      if (adminBox) {
+        var id = adminBox.dataset.toggleAdmin;
+        var next = adminBox.checked;
+        var ok = await App.askConfirm({
+          title: next ? "👑 Cấp quyền Admin" : "Bỏ quyền Admin",
+          desc: next
+            ? "Tài khoản này sẽ thấy nút \"Quản lý tài khoản\" và tự tạo được tài khoản mới, giống bạn."
+            : "Tài khoản này sẽ không còn thấy màn Quản lý tài khoản nữa."
+        });
+        if (!ok) { adminBox.checked = !next; return; }
+        try {
+          await w.DB.setProfileAdmin(id, next);
+          w.toast("Đã cập nhật", "ok");
+          await renderAdminList();   /* Admin bật lên -> khoá luôn công tắc "Sửa đoạn văn" (ngầm định đã có) */
+        } catch (e2) { adminBox.checked = !next; w.toast("Không cập nhật được: " + (e2.message || e2), "err"); }
+        return;
+      }
+      var passBox = e.target.closest("[data-toggle-passage]");
+      if (passBox) {
+        var pid = passBox.dataset.togglePassage;
+        var pnext = passBox.checked;
+        var pok = await App.askConfirm({
+          title: pnext ? "✏️ Cho phép sửa đoạn văn" : "Bỏ quyền sửa đoạn văn",
+          desc: pnext
+            ? "Tài khoản này sẽ dán/chọn được bài đọc mới cho Block — đổi là ảnh hưởng NGAY tới mọi người đang học Block đó, không riêng họ."
+            : "Tài khoản này sẽ không đổi được bài đọc nữa, chỉ đọc bài đang có."
+        });
+        if (!pok) { passBox.checked = !pnext; return; }
+        try { await w.DB.setProfileCanEditPassage(pid, pnext); w.toast("Đã cập nhật", "ok"); }
+        catch (e3) { passBox.checked = !pnext; w.toast("Không cập nhật được: " + (e3.message || e3), "err"); }
+      }
     });
     w.$("#mi-logout").onclick = async function () {
       menu.hidden = true;

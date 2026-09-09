@@ -735,6 +735,17 @@
     return r.data;
   };
 
+  /* Cờ RIÊNG (tách khỏi is_admin) — cho phép 1 tài khoản đổi bài đọc CHUNG
+     của Block (dán/chọn Claude 1/2/3 rồi "Dùng bài này") mà không cần cấp
+     hẳn quyền Admin (không tạo/xoá được tài khoản khác). Admin luôn coi
+     như có quyền này (xem detail.js), không cần bật cờ riêng cho Admin. */
+  DB.setProfileCanEditPassage = async function (id, val) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("profiles").update({ can_edit_passage: !!val }).eq("id", id).select().single();
+    if (r.error) throw r.error;
+    return r.data;
+  };
+
   /* Chỉ xoá dòng "profiles" — KHÔNG dọn theo word_progress/block_progress/
      daily_log của người đó (không có FK cascade từ khi bỏ khoá ngoại về
      auth.users, xem ghi chú lịch sử trong CLAUDE.md). Các dòng tiến trình
