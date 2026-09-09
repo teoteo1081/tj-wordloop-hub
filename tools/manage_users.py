@@ -75,8 +75,8 @@ from openpyxl.utils import get_column_letter
 # (hiếm khi cần) thì phải sửa tay database, tool này không hỗ trợ.
 NEW_USERS = [
     # ("Tên hiển thị", "Emoji"),
-    # ("TJ", "🦊"),
-    # ("Thiên Bảo", "🐼"),
+    ("DAVID", "🦊"),
+    ("Thiên Bảo", "🐼"),
 ]
 
 # URL app đã deploy - dùng để ghép thành link "?u=<id>" cho từng người học.
@@ -250,7 +250,18 @@ ESTIMATE_PASS_RATIO = 0.8  # % đúng tối thiểu để tính "ước tính đ
 
 
 def build_stats():
-    profiles, _ = sb_get("profiles", {"select": "id,display_name,avatar_emoji", "order": "display_name.asc"})
+    # is_admin (cột "Vai trò" trong Excel) mới thêm - nếu chưa chạy SQL
+    # migrate (alter table profiles add column is_admin) thì cột này chưa
+    # tồn tại trên Supabase, PostgREST trả lỗi 400 -> fallback đọc KHÔNG
+    # kèm is_admin (coi mọi người là "User") thay vì crash cả script.
+    try:
+        profiles, _ = sb_get(
+            "profiles", {"select": "id,display_name,avatar_emoji,is_admin", "order": "display_name.asc"})
+    except requests.HTTPError:
+        print("  ⚠️ Chưa có cột 'is_admin' trên Supabase (chạy SQL migrate trước) - "
+              "cột Vai trò trong Excel sẽ hiện toàn 'User'.")
+        profiles, _ = sb_get(
+            "profiles", {"select": "id,display_name,avatar_emoji", "order": "display_name.asc"})
     word_progress = fetch_all("word_progress", "user_id,word_id,attempts,correct,mastered,familiarity,last_reviewed_at")
     block_progress = fetch_all(
         "block_progress",
@@ -459,7 +470,7 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
     ws.title = "Người học"
 
     headers = [
-        "", "Tên", "Link truy cập (gửi cho người học)",
+        "", "Tên", "Vai trò", "Link truy cập (gửi cho người học)",
         "Từ đã thuộc", f"/ {total_words} từ trong kho",
         "Block đã đạt bài thi", f"/ {total_blocks} block trong kho",
         "Lần 1–2\n(10p/24h)", "Lần 3\n(1 tuần)", "Lần 4\n(1 tháng)", "Lần 5–6\n(3–6 tháng)",
@@ -469,27 +480,31 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
         1: "Emoji đại diện người học (tự chọn lúc tạo hoặc trong app).",
         2: "Bấm vào MỞ THẲNG link học của đúng người đó - không cần mật khẩu/email, "
            "vào là nhận diện luôn.",
-        3: "Y hệt link ở cột Tên, dạng chữ thường (không phải nút bấm) - copy dòng này "
+        3: "👑 Admin = thấy được menu \"Quản lý tài khoản\" trong app, tự tạo/xoá/cấp quyền "
+           "cho tài khoản khác. User = tài khoản học bình thường, không thấy menu đó.\n\n"
+           "Đổi vai trò ngay trong app (Admin bật/tắt cho từng người) - script này CHỈ đọc lại "
+           "để hiển thị, không đổi được từ Excel.",
+        4: "Y hệt link ở cột Tên, dạng chữ thường (không phải nút bấm) - copy dòng này "
            "gửi qua Zalo/tin nhắn cho người học.\n\n"
            "⚠️ File Excel này chứa link đăng nhập THẬT - không đẩy lên GitHub/chia sẻ công "
            "khai, chỉ gửi RIÊNG cho đúng người trong link đó.",
-        4: "Số từ được app TỰ ĐỘNG đánh dấu ĐÃ THUỘC (mặc định: đúng >=80% VÀ đã thử >=3 lần "
+        5: "Số từ được app TỰ ĐỘNG đánh dấu ĐÃ THUỘC (mặc định: đúng >=80% VÀ đã thử >=3 lần "
            "- xem MASTER_THRESHOLD/MASTER_MIN_ATTEMPTS trong js/config.js).",
-        5: "Tổng số từ đang có trong TOÀN BỘ kho từ vựng (dùng chung mọi người học) - để so sánh "
+        6: "Tổng số từ đang có trong TOÀN BỘ kho từ vựng (dùng chung mọi người học) - để so sánh "
            "tỉ lệ 'đã thuộc bao nhiêu trên tổng số'.",
-        6: "Số Block người này đã học XONG và ĐẠT (Pass ≥80%) bài kiểm tra cuối bài - chỉ Block "
+        7: "Số Block người này đã học XONG và ĐẠT (Pass ≥80%) bài kiểm tra cuối bài - chỉ Block "
            "đã Pass mới được tính vào 4 cột chu kỳ ôn Tony Buzan bên phải.",
-        7: "Tổng số Block đang có trong toàn bộ kho (dùng chung mọi người học).",
-        8: "Giai đoạn ôn tập Tony Buzan LẦN 1 (sau 10 phút) và LẦN 2 (sau 24 giờ) - số Block "
+        8: "Tổng số Block đang có trong toàn bộ kho (dùng chung mọi người học).",
+        9: "Giai đoạn ôn tập Tony Buzan LẦN 1 (sau 10 phút) và LẦN 2 (sau 24 giờ) - số Block "
            "đang ở 1 trong 2 mốc này, CHƯA đến hạn ôn lại.",
-        9: "Giai đoạn ôn LẦN 3 (ôn lại sau 1 tuần kể từ lần ôn trước) - số Block đang ở mốc "
-           "này, CHƯA đến hạn.",
-        10: "Giai đoạn ôn LẦN 4 (ôn lại sau 1 tháng) - số Block đang ở mốc này, CHƯA đến hạn.",
-        11: "Giai đoạn ôn LẦN 5 (sau 3 tháng) và LẦN 6 (sau 6 tháng, mốc DUY TRÌ cuối cùng) - "
+        10: "Giai đoạn ôn LẦN 3 (ôn lại sau 1 tuần kể từ lần ôn trước) - số Block đang ở mốc "
+            "này, CHƯA đến hạn.",
+        11: "Giai đoạn ôn LẦN 4 (ôn lại sau 1 tháng) - số Block đang ở mốc này, CHƯA đến hạn.",
+        12: "Giai đoạn ôn LẦN 5 (sau 3 tháng) và LẦN 6 (sau 6 tháng, mốc DUY TRÌ cuối cùng) - "
             "số Block đang ở 1 trong 2 mốc này, CHƯA đến hạn.",
-        12: "Block đã ôn ĐỦ hết 6 lần theo Tony Buzan - coi như đã vào trí nhớ dài hạn, không "
+        13: "Block đã ôn ĐỦ hết 6 lần theo Tony Buzan - coi như đã vào trí nhớ dài hạn, không "
             "cần ôn lại theo lịch nữa.",
-        13: "Trong số Block đang ở 4 giai đoạn ôn (cột 'Lần 1-2/3/4/5-6' - KHÔNG tính Block đã "
+        14: "Trong số Block đang ở 4 giai đoạn ôn (cột 'Lần 1-2/3/4/5-6' - KHÔNG tính Block đã "
             "vào trí nhớ dài hạn), bao nhiêu cái đã QUÁ NGÀY hẹn ôn lại mà CHƯA ôn. Càng nhiều "
             "càng cần nhắc người học ôn sớm.",
     }
@@ -506,34 +521,39 @@ def write_excel(stats_list, total_words, total_blocks, word_rows, block_rows):
         c_name = ws.cell(row=r_idx, column=2, value=_hyperlink(link, p.get("display_name") or "(chưa đặt tên)"))
         c_name.font = LINK_FONT
 
-        c_link = ws.cell(row=r_idx, column=3, value=link)
+        is_admin = bool(p.get("is_admin"))
+        c_role = ws.cell(row=r_idx, column=3, value="👑 Admin" if is_admin else "User")
+        if is_admin:
+            c_role.font = Font(name="Arial", bold=True, color="B8860B")
+
+        c_link = ws.cell(row=r_idx, column=4, value=link)
         c_link.font = DIM_FONT
 
-        ws.cell(row=r_idx, column=4, value=s["words_mastered"])
-        ws.cell(row=r_idx, column=5, value=total_words)
-        ws.cell(row=r_idx, column=6, value=s["blocks_passed"])
-        ws.cell(row=r_idx, column=7, value=total_blocks)
-        ws.cell(row=r_idx, column=8, value=s["group"][1])
-        ws.cell(row=r_idx, column=9, value=s["group"][2])
-        ws.cell(row=r_idx, column=10, value=s["group"][3])
-        ws.cell(row=r_idx, column=11, value=s["group"][4])
-        ws.cell(row=r_idx, column=12, value=s["long_term"])
+        ws.cell(row=r_idx, column=5, value=s["words_mastered"])
+        ws.cell(row=r_idx, column=6, value=total_words)
+        ws.cell(row=r_idx, column=7, value=s["blocks_passed"])
+        ws.cell(row=r_idx, column=8, value=total_blocks)
+        ws.cell(row=r_idx, column=9, value=s["group"][1])
+        ws.cell(row=r_idx, column=10, value=s["group"][2])
+        ws.cell(row=r_idx, column=11, value=s["group"][3])
+        ws.cell(row=r_idx, column=12, value=s["group"][4])
+        ws.cell(row=r_idx, column=13, value=s["long_term"])
 
         _style_row(ws, r_idx, len(headers), banded=(i % 2 == 1))
         ws.cell(row=r_idx, column=2).font = LINK_FONT
-        ws.cell(row=r_idx, column=3).font = DIM_FONT
+        ws.cell(row=r_idx, column=4).font = DIM_FONT
         ws.cell(row=r_idx, column=2).alignment = Alignment(horizontal="left", vertical="center")
-        ws.cell(row=r_idx, column=3).alignment = Alignment(horizontal="left", vertical="center")
+        ws.cell(row=r_idx, column=4).alignment = Alignment(horizontal="left", vertical="center")
         for c in range(1, len(headers) + 1):
-            if c not in (2, 3):
+            if c not in (2, 4):
                 ws.cell(row=r_idx, column=c).alignment = Alignment(horizontal="center", vertical="center")
 
-        c_overdue = ws.cell(row=r_idx, column=13)
+        c_overdue = ws.cell(row=r_idx, column=14, value=s["overdue"])
         if s["overdue"] > 0:
             c_overdue.fill = OVERDUE_FILL
             c_overdue.font = OVERDUE_FONT
 
-    widths = [4, 20, 60, 11, 13, 15, 15, 12, 11, 11, 13, 15, 12]
+    widths = [4, 20, 11, 60, 11, 13, 15, 15, 12, 11, 11, 13, 15, 12]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.row_dimensions[1].height = 42

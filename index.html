@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=5">
+<link rel="stylesheet" href="css/app.css?v=6">
 </head>
 <body>
 
@@ -54,6 +54,10 @@
     <button class="user-chip" id="user-chip" aria-haspopup="true" aria-expanded="false">
       <span class="avatar" id="user-avatar">🐣</span>
       <span class="uname" id="user-name">Khách</span>
+      <!-- "👑 Admin"/"User" — chỉ hiện khi đăng nhập Cloud thật (không hiện
+           cho hồ sơ Local/Khách, khái niệm role chỉ có ý nghĩa ở Cloud).
+           Đọc từ Auth.user.admin, xem renderUserChip trong app.js. -->
+      <span class="role-badge" id="role-badge" hidden></span>
       <span class="caret">▾</span>
     </button>
 
@@ -61,7 +65,10 @@
       <div class="user-menu-head">
         <span class="avatar big" id="menu-avatar">🐣</span>
         <div>
-          <div class="menu-name" id="menu-name">Khách</div>
+          <div class="menu-name-row">
+            <span class="menu-name" id="menu-name">Khách</span>
+            <span class="role-badge" id="menu-role-badge" hidden></span>
+          </div>
           <div class="menu-sub" id="menu-sub">Chưa đăng nhập</div>
         </div>
       </div>
@@ -728,13 +735,13 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/srs.js?v=1"></script>
 <script src="js/context.js?v=1"></script>
 <script src="js/speech.js?v=1"></script>
-<script src="js/db.js?v=2"></script>
+<script src="js/db.js?v=3"></script>
 <script src="js/auth.js?v=2"></script>
 <script src="js/reader.js?v=1"></script>
 <script src="js/detail.js?v=2"></script>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=3"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/app.js?v=8"></script>
 </body>
 </html>

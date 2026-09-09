@@ -640,6 +640,17 @@
     w.$("#menu-name").textContent = u.name;
     w.$("#menu-sub").textContent = u.cloud ? (u.email || "Tài khoản Cloud") : "Hồ sơ trên máy này";
 
+    /* "👑 Admin"/"User" — chỉ có ý nghĩa ở tài khoản Cloud thật (u.cloud),
+       hồ sơ Local/Khách ẩn hẳn 2 badge này đi (không phải role, chỉ là
+       hồ sơ riêng trên máy). */
+    [["#role-badge", ""], ["#menu-role-badge", ""]].forEach(function (sel) {
+      var el = w.$(sel[0]);
+      if (!u.cloud) { el.hidden = true; return; }
+      el.hidden = false;
+      el.textContent = u.admin ? "👑 Admin" : "User";
+      el.className = "role-badge " + (u.admin ? "admin" : "user");
+    });
+
     var pill = w.$("#mode-pill");
     var modeSlug;
     if (w.DB.mode === "cloud") {
@@ -778,6 +789,8 @@
           "<span>👑 Admin</span>" +
         "</label>" +
         '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
+        '<button class="btn-soft danger" data-del-profile="' + p.id + '"' + (isMe ? " disabled" : "") +
+          ' title="' + (isMe ? "Không tự xoá được chính mình" : "Xoá hẳn tài khoản này") + '">🗑</button>' +
       "</div>";
     }).join("") || '<div class="nav-empty">Chưa có tài khoản nào</div>';
   }
@@ -2026,6 +2039,23 @@
       if (copyBtn) {
         var link = adminLink(copyBtn.dataset.copyLink);
         navigator.clipboard.writeText(link).then(function () { w.toast("Đã copy link", "ok"); });
+        return;
+      }
+      var delBtn = e.target.closest("[data-del-profile]");
+      if (delBtn) {
+        var row = delBtn.closest("[data-pid]");
+        var pname = row ? row.querySelector(".admin-name").textContent.trim() : "";
+        var ok = await App.askConfirm({
+          title: "🗑 Xoá tài khoản",
+          desc: "Xoá hẳn '" + pname + "' — link cũ của họ sẽ không đăng nhập được nữa, tiến trình " +
+                "ôn tập cũ vẫn còn trên server nhưng không ai truy cập lại được. Không hoàn tác được."
+        });
+        if (!ok) return;
+        try {
+          await w.DB.deleteProfile(delBtn.dataset.delProfile);
+          w.toast("Đã xoá tài khoản", "ok");
+          await renderAdminList();
+        } catch (e2) { w.toast("Không xoá được: " + (e2.message || e2), "err"); }
       }
     });
     w.$("#admin-list").addEventListener("change", async function (e) {

@@ -16,3 +16,4 @@ tools/tu_vung.xlsx
 # Backup snapshots tự tạo trước khi sửa dữ liệu (xem CLAUDE.md)
 *.bak-*
 .DS_Store
+tools/__pycache__/

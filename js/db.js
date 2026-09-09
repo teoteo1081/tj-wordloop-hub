@@ -735,6 +735,19 @@
     return r.data;
   };
 
+  /* Chỉ xoá dòng "profiles" — KHÔNG dọn theo word_progress/block_progress/
+     daily_log của người đó (không có FK cascade từ khi bỏ khoá ngoại về
+     auth.users, xem ghi chú lịch sử trong CLAUDE.md). Các dòng tiến trình
+     cũ trở thành "mồ côi" (user_id không còn khớp profiles nào) — vô hại,
+     không hiện ở đâu cả vì mọi màn đều tra theo Auth.user.id hiện tại, chỉ
+     tốn vài dòng trong DB, không đáng lo với quy mô gia đình/nhóm nhỏ. */
+  DB.deleteProfile = async function (id) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("profiles").delete().eq("id", id);
+    if (r.error) throw r.error;
+    return true;
+  };
+
   /* Cây con của từng bảng — dùng để xoá dây chuyền ở chế độ local.
      Trên cloud thì Postgres tự lo nhờ ON DELETE CASCADE. */
   var CHILD = {
