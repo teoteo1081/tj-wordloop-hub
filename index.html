@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=4">
+<link rel="stylesheet" href="css/app.css?v=5">
 </head>
 <body>
 
@@ -91,6 +91,10 @@
       <button class="menu-item" id="mi-switch">👥 <span>Đổi / Thêm người học</span></button>
       <button class="menu-item" id="mi-edit">✏️ <span>Đổi tên &amp; avatar</span></button>
       <button class="menu-item" id="mi-cloud">☁️ <span>Đăng nhập Cloud (email)</span></button>
+      <!-- Chỉ hiện khi Auth.user.admin === true (xem renderUserChip trong
+           app.js) — người dùng thường (kể cả đăng nhập qua link) không
+           bao giờ thấy nút này, không tạo được tài khoản mới. -->
+      <button class="menu-item" id="mi-admin" style="display:none">👑 <span>Quản lý tài khoản</span></button>
       <div class="user-menu-sep"></div>
       <button class="menu-item" id="mi-print">🖨️ <span>Xuất PDF (Block/Batch/Page…)</span></button>
       <button class="menu-item" id="mi-cleanup">🧹 <span>Dọn từ vựng rác (dòng tiêu đề lẫn vào)</span></button>
@@ -604,6 +608,23 @@ mitigate | giảm nhẹ"></textarea>
   </div>
 </div>
 
+<!-- Quản lý tài khoản — CHỈ Admin thấy được nút mở modal này (xem #mi-admin,
+     renderUserChip trong app.js). Đây là NƠI DUY NHẤT tạo được tài khoản
+     Cloud thật (bảng "profiles") từ trong app — người thường (kể cả vào
+     bằng link) không có đường nào tới đây. -->
+<div class="modal-overlay" id="modal-admin" hidden>
+  <div class="modal-box wide">
+    <h3>👑 Quản lý tài khoản</h3>
+    <p class="modal-desc">Chỉ tài khoản có quyền Admin (cờ 👑) mới thấy và mở được màn này. Người khác nhận link chỉ vào đúng tài khoản của họ, không tạo thêm được tài khoản mới.</p>
+    <button class="btn-dashed" id="btn-admin-new">+ Tạo tài khoản mới</button>
+    <div id="admin-new-result"></div>
+    <div id="admin-list" class="admin-list"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-admin">Đóng</button>
+    </div>
+  </div>
+</div>
+
 <!-- Đăng nhập cloud -->
 <div class="modal-overlay" id="modal-cloud" hidden>
   <div class="modal-box">
@@ -707,13 +728,13 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/srs.js?v=1"></script>
 <script src="js/context.js?v=1"></script>
 <script src="js/speech.js?v=1"></script>
-<script src="js/db.js?v=1"></script>
-<script src="js/auth.js?v=1"></script>
+<script src="js/db.js?v=2"></script>
+<script src="js/auth.js?v=2"></script>
 <script src="js/reader.js?v=1"></script>
 <script src="js/detail.js?v=2"></script>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=3"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=6"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>

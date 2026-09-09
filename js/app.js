@@ -655,6 +655,11 @@
       modeSlug = "local";
     }
     w.$("#mi-cloud").style.display = w.Auth.canCloud() ? "" : "none";
+    /* Chỉ tài khoản có cờ is_admin (Auth.user.admin, đọc từ profiles lúc
+       đăng nhập — xem tryLinkLogin/adoptSession trong auth.js) mới thấy
+       nút này. Người thường (kể cả vào bằng link thật) không có cách nào
+       tạo thêm tài khoản mới từ trong app — xem giải thích ở #modal-admin. */
+    w.$("#mi-admin").style.display = u.admin ? "" : "none";
     reflectAddressBar(modeSlug, u.name);
   }
 
@@ -742,6 +747,45 @@
     renderAll();
     w.$("#modal-user").hidden = true;
     w.toast("Đang học với hồ sơ: " + w.Auth.user.name, "ok");
+  }
+
+  /* ══════════════ MODAL QUẢN LÝ TÀI KHOẢN (Admin) ══════════════
+     CHỈ mở được khi Auth.user.admin === true (chốt ở renderUserChip — ẩn
+     hẳn nút #mi-admin với người không có cờ này). Đây là nơi DUY NHẤT
+     trong app tạo được tài khoản Cloud thật (bảng "profiles") — thay thế
+     việc phải chạy tools/manage_users.py mỗi lần cần thêm 1 người học. */
+  function adminLink(id) {
+    var url = new URL(location.href);
+    url.search = ""; url.hash = "";
+    url.searchParams.set("u", id);
+    return url.toString();
+  }
+
+  async function renderAdminList() {
+    var box = w.$("#admin-list");
+    box.innerHTML = '<div class="nav-empty">Đang tải…</div>';
+    var list;
+    try { list = await w.DB.listProfiles(); }
+    catch (e) { box.innerHTML = '<div class="nav-empty">Không tải được: ' + w.esc(e.message || String(e)) + "</div>"; return; }
+
+    box.innerHTML = list.map(function (p) {
+      var isMe = w.Auth.user && w.Auth.user.id === p.id;
+      return '<div class="admin-row" data-pid="' + p.id + '">' +
+        '<span class="avatar">' + w.esc(p.avatar_emoji || "🐣") + "</span>" +
+        '<span class="admin-name">' + w.esc(p.display_name || "(chưa đặt tên)") + (isMe ? ' <i class="muted">(bạn)</i>' : "") + "</span>" +
+        '<label class="admin-toggle" title="Cho phép tài khoản này quản lý tài khoản khác">' +
+          '<input type="checkbox" data-toggle-admin="' + p.id + '"' + (p.is_admin ? " checked" : "") + (isMe ? " disabled" : "") + ">" +
+          "<span>👑 Admin</span>" +
+        "</label>" +
+        '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
+      "</div>";
+    }).join("") || '<div class="nav-empty">Chưa có tài khoản nào</div>';
+  }
+
+  async function openAdminModal() {
+    w.$("#modal-admin").hidden = false;
+    w.$("#admin-new-result").innerHTML = "";
+    await renderAdminList();
   }
 
   /* ══════════════ PASTE TỪ MỚI ══════════════ */
@@ -1954,6 +1998,51 @@
       w.$("#cloud-status").textContent = ""; w.$("#cloud-status").className = "cloud-status";
       w.$("#modal-cloud").hidden = false;
     };
+    w.$("#mi-admin").onclick = function () {
+      menu.hidden = true;
+      openAdminModal();
+    };
+    w.$("#btn-admin-new").onclick = async function () {
+      var r = await askText({
+        title: "👤 Tài khoản mới", desc: "Tạo tài khoản Cloud thật — tiến trình đồng bộ, hiện trong màn này.",
+        withEmoji: true, emoji: "🦊", placeholder: "Tên hiển thị"
+      });
+      if (!r) return;
+      try {
+        var p = await w.DB.createProfile(r.text, r.emoji);
+        var link = adminLink(p.id);
+        w.$("#admin-new-result").innerHTML =
+          '<div class="admin-new-link">✅ Đã tạo <b>' + w.esc(p.display_name) + '</b> — gửi link này cho người học:<br>' +
+          '<code>' + w.esc(link) + '</code>' +
+          '<button class="btn-soft" id="admin-new-copy">📋 Copy link</button></div>';
+        w.$("#admin-new-copy").onclick = function () {
+          navigator.clipboard.writeText(link).then(function () { w.toast("Đã copy link", "ok"); });
+        };
+        await renderAdminList();
+      } catch (e) { w.toast("Không tạo được: " + (e.message || e), "err"); }
+    };
+    w.$("#admin-list").addEventListener("click", async function (e) {
+      var copyBtn = e.target.closest("[data-copy-link]");
+      if (copyBtn) {
+        var link = adminLink(copyBtn.dataset.copyLink);
+        navigator.clipboard.writeText(link).then(function () { w.toast("Đã copy link", "ok"); });
+      }
+    });
+    w.$("#admin-list").addEventListener("change", async function (e) {
+      var box = e.target.closest("[data-toggle-admin]");
+      if (!box) return;
+      var id = box.dataset.toggleAdmin;
+      var next = box.checked;
+      var ok = await App.askConfirm({
+        title: next ? "👑 Cấp quyền Admin" : "Bỏ quyền Admin",
+        desc: next
+          ? "Tài khoản này sẽ thấy nút \"Quản lý tài khoản\" và tự tạo được tài khoản mới, giống bạn."
+          : "Tài khoản này sẽ không còn thấy màn Quản lý tài khoản nữa."
+      });
+      if (!ok) { box.checked = !next; return; }
+      try { await w.DB.setProfileAdmin(id, next); w.toast("Đã cập nhật", "ok"); }
+      catch (e2) { box.checked = !next; w.toast("Không cập nhật được: " + (e2.message || e2), "err"); }
+    });
     w.$("#mi-logout").onclick = async function () {
       menu.hidden = true;
       await w.Auth.signOut();

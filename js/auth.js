@@ -77,7 +77,7 @@
     var u = readUsers().find(function (x) { return x.id === id; });
     if (!u) return null;
     localStorage.setItem(LS_CUR, id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false };
     if (w.DB) w.DB.progressCloud = false;
     fire();
     return Auth.user;
@@ -106,7 +106,7 @@
     var id = localStorage.getItem(LS_CUR);
     var u = arr.find(function (x) { return x.id === id; }) || arr[0];
     localStorage.setItem(LS_CUR, u.id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false };
     if (w.DB) w.DB.progressCloud = false;
   }
 
@@ -130,7 +130,7 @@
       }
     } catch (e) { console.warn("[Auth] profiles:", e.message || e); }
 
-    Auth.user = { id: uid, name: name, emoji: emoji, email: email, cloud: true };
+    Auth.user = { id: uid, name: name, emoji: emoji, email: email, cloud: true, admin: !!(r && r.data && r.data.is_admin) };
     w.DB.progressCloud = true;
     fire();
   }
@@ -172,7 +172,8 @@
         name: r.data.display_name || "Học viên",
         emoji: r.data.avatar_emoji || "🐣",
         email: null,
-        cloud: true
+        cloud: true,
+        admin: !!r.data.is_admin
       };
       w.DB.progressCloud = true;
 

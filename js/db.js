@@ -704,6 +704,37 @@
     return r.data;
   };
 
+  /* ══════════════ QUẢN LÝ TÀI KHOẢN (chỉ Admin thấy — xem app.js #mi-admin) ══════════════
+     CHỈ hoạt động ở chế độ cloud — "profiles" là bảng dùng chung, không có
+     khái niệm này ở local (mỗi máy local vốn đã tách biệt qua Auth.createLocal).
+     LƯU Ý bảo mật: RLS hiện đang mở cho anon (xem auth.js đầu file) nên đây
+     KHÔNG phải chốt chặn thật ở tầng server — chỉ ẩn/hiện trên giao diện
+     giống mọi chỗ khác của app. Đủ dùng cho quy mô gia đình/nhóm nhỏ, không
+     nên coi là bảo mật cấp doanh nghiệp. */
+  DB.listProfiles = async function () {
+    if (DB.mode !== "cloud" || !DB.sb) return [];
+    var r = await DB.sb.from("profiles").select("*").order("display_name");
+    if (r.error) throw r.error;
+    return r.data || [];
+  };
+
+  DB.createProfile = async function (name, emoji) {
+    if (DB.mode !== "cloud" || !DB.sb) throw new Error("Chỉ tạo được tài khoản ở chế độ Cloud");
+    var id = (w.crypto && w.crypto.randomUUID) ? w.crypto.randomUUID() : w.uid("us");
+    var r = await DB.sb.from("profiles")
+      .insert({ id: id, display_name: name, avatar_emoji: emoji || "🐣", is_admin: false })
+      .select().single();
+    if (r.error) throw r.error;
+    return r.data;
+  };
+
+  DB.setProfileAdmin = async function (id, isAdmin) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("profiles").update({ is_admin: !!isAdmin }).eq("id", id).select().single();
+    if (r.error) throw r.error;
+    return r.data;
+  };
+
   /* Cây con của từng bảng — dùng để xoá dây chuyền ở chế độ local.
      Trên cloud thì Postgres tự lo nhờ ON DELETE CASCADE. */
   var CHILD = {

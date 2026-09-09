@@ -1198,6 +1198,25 @@ textarea:focus{border-color:var(--blue);}
 .cloud-status.ok{color:var(--green-l);}
 .cloud-status.err{color:var(--red-l);}
 
+/* Modal Quản lý tài khoản (Admin) — xem #modal-admin trong index.html */
+.admin-list{display:flex;flex-direction:column;gap:.4rem;margin:.7rem 0;max-height:50vh;overflow-y:auto;}
+.admin-row{
+  display:flex;align-items:center;gap:.6rem;padding:.55rem .65rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg-soft);font-size:.85rem;flex-wrap:wrap;
+}
+.admin-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.admin-toggle{display:flex;align-items:center;gap:.3rem;font-size:.76rem;color:var(--text-2);cursor:pointer;white-space:nowrap;}
+.admin-toggle input{cursor:pointer;}
+.admin-toggle input:disabled{cursor:not-allowed;opacity:.5;}
+.admin-new-link{
+  font-size:.78rem;color:var(--text-2);background:var(--green-sub);border:1px solid rgba(79,174,130,.35);
+  border-radius:8px;padding:.6rem .7rem;margin:.6rem 0;line-height:1.6;
+}
+.admin-new-link code{
+  display:block;word-break:break-all;font-size:.72rem;color:var(--text);background:var(--bg-deep);
+  border-radius:6px;padding:.4rem .5rem;margin:.3rem 0;
+}
+
 /* Toast */
 .toast-wrap{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:.4rem;align-items:center;pointer-events:none;}
 .toast{
