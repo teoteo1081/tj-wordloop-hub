@@ -301,8 +301,7 @@
      tách riêng, CHỈ Admin, không theo cờ này, để không ai vô tình tốn
      quota AI chung). Xem #modal-admin trong app.js. */
   function canEditPassage() {
-    var u = w.Auth.user;
-    return !!(u && (u.admin || u.canEditPassage));
+    return w.Auth.hasPassageEdit();
   }
 
   D.renderPassage = async function () {
@@ -316,7 +315,7 @@
     var editOk = canEditPassage();
 
     var regenBtn = w.$("#btn-regen");
-    if (regenBtn) regenBtn.hidden = !(w.Auth.user && w.Auth.user.admin);
+    if (regenBtn) regenBtn.hidden = !w.Auth.isAdmin();
 
     var emptyBox = w.$("#passage-empty");
     var noPermHint = w.$("#passage-noperm-hint");
@@ -394,7 +393,7 @@
   D.generatePassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
-    if (!(w.Auth.user && w.Auth.user.admin)) { w.toast("Chỉ Admin dùng được AI viết bài đọc", "err"); return; }
+    if (!w.Auth.isAdmin()) { w.toast("Chỉ Admin dùng được AI viết bài đọc", "err"); return; }
     var myBlockId = b.id;
 
     var cfg2 = w.APP_CONFIG || {};

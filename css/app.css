@@ -227,6 +227,10 @@ button{font-family:inherit;}
 }
 .role-badge.admin{background:var(--amber-sub);color:var(--amber-l);}
 .role-badge.user{background:var(--bg-soft);color:var(--text-3);border:1px solid var(--border);}
+/* Admin THẬT đang bật "Xem như User" — cố tình khác hẳn màu ".user" thật,
+   để không nhầm "đang xem thử" với "đã mất quyền" (đúng lo lắng user đã
+   từng gặp trước khi chạy SQL is_admin). */
+.role-badge.preview{background:var(--violet-sub);color:var(--violet-l);border:1px dashed var(--violet);}
 .user-menu-sep{height:1px;background:var(--border-soft);margin:.25rem 0;}
 .menu-item{
   width:100%;display:flex;align-items:center;gap:.55rem;background:transparent;border:none;color:var(--text-2);

@@ -640,15 +640,25 @@
     w.$("#menu-name").textContent = u.name;
     w.$("#menu-sub").textContent = u.cloud ? (u.email || "Tài khoản Cloud") : "Hồ sơ trên máy này";
 
-    /* "👑 Admin"/"User" — chỉ có ý nghĩa ở tài khoản Cloud thật (u.cloud),
-       hồ sơ Local/Khách ẩn hẳn 2 badge này đi (không phải role, chỉ là
-       hồ sơ riêng trên máy). */
+    /* "👑 Admin"/"User"/"👁️ Xem như User" — chỉ có ý nghĩa ở tài khoản
+       Cloud thật (u.cloud), hồ sơ Local/Khách ẩn hẳn 2 badge này đi
+       (không phải role, chỉ là hồ sơ riêng trên máy). Admin thật đang bật
+       chế độ xem thử (Auth.viewAsUser) thì hiện badge RIÊNG màu khác hẳn
+       (không lẫn với "User" thật) — tự nhắc đang ở chế độ xem thử, không
+       phải mất quyền. */
+    var isAdmin = w.Auth.isAdmin();
+    var previewing = !!(u.admin && w.Auth.viewAsUser);
     [["#role-badge", ""], ["#menu-role-badge", ""]].forEach(function (sel) {
       var el = w.$(sel[0]);
       if (!u.cloud) { el.hidden = true; return; }
       el.hidden = false;
-      el.textContent = u.admin ? "👑 Admin" : "User";
-      el.className = "role-badge " + (u.admin ? "admin" : "user");
+      if (previewing) {
+        el.textContent = "👁️ Xem như User";
+        el.className = "role-badge preview";
+      } else {
+        el.textContent = isAdmin ? "👑 Admin" : "User";
+        el.className = "role-badge " + (isAdmin ? "admin" : "user");
+      }
     });
 
     var pill = w.$("#mode-pill");
@@ -666,18 +676,29 @@
       modeSlug = "local";
     }
     w.$("#mi-cloud").style.display = w.Auth.canCloud() ? "" : "none";
-    /* Chỉ tài khoản có cờ is_admin (Auth.user.admin, đọc từ profiles lúc
-       đăng nhập — xem tryLinkLogin/adoptSession trong auth.js) mới thấy
-       nút này. Người thường (kể cả vào bằng link thật) không có cách nào
-       tạo thêm tài khoản mới từ trong app — xem giải thích ở #modal-admin. */
-    w.$("#mi-admin").style.display = u.admin ? "" : "none";
+    /* Chỉ tài khoản có cờ is_admin THẬT (đọc từ profiles lúc đăng nhập —
+       xem tryLinkLogin/adoptSession trong auth.js) mới thấy nút này —
+       dùng w.Auth.isAdmin() (tôn trọng chế độ xem thử) chứ không đọc
+       thẳng u.admin, để bật "Xem như User" thì đúng là ẩn hẳn màn Admin,
+       khớp với trải nghiệm User thật. Người thường (kể cả vào bằng link
+       thật) không có cách nào tạo thêm tài khoản mới từ trong app — xem
+       giải thích ở #modal-admin. */
+    w.$("#mi-admin").style.display = isAdmin ? "" : "none";
     /* "✨ Dán bài, tự trích từ" TOÀN BỘ là tính năng AI (không có nhánh
        không-AI như doPaste) — ẩn hẳn cho User thường, chỉ Admin thấy,
        khớp đúng chính sách "AI chỉ Admin" (xem doPaste/doPasteExtract —
        trước đây lỗ hổng: 2 chỗ này chưa gate theo role, chỉ #btn-regen có,
        đã vá cùng lúc với dòng này). */
     var extractBtn = w.$("#btn-paste-extract");
-    if (extractBtn) extractBtn.hidden = !u.admin;
+    if (extractBtn) extractBtn.hidden = !isAdmin;
+    /* Nút "🔄 Xem như User"/"🔄 Về giao diện Admin" — CHỈ Admin THẬT thấy
+       (u.admin, không phải isAdmin() — nếu không, bật xong thì chính nút
+       để quay lại cũng biến mất, kẹt luôn trong chế độ xem thử). */
+    var viewToggle = w.$("#mi-view-toggle");
+    if (viewToggle) {
+      viewToggle.style.display = u.admin ? "" : "none";
+      w.$("#mi-view-toggle-text").textContent = previewing ? "Về giao diện Admin" : "Xem như User";
+    }
     reflectAddressBar(modeSlug, u.name);
   }
 
@@ -838,7 +859,7 @@
          sách "AI chỉ Admin" đã chốt, lỗ hổng cũ: chỗ này quên gate theo
          role, ai cũng gọi được AI miễn máy có key). */
       var cfg2 = w.APP_CONFIG || {};
-      var isAdmin = !!(w.Auth.user && w.Auth.user.admin);
+      var isAdmin = w.Auth.isAdmin();
       if (isAdmin && (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY)) {
         var needy = parsed.filter(function (x) {
           return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
@@ -888,7 +909,7 @@
     /* Toàn bộ tính năng này LÀ AI (không có nhánh không-AI) -> chỉ Admin.
        Nút đã ẩn hẳn cho User thường (renderUserChip), chốt lại đây phòng
        gọi thẳng qua console/devtools bỏ qua UI. */
-    if (!(w.Auth.user && w.Auth.user.admin)) {
+    if (!w.Auth.isAdmin()) {
       w.toast("Chỉ Admin dùng được tính năng này", "err");
       return;
     }
@@ -2038,6 +2059,15 @@
     w.$("#mi-admin").onclick = function () {
       menu.hidden = true;
       openAdminModal();
+    };
+    w.$("#mi-view-toggle").onclick = function () {
+      menu.hidden = true;
+      w.Auth.toggleViewMode();
+      renderUserChip();
+      /* Đang ở trong màn Chi tiết Block -> vẽ lại luôn để nút "🔄 Tạo lại"/
+         khu dán bài đọc ẩn/hiện đúng NGAY, khỏi phải đổi Block mới thấy. */
+      if (w.Detail && w.Detail.blockId && w.Detail.renderPassage) w.Detail.renderPassage();
+      w.toast(w.Auth.viewAsUser ? "Đang xem như User — chỉ đổi giao diện, quyền thật không đổi" : "Đã về giao diện Admin", "ok");
     };
     w.$("#btn-admin-new").onclick = async function () {
       var r = await askText({

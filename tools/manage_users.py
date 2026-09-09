@@ -75,8 +75,8 @@ from openpyxl.utils import get_column_letter
 # (hiếm khi cần) thì phải sửa tay database, tool này không hỗ trợ.
 NEW_USERS = [
     # ("Tên hiển thị", "Emoji"),
-    ("DAVID", "🦊"),
-    ("Thiên Bảo", "🐼"),
+    # ("DAVID", "🦊"),
+    # ("Thiên Bảo", "🐼"),
 ]
 
 # URL app đã deploy - dùng để ghép thành link "?u=<id>" cho từng người học.

@@ -40,7 +40,29 @@
     user: null,        // {id, name, emoji, email, cloud}
     cloudSession: null,
     EMOJIS: EMOJIS,
-    _listeners: []
+    _listeners: [],
+    /* "Xem như User" — CHỈ đổi cách GIAO DIỆN hiển thị (preview), KHÔNG
+       đụng gì tới cờ is_admin/can_edit_passage thật trên Supabase. Reset
+       về false mỗi lần tải lại trang (cố tình — tránh admin bật xem thử
+       rồi quên tắt, lần sau mở app lại tưởng mất quyền như đã từng gặp). */
+    viewAsUser: false
+  };
+
+  /* Toàn app PHẢI gọi 2 hàm này thay vì đọc thẳng Auth.user.admin/
+     canEditPassage — để chỗ nào cũng tự động tôn trọng chế độ xem thử.
+     Chỉ Admin THẬT mới bật/tắt được viewAsUser (xem toggleViewMode). */
+  Auth.isAdmin = function () {
+    return !!(Auth.user && Auth.user.admin) && !Auth.viewAsUser;
+  };
+  Auth.hasPassageEdit = function () {
+    return Auth.isAdmin() || (!!(Auth.user && Auth.user.canEditPassage) && !Auth.viewAsUser);
+  };
+  /* Chỉ Admin thật (bất kể đang xem thử hay không) mới gọi được — để
+     luôn có đường quay lại giao diện Admin. */
+  Auth.toggleViewMode = function () {
+    if (!(Auth.user && Auth.user.admin)) return;
+    Auth.viewAsUser = !Auth.viewAsUser;
+    fire();
   };
 
   /* ---------- hồ sơ trên máy ---------- */

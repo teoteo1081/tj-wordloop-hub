@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=6">
+<link rel="stylesheet" href="css/app.css?v=7">
 </head>
 <body>
 
@@ -102,6 +102,12 @@
            app.js) — người dùng thường (kể cả đăng nhập qua link) không
            bao giờ thấy nút này, không tạo được tài khoản mới. -->
       <button class="menu-item" id="mi-admin" style="display:none">👑 <span>Quản lý tài khoản</span></button>
+      <!-- CHỈ Admin thật thấy (Auth.user.admin — không đổi theo chế độ
+           xem thử, để luôn có đường quay lại). Bấm để đổi Auth.viewAsUser
+           — CHỈ ảnh hưởng giao diện (ẩn/hiện các nút Admin-only), KHÔNG hề
+           đụng tới is_admin/can_edit_passage thật trên Supabase. Reset về
+           false mỗi lần tải lại trang. -->
+      <button class="menu-item" id="mi-view-toggle" style="display:none">🔄 <span id="mi-view-toggle-text">Xem như User</span></button>
       <div class="user-menu-sep"></div>
       <button class="menu-item" id="mi-print">🖨️ <span>Xuất PDF (Block/Batch/Page…)</span></button>
       <button class="menu-item" id="mi-cleanup">🧹 <span>Dọn từ vựng rác (dòng tiêu đề lẫn vào)</span></button>
@@ -742,12 +748,12 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/context.js?v=1"></script>
 <script src="js/speech.js?v=1"></script>
 <script src="js/db.js?v=4"></script>
-<script src="js/auth.js?v=3"></script>
+<script src="js/auth.js?v=4"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=3"></script>
+<script src="js/detail.js?v=4"></script>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=3"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/app.js?v=11"></script>
 </body>
 </html>
