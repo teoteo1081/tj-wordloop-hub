@@ -1,47 +1,12 @@
 """
 ================================================================================
- sync_vocab.py — KÉO/ĐẨY TỪ VỰNG QUA LẠI GIỮA SUPABASE VÀ EXCEL
+ _vocab_common.py — LOGIC DÙNG CHUNG cho export_vocab.py / import_vocab.py
 ================================================================================
- BẢN 2026-09-07 (v1)
+ KHÔNG chạy trực tiếp file này. Chạy:
+   python tools/export_vocab.py   -> kéo từ vựng Supabase xuống Excel
+   python tools/import_vocab.py   -> đẩy Excel đã sửa ngược lên Supabase
 
- 2 CHIỀU, chọn bằng MODE bên dưới:
-
-   MODE = "export"  ->  Kéo TOÀN BỘ từ vựng (kèm ngữ cảnh Hub/Notebook/
-                         Section/Page/Batch/Block cho dễ nhìn) từ Supabase
-                         xuống 1 file Excel để xem/sửa tay thoải mái.
-
-   MODE = "import"  ->  Đọc LẠI file Excel đó (đã sửa xong), đẩy NGƯỢC lên
-                         Supabase. Ghép theo cột "id" (word id):
-                           - Có "id" khớp từ cũ  -> CẬP NHẬT từ đó (ghi đè
-                             term/level/pos/ipa/def_en/meaning_vi/sort).
-                           - "id" ĐỂ TRỐNG        -> TẠO TỪ MỚI (bắt buộc
-                             phải điền "block_id" - biết thêm vào Block
-                             nào - lấy từ đúng cột "block_id" của 1 dòng
-                             khác trong CÙNG Block đó, copy xuống).
-                         XOÁ HẲN 1 dòng khỏi Excel KHÔNG xoá từ đó trên
-                         Supabase (an toàn - tool không tự xoá dữ liệu,
-                         muốn xoá từ thật thì tự vào Supabase Table Editor).
-
- QUY TRÌNH DÙNG:
-   1. Sửa MODE = "export" bên dưới, chạy: python tools/sync_vocab.py
-      -> ra file Excel NGAY TRONG tools/tu_vung.xlsx (chung thư mục với
-      file .py này, đường dẫn cũng in ra ở dòng cuối cùng).
-   2. Mở Excel, sửa tay (đổi nghĩa, thêm dòng mới cho từ mới...).
-   3. Sửa MODE = "import", chạy lại: python tools/sync_vocab.py
-      -> đẩy thẳng lên Supabase.
-   4. Đổi lại MODE = "export" và chạy lại bất cứ lúc nào để lấy bản MỚI
-      NHẤT (VD sau khi có người học thêm/sửa qua chính app).
-
- ⚠️ File Excel này CHỈ chứa nội dung học (không phải link đăng nhập như
- manage_users.py) nên không nhạy cảm - nhưng vẫn lưu cục bộ (tools/tu_vung.xlsx,
- đã có trong .gitignore), không cần đẩy lên GitHub.
-
- MÀU TIÊU ĐỀ CỘT (xem ngay trong file Excel):
-   🟧 CAM  = sửa/xoá nội dung cột này -> CÓ ẩnh hưởng thật khi import lên
-             Supabase (kể cả xoá trống 1 trong 3 ô "Đoạn văn đề xuất" -
-             xem chi tiết ở phần "Ghi chú" trong chính file Excel).
-   🟦 XANH = chỉ để XEM cho dễ đối chiếu (Hub/Notebook/.../Block/Từ trong
-             Block) - sửa gì ở các cột này cũng KHÔNG ảnh hưởng lúc import.
+ (Toàn bộ code kéo/đẩy dữ liệu thật sự nằm ở đây, 2 file kia chỉ gọi lại.)
 ================================================================================
 """
 
@@ -62,14 +27,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-# ==============================================================================
-# CONFIG — SỬA CHỖ NÀY
-# ==============================================================================
-
-MODE = "export"   # "export" (Supabase -> Excel) hoặc "import" (Excel -> Supabase)
-
-# CHUNG thư mục với sync_vocab.py (tools/) - không để trong thư mục con
-# nào cả, theo yêu cầu Thao, cho dễ tìm.
+# CHUNG thư mục với 2 file export/import (tools/) - không để trong thư mục
+# con nào cả, theo yêu cầu Thao, cho dễ tìm.
 EXCEL_FILE = Path(__file__).resolve().parent / "tu_vung.xlsx"
 
 # import mode: số dòng gửi lên Supabase mỗi lượt (PostgREST upsert theo lô,
@@ -145,6 +104,7 @@ def _write_headers(ws, headers, impact_cols):
 
 
 def do_export():
+    print(f"📡 Supabase: {SUPABASE_URL}")
     print("Đang tải dữ liệu từ Supabase (hubs -> ... -> words)...")
     hubs = {h["id"]: h for h in fetch_all("hubs", "id,name")}
     notebooks = {n["id"]: n for n in fetch_all("notebooks", "id,hub_id,name")}
@@ -274,7 +234,7 @@ def do_export():
         f"Xuất lúc: {datetime.datetime.now():%Y-%m-%d %H:%M}",
         "",
         "• Sửa tay các cột term/level/pos/ipa/def_en/meaning_vi/sort thoải mái - lưu file lại rồi",
-        "  đổi MODE = \"import\" trong sync_vocab.py, chạy lại là đẩy hết lên Supabase.",
+        "  chạy tools/import_vocab.py là đẩy hết lên Supabase.",
         "• Cột 'id': GIỮ NGUYÊN với từ đã có (đừng sửa/xoá) - đây là chìa khoá để tool biết CẬP",
         "  NHẬT đúng từ nào. Để TRỐNG ở 1 dòng MỚI TỰ THÊM -> tool hiểu là TẠO TỪ MỚI.",
         "• Cột 'block_id': BẮT BUỘC điền nếu 'id' để trống (tạo mới) - copy y hệt block_id của",
@@ -301,14 +261,22 @@ def do_export():
     wb.save(EXCEL_FILE)
     print(f"✅ Đã xuất: {EXCEL_FILE}")
 
+    if AUTO_OPEN_EXCEL:
+        try:
+            import os
+            os.startfile(str(EXCEL_FILE))
+        except Exception as e:
+            print(f"  (Không tự mở được Excel: {e})")
+
 
 # ==============================================================================
 # IMPORT: Excel -> Supabase
 # ==============================================================================
 
 def do_import():
+    print(f"📡 Supabase: {SUPABASE_URL}")
     if not EXCEL_FILE.exists():
-        sys.exit(f"❌ Không thấy file {EXCEL_FILE} - chạy MODE=\"export\" trước đã.")
+        sys.exit(f"❌ Không thấy file {EXCEL_FILE} - chạy tools/export_vocab.py trước đã.")
 
     wb = load_workbook(EXCEL_FILE, data_only=True)
     ws = wb["Từ vựng"]
@@ -437,27 +405,3 @@ def do_import_passages(wb):
         n_updated += 1
 
     print(f"✅ Xong (bài đọc)! Đã cập nhật {n_updated} block.")
-
-
-# ==============================================================================
-# CHẠY
-# ==============================================================================
-
-def run():
-    print(f"📡 Supabase: {SUPABASE_URL}  —  MODE = {MODE}")
-    if MODE == "export":
-        do_export()
-        if AUTO_OPEN_EXCEL:
-            try:
-                import os
-                os.startfile(str(EXCEL_FILE))
-            except Exception as e:
-                print(f"  (Không tự mở được Excel: {e})")
-    elif MODE == "import":
-        do_import()
-    else:
-        sys.exit('❌ MODE phải là "export" hoặc "import".')
-
-
-if __name__ == "__main__":
-    run()
