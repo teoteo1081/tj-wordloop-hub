@@ -1687,6 +1687,13 @@
        phím. Viết mỗi handler thành 1 hàm đặt tên rồi dùng CHUNG cho cả
        click lẫn keydown (không lặp logic 2 lần, tránh lệch nhau về sau). */
     function onHubTabActivate(e) {
+      /* Thiếu chốt này (mọi hàng điều hướng khác - Notebook/Section/Page/
+         Batch - đều có) khiến bấm nút "⋯" (data-menu) trên 1 Hub KHÁC hub
+         đang mở vẫn bị closest("[data-hub]") tính là bấm cả hàng -> tự
+         chuyển sang hub đó (gọi thêm DB.getNotebooks không cần thiết,
+         phần nào là góp phần "chậm") TRƯỚC KHI menu kịp mở ra. Chặn ở đây
+         y hệt pattern #notebook-list/#section-list/... bên dưới. */
+      if (e.target.closest("[data-menu]")) return;
       var b = e.target.closest("[data-hub]");
       if (!b) return;
       leaveDetail();
@@ -2052,12 +2059,15 @@
       /* Thiếu [data-block] trước đây -> bấm phải vào 1 Block card chỉ ra
          menu chuột phải mặc định của trình duyệt, không mở được menu
          đổi tên/xoá riêng Block (dù nút "⋯" trên card đã làm việc đó
-         được — đây chỉ là lối tắt chuột phải, không phải cách duy nhất). */
-      var host = e.target.closest("[data-nb],[data-sec],[data-page],[data-batch],[data-block]");
+         được — đây chỉ là lối tắt chuột phải, không phải cách duy nhất).
+         Thiếu NỐT [data-hub] — bấm phải vào tab Hub trên cùng trước đây
+         cũng chỉ ra menu mặc định của trình duyệt, không đổi tên/xoá Hub
+         được qua chuột phải (chỉ bấm "⋯" mới mở được) — đã bổ sung. */
+      var host = e.target.closest("[data-hub],[data-nb],[data-sec],[data-page],[data-batch],[data-block]");
       if (!host) return;
-      var table = host.dataset.nb ? "notebooks" : host.dataset.sec ? "sections"
+      var table = host.dataset.hub ? "hubs" : host.dataset.nb ? "notebooks" : host.dataset.sec ? "sections"
                 : host.dataset.page ? "pages" : host.dataset.batch ? "batches" : "blocks";
-      var id = host.dataset.nb || host.dataset.sec || host.dataset.page || host.dataset.batch || host.dataset.block;
+      var id = host.dataset.hub || host.dataset.nb || host.dataset.sec || host.dataset.page || host.dataset.batch || host.dataset.block;
       e.preventDefault();
       App.openMenu(table, id, host);
     });
