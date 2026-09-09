@@ -154,7 +154,7 @@
     parseMeta: function (raw) {
       var s = String(raw || "");
       var i = s.indexOf(w.Context.META_SEP);
-      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false, pasted: false, claude: false };
+      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false, pasted: false, claude: false, provider: null };
       var meta = {};
       try { meta = JSON.parse(s.slice(i + w.Context.META_SEP.length)) || {}; } catch (e) { meta = {}; }
       return {
@@ -164,7 +164,8 @@
         source: meta.source || null,
         ai: !!meta.ai,
         pasted: !!meta.pasted,
-        claude: !!meta.claude
+        claude: !!meta.claude,
+        provider: meta.provider || null   /* "openai" | "gemini" | null — chỉ có ý nghĩa khi ai===true */
       };
     },
 
@@ -282,7 +283,11 @@
     /* Chọn nhà cung cấp: có OPENAI_API_KEY thì DÙNG TRƯỚC (theo yêu cầu
        thay thế Gemini) — Gemini free tier chỉ còn là DỰ PHÒNG tự động
        nếu OpenAI lỗi VÀ máy cũng có sẵn GEMINI_API_KEY. Không có cả 2 key
-       thì báo rõ "chưa cấu hình" (kind: "no_key") thay vì lỗi mơ hồ. */
+       thì báo rõ "chưa cấu hình" (kind: "no_key") thay vì lỗi mơ hồ.
+       Ghi lại _lastProvider ("openai"/"gemini") NGAY KHI THÀNH CÔNG — để
+       generateAI() lưu vào meta.provider, giúp TJ biết bài nào tốn tiền
+       OpenAI thật, bài nào chỉ chạy Gemini free (kiểm soát chi phí). */
+    _lastProvider: null,
     _callProvider: async function (cfg, sys, user) {
       if (!cfg || (!cfg.OPENAI_API_KEY && !cfg.GEMINI_API_KEY)) {
         var noKey = new Error("Chưa cấu hình API key AI nào (OpenAI/Gemini) trong js/keys.local.js");
@@ -291,11 +296,15 @@
       }
       if (cfg.OPENAI_API_KEY) {
         try {
-          return await w.Context._callOpenAI(cfg, sys, user);
+          var r1 = await w.Context._callOpenAI(cfg, sys, user);
+          w.Context._lastProvider = "openai";
+          return r1;
         } catch (eOpenAI) {
           if (!cfg.GEMINI_API_KEY) throw eOpenAI;
           try {
-            return await w.Context._callGemini(cfg, sys, user);
+            var r2 = await w.Context._callGemini(cfg, sys, user);
+            w.Context._lastProvider = "gemini";
+            return r2;
           } catch (eGemini) {
             /* Cả 2 đều lỗi -> báo lỗi của OpenAI (nhà cung cấp CHÍNH theo
                yêu cầu), nhưng ghi chú thêm để không mất thông tin Gemini. */
@@ -304,7 +313,9 @@
           }
         }
       }
-      return await w.Context._callGemini(cfg, sys, user);
+      var r3 = await w.Context._callGemini(cfg, sys, user);
+      w.Context._lastProvider = "gemini";
+      return r3;
     },
 
     /* Vietnamese-hoá 1 lỗi AI để in thẳng lên giao diện cho người dùng
@@ -475,11 +486,15 @@
         if (t && t.term && t.vi) viMap[String(t.term).toLowerCase()] = t.vi;
       });
 
+      /* provider: "openai" | "gemini" — ghi lại đúng nhà cung cấp THẬT SỰ
+         vừa sinh bài này (đọc từ _callProvider ở trên) để TJ kiểm soát
+         chi phí (OpenAI trả phí, Gemini free) — hiện ở badge nguồn bài đọc. */
       var meta = {
         ai: true,
         vi: viMap,
         title: parsed.title || "",
-        source: parsed.source_vi || "Bài đọc do AI sinh riêng cho Block này."
+        source: parsed.source_vi || "Bài đọc do AI sinh riêng cho Block này.",
+        provider: w.Context._lastProvider || ""
       };
       return marked + w.Context.META_SEP + JSON.stringify(meta);
     },

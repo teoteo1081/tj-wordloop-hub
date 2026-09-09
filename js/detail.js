@@ -374,7 +374,13 @@
     w.$("#passage-src").textContent = meta.source || "";
     var badge = w.$("#passage-ai-badge");
     if (badge) {
-      badge.textContent = meta.ai ? "✨ AI" : (meta.claude ? "✍️ Claude" : (meta.pasted ? "📝 Tự dán" : ""));
+      /* Ghi rõ ĐÚNG nhà cung cấp (OpenAI trả phí / Gemini free) thay vì
+         chỉ "✨ AI" chung chung — để TJ nhìn 1 cái biết bài nào tốn tiền
+         thật, bài nào chạy free (kiểm soát chi phí OpenAI). */
+      var aiLabel = meta.provider === "openai" ? "✨ OpenAI"
+                  : meta.provider === "gemini" ? "✨ Gemini"
+                  : "✨ AI";
+      badge.textContent = meta.ai ? aiLabel : (meta.claude ? "✍️ Claude" : (meta.pasted ? "📝 Tự dán" : ""));
       badge.className = "ai-badge" + (meta.ai ? " ai" : ((meta.claude || meta.pasted) ? " tpl" : ""));
     }
 
