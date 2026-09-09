@@ -1,0 +1,1806 @@
+[
+  {
+    "block_id": "03c1b17f-1eab-4f16-84f5-e3e5e4116ffe",
+    "block_name": "Block 110",
+    "page": "02_Tai chinh & Kinh te",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "depreciating asset",
+        "vi": "Tài sản mất giá"
+      },
+      {
+        "term": "liquidity",
+        "vi": "Tính thanh khoản"
+      },
+      {
+        "term": "speculative market",
+        "vi": "Thị trường đầu cơ"
+      },
+      {
+        "term": "subsidize",
+        "vi": "Trợ cấp / Tài trợ"
+      },
+      {
+        "term": "fiduciary",
+        "vi": "Ủy thác trách nhiệm"
+      },
+      {
+        "term": "tangible asset",
+        "vi": "Tài sản hữu hình"
+      },
+      {
+        "term": "capital expenditure",
+        "vi": "Chi phí vốn"
+      },
+      {
+        "term": "fiscal deficit",
+        "vi": "Thâm hụt ngân sách"
+      },
+      {
+        "term": "utility bill",
+        "vi": "Hóa đơn tiện ích"
+      },
+      {
+        "term": "cost recovery",
+        "vi": "Thu hồi chi phí"
+      }
+    ]
+  },
+  {
+    "block_id": "a02e2f1a-45cd-42f7-b6aa-e172dc9389c3",
+    "block_name": "Block 111",
+    "page": "02_Tai chinh & Kinh te",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "tax deduction",
+        "vi": "Khấu trừ thuế"
+      },
+      {
+        "term": "equity stake",
+        "vi": "Tỷ lệ cổ phần"
+      },
+      {
+        "term": "cash discount",
+        "vi": "Chiết khấu thanh toán"
+      },
+      {
+        "term": "rebate",
+        "vi": "Hoàn tiền / Giảm giá"
+      },
+      {
+        "term": "dilute shares",
+        "vi": "Làm pha loãng cổ phiếu"
+      },
+      {
+        "term": "monetary policy",
+        "vi": "Chính sách tiền tệ"
+      },
+      {
+        "term": "galloping inflation",
+        "vi": "Lạm phát phi mã"
+      },
+      {
+        "term": "recurring revenue",
+        "vi": "Doanh thu định kỳ"
+      },
+      {
+        "term": "transaction fee",
+        "vi": "Phí giao dịch"
+      },
+      {
+        "term": "disposable income",
+        "vi": "Thu nhập khả dụng"
+      }
+    ]
+  },
+  {
+    "block_id": "35426f3d-b8b2-43d3-893e-2a9a4b091042",
+    "block_name": "Block 112",
+    "page": "02_Tai chinh & Kinh te",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "economic downturn",
+        "vi": "Suy thoái kinh tế"
+      },
+      {
+        "term": "annual yield",
+        "vi": "Lợi suất hàng năm"
+      },
+      {
+        "term": "working capital",
+        "vi": "Vốn lưu động"
+      },
+      {
+        "term": "independent audit",
+        "vi": "Kiểm toán độc lập"
+      },
+      {
+        "term": "investment portfolio",
+        "vi": "Danh mục đầu tư"
+      },
+      {
+        "term": "solvency ratio",
+        "vi": "Tỷ lệ khả năng thanh toán"
+      },
+      {
+        "term": "file for bankruptcy",
+        "vi": "Nộp đơn phá sản"
+      },
+      {
+        "term": "accrued liability",
+        "vi": "Nợ phải trả dồn tích"
+      },
+      {
+        "term": "mortgage rate",
+        "vi": "Lãi suất thế chấp"
+      },
+      {
+        "term": "dividend payout",
+        "vi": "Chi trả cổ tức"
+      }
+    ]
+  },
+  {
+    "block_id": "6a410949-b996-461f-83cd-538124c2cb75",
+    "block_name": "Block 113",
+    "page": "02_Tai chinh & Kinh te",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "financial asset",
+        "vi": "Tài sản tài chính"
+      },
+      {
+        "term": "market price",
+        "vi": "Giá thị trường"
+      },
+      {
+        "term": "macroeconomic indicator",
+        "vi": "Chỉ số kinh tế vĩ mô"
+      },
+      {
+        "term": "settle debt",
+        "vi": "Thanh toán khoản nợ"
+      },
+      {
+        "term": "salary package",
+        "vi": "Gói lương thưởng"
+      },
+      {
+        "term": "wealth accumulation",
+        "vi": "Tích lũy tài sản"
+      },
+      {
+        "term": "mutual fund",
+        "vi": "Quỹ tương hỗ"
+      },
+      {
+        "term": "net profit margin",
+        "vi": "Biên lợi nhuận ròng"
+      },
+      {
+        "term": "tax liability",
+        "vi": "Nghĩa vụ thuế"
+      },
+      {
+        "term": "exchange rate",
+        "vi": "Tỷ giá hối đoái"
+      }
+    ]
+  },
+  {
+    "block_id": "08555c54-5b54-4bd4-88cd-ad8cf51b34c1",
+    "block_name": "Block 114",
+    "page": "02_Tai chinh & Kinh te",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "unit cost",
+        "vi": "Chi phí đơn vị"
+      },
+      {
+        "term": "financial yield",
+        "vi": "Lợi suất tài chính"
+      },
+      {
+        "term": "capital gain",
+        "vi": "Lợi nhuận vốn"
+      },
+      {
+        "term": "monetary stability",
+        "vi": "Sự ổn định tiền tệ"
+      },
+      {
+        "term": "price elasticity",
+        "vi": "Độ co giãn của giá"
+      },
+      {
+        "term": "reincarnate capital",
+        "vi": "Tái đầu tư dòng vốn"
+      },
+      {
+        "term": "trade deficit",
+        "vi": "Thâm hụt thương mại"
+      }
+    ]
+  },
+  {
+    "block_id": "b5204eba-3165-4d06-bb4f-436b5052a334",
+    "block_name": "Block 115",
+    "page": "03_Cong nghe va du lieu",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "volatile data matrix",
+        "vi": "Ma trận dữ liệu biến động"
+      },
+      {
+        "term": "orchestration",
+        "vi": "Điều phối hệ thống"
+      },
+      {
+        "term": "proprietary data",
+        "vi": "Dữ liệu độc quyền"
+      },
+      {
+        "term": "canonicalize",
+        "vi": "Chuẩn hóa dữ liệu"
+      },
+      {
+        "term": "vaporware",
+        "vi": "Phần mềm ma / Dự án treo"
+      },
+      {
+        "term": "neural reservoir",
+        "vi": "Mạng thần kinh lưu trữ"
+      },
+      {
+        "term": "probabilistic model",
+        "vi": "Mô hình xác suất"
+      },
+      {
+        "term": "air purifier",
+        "vi": "Máy lọc không khí"
+      },
+      {
+        "term": "smart routing",
+        "vi": "Định tuyến thông minh"
+      },
+      {
+        "term": "codify logic",
+        "vi": "Mã hóa logic"
+      }
+    ]
+  },
+  {
+    "block_id": "6fd591e7-fe23-4a67-b7bf-22a0bd146348",
+    "block_name": "Block 116",
+    "page": "03_Cong nghe va du lieu",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "incognito mode",
+        "vi": "Chế độ ẩn danh"
+      },
+      {
+        "term": "dormant repository",
+        "vi": "Kho lưu trữ ngưng hoạt động"
+      },
+      {
+        "term": "data pipeline",
+        "vi": "Đường ống dữ liệu"
+      },
+      {
+        "term": "algorithm",
+        "vi": "Thuật toán"
+      },
+      {
+        "term": "cybersecurity",
+        "vi": "An ninh mạng"
+      },
+      {
+        "term": "automation script",
+        "vi": "Kịch bản tự động hóa"
+      },
+      {
+        "term": "user interface",
+        "vi": "Giao diện người dùng"
+      },
+      {
+        "term": "relational database",
+        "vi": "Cơ sở dữ liệu quan hệ"
+      },
+      {
+        "term": "cloud infrastructure",
+        "vi": "Hạ tầng điện toán đám mây"
+      },
+      {
+        "term": "synthetic data",
+        "vi": "Dữ liệu tổng hợp"
+      }
+    ]
+  },
+  {
+    "block_id": "b080ab29-8710-49a5-b089-1f0761118ecf",
+    "block_name": "Block 117",
+    "page": "03_Cong nghe va du lieu",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "fabricate microchip",
+        "vi": "Chế tạo vi mạch"
+      },
+      {
+        "term": "embedded system",
+        "vi": "Hệ thống nhúng"
+      },
+      {
+        "term": "binary code",
+        "vi": "Mã nhị phân"
+      },
+      {
+        "term": "virtual environment",
+        "vi": "Môi trường ảo"
+      },
+      {
+        "term": "data structure",
+        "vi": "Cấu trúc dữ liệu"
+      },
+      {
+        "term": "hardware module",
+        "vi": "Mô-đun phần cứng"
+      },
+      {
+        "term": "system architecture",
+        "vi": "Kiến trúc hệ thống"
+      },
+      {
+        "term": "data cluster",
+        "vi": "Cụm dữ liệu"
+      },
+      {
+        "term": "sequence pattern",
+        "vi": "Mẫu chuỗi"
+      },
+      {
+        "term": "digital transformation",
+        "vi": "Chuyển đổi số"
+      }
+    ]
+  },
+  {
+    "block_id": "c2bf7ba8-fde3-4099-8d53-adc184f24feb",
+    "block_name": "Block 118",
+    "page": "03_Cong nghe va du lieu",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "compute node",
+        "vi": "Nút tính toán"
+      },
+      {
+        "term": "server redundancy",
+        "vi": "Dự phòng máy chủ"
+      },
+      {
+        "term": "data encryption",
+        "vi": "Mã hóa dữ liệu"
+      },
+      {
+        "term": "API endpoint",
+        "vi": "Điểm đầu mối API"
+      },
+      {
+        "term": "data cleansing",
+        "vi": "Làm sạch dữ liệu"
+      },
+      {
+        "term": "machine learning",
+        "vi": "Học máy"
+      },
+      {
+        "term": "feature extraction",
+        "vi": "Trích xuất đặc trưng"
+      },
+      {
+        "term": "version control",
+        "vi": "Quản lý phiên bản"
+      },
+      {
+        "term": "open-source tool",
+        "vi": "Công cụ mã nguồn mở"
+      },
+      {
+        "term": "data repository",
+        "vi": "Kho dữ liệu tập trung"
+      }
+    ]
+  },
+  {
+    "block_id": "65dc7f9f-8302-4df4-a388-11933e039b24",
+    "block_name": "Block 119",
+    "page": "03_Cong nghe va du lieu",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "automated flow",
+        "vi": "Luồng tự động"
+      },
+      {
+        "term": "system integration",
+        "vi": "Tích hợp hệ thống"
+      },
+      {
+        "term": "source code",
+        "vi": "Mã nguồn"
+      },
+      {
+        "term": "data pattern",
+        "vi": "Mẫu dữ liệu"
+      },
+      {
+        "term": "network latency",
+        "vi": "Độ trễ mạng"
+      },
+      {
+        "term": "computing power",
+        "vi": "Năng lực tính toán"
+      },
+      {
+        "term": "data analytics",
+        "vi": "Phân tích dữ liệu"
+      },
+      {
+        "term": "cloud migration",
+        "vi": "Chuyển đổi lên điện toán đám mây"
+      },
+      {
+        "term": "digital asset",
+        "vi": "Tài sản số"
+      },
+      {
+        "term": "system diagnostic",
+        "vi": "Chẩn đoán hệ thống"
+      }
+    ]
+  },
+  {
+    "block_id": "728fd2be-45e2-484d-a09f-ec2c429fab70",
+    "block_name": "Block 120",
+    "page": "03_Cong nghe va du lieu",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "data warehouse",
+        "vi": "Kho dữ liệu"
+      },
+      {
+        "term": "hardware component",
+        "vi": "Thành phần phần cứng"
+      },
+      {
+        "term": "data sequence",
+        "vi": "Chuỗi dữ liệu"
+      },
+      {
+        "term": "code deployment",
+        "vi": "Triển khai mã nguồn"
+      }
+    ]
+  },
+  {
+    "block_id": "57219a41-c22f-4833-8952-426fdd0bc80b",
+    "block_name": "Block 121",
+    "page": "04_Giao tiep & Dam phan",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "elusive common ground",
+        "vi": "Tiếng nói chung khó tìm"
+      },
+      {
+        "term": "unnecessary concession",
+        "vi": "Nhượng bộ không cần thiết"
+      },
+      {
+        "term": "rich inflection",
+        "vi": "Ngữ điệu phong phú"
+      },
+      {
+        "term": "pedantic",
+        "vi": "Bắt bẻ chi tiết / Hách dịch"
+      },
+      {
+        "term": "articulate",
+        "vi": "Diễn đạt lưu khoát"
+      },
+      {
+        "term": "condescending",
+        "vi": "Bề trên / Coi thường"
+      },
+      {
+        "term": "misinterpret intent",
+        "vi": "Hiểu sai ý định"
+      },
+      {
+        "term": "flatten tone",
+        "vi": "Mất đi ngữ điệu / Giọng đều đều"
+      },
+      {
+        "term": "voiceover delivery",
+        "vi": "Trình bày lồng tiếng"
+      },
+      {
+        "term": "regional accent",
+        "vi": "Giọng địa phương"
+      }
+    ]
+  },
+  {
+    "block_id": "59a56d39-64f7-40c1-9acf-111ac4ad8b9b",
+    "block_name": "Block 122",
+    "page": "04_Giao tiep & Dam phan",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "inherent ambiguity",
+        "vi": "Sự mơ hồ vốn có"
+      },
+      {
+        "term": "enunciate clearly",
+        "vi": "Phát âm rõ ràng"
+      },
+      {
+        "term": "technical jargon",
+        "vi": "Thuật ngữ chuyên ngành"
+      },
+      {
+        "term": "monotone pitch",
+        "vi": "Giọng nói đơn điệu"
+      },
+      {
+        "term": "grandiloquent speech",
+        "vi": "Lời nói khoa trương"
+      },
+      {
+        "term": "persuasive argument",
+        "vi": "Đối thoại thuyết phục"
+      },
+      {
+        "term": "assertive communication",
+        "vi": "Giao tiếp quả quyết"
+      },
+      {
+        "term": "rhetorical device",
+        "vi": "Biện pháp tu từ"
+      },
+      {
+        "term": "impeccable articulation",
+        "vi": "Khả năng diễn đạt hoàn hảo"
+      },
+      {
+        "term": "concise statement",
+        "vi": "Tuyên bố ngắn gọn"
+      }
+    ]
+  },
+  {
+    "block_id": "12b84f78-2c27-48d1-8229-800a8d04a2ba",
+    "block_name": "Block 123",
+    "page": "04_Giao tiep & Dam phan",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "resonate deeply",
+        "vi": "Tạo sự đồng cảm sâu sắc"
+      },
+      {
+        "term": "back-and-forth debate",
+        "vi": "Tranh luận qua lại"
+      },
+      {
+        "term": "clarify definition",
+        "vi": "Làm rõ định nghĩa"
+      },
+      {
+        "term": "vocal tone",
+        "vi": "Giọng điệu"
+      },
+      {
+        "term": "expressive language",
+        "vi": "Ngôn ngữ truyền cảm"
+      },
+      {
+        "term": "direct statement",
+        "vi": "Phát ngôn trực tiếp"
+      },
+      {
+        "term": "diplomatic response",
+        "vi": "Phản hồi khéo léo"
+      },
+      {
+        "term": "constructive feedback",
+        "vi": "Góp ý mang tính xây dựng"
+      },
+      {
+        "term": "narrative arc",
+        "vi": "Mạch truyện"
+      },
+      {
+        "term": "public discourse",
+        "vi": "Thảo luận công khai"
+      }
+    ]
+  },
+  {
+    "block_id": "a66b4421-4014-433e-944d-9c592cb07465",
+    "block_name": "Block 124",
+    "page": "04_Giao tiep & Dam phan",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "understate claim",
+        "vi": "Nói giảm nói tránh"
+      },
+      {
+        "term": "unambiguous terms",
+        "vi": "Thuật ngữ rõ ràng"
+      },
+      {
+        "term": "vocal inflection",
+        "vi": "Sự biến điệu giọng nói"
+      },
+      {
+        "term": "negotiation strategy",
+        "vi": "Chiến lược đàm phán"
+      },
+      {
+        "term": "active dialogue",
+        "vi": "Đối thoại tích cực"
+      },
+      {
+        "term": "implicit meaning",
+        "vi": "Ý nghĩa ngầm hiểu"
+      },
+      {
+        "term": "vocal pitch",
+        "vi": "Cao độ giọng nói"
+      },
+      {
+        "term": "fluent speech",
+        "vi": "Bài phát biểu trôi chảy"
+      },
+      {
+        "term": "key message",
+        "vi": "Thông điệp cốt lõi"
+      },
+      {
+        "term": "formal greeting",
+        "vi": "Lời chào trang trọng"
+      }
+    ]
+  },
+  {
+    "block_id": "3d82a252-5408-4af0-a156-cb6ab6765de6",
+    "block_name": "Block 125",
+    "page": "04_Giao tiep & Dam phan",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "non-verbal communication",
+        "vi": "Giao tiếp phi ngôn ngữ"
+      },
+      {
+        "term": "underlying assertion",
+        "vi": "Tuyên bố nền tảng"
+      },
+      {
+        "term": "strategic phrasing",
+        "vi": "Diễn đạt chiến lược"
+      }
+    ]
+  },
+  {
+    "block_id": "cadbad3b-b525-44b8-8034-fbd768062b50",
+    "block_name": "Block 126",
+    "page": "05_Tam ly & Tu duy",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "cognitive dissonance",
+        "vi": "Mâu thuẫn nhận thức"
+      },
+      {
+        "term": "self-efficacy",
+        "vi": "Niềm tin vào bản thân"
+      },
+      {
+        "term": "intrinsic drive",
+        "vi": "Động lực nội tại"
+      },
+      {
+        "term": "complacency",
+        "vi": "Sự tự mãn"
+      },
+      {
+        "term": "demeanor",
+        "vi": "Phong thái / Diện mạo"
+      },
+      {
+        "term": "instinctive aversion",
+        "vi": "Ác cảm bản năng"
+      },
+      {
+        "term": "emotional resilience",
+        "vi": "Khả năng phục hồi cảm xúc"
+      },
+      {
+        "term": "confirmation bias",
+        "vi": "Thiên kiến xác nhận"
+      },
+      {
+        "term": "intellectual curiosity",
+        "vi": "Sự tò mò trí tuệ"
+      },
+      {
+        "term": "subconscious filter",
+        "vi": "Bộ lọc vô thức"
+      }
+    ]
+  },
+  {
+    "block_id": "677c1260-bf28-4944-bc12-cda53132b903",
+    "block_name": "Block 127",
+    "page": "05_Tam ly & Tu duy",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "perceptual acuity",
+        "vi": "Nhạy bén giác quan"
+      },
+      {
+        "term": "impulse control",
+        "vi": "Kiểm soát bốc đồng"
+      },
+      {
+        "term": "behavioral pattern",
+        "vi": "Mẫu hành vi"
+      },
+      {
+        "term": "mental burnout",
+        "vi": "Kiệt sức tâm lý"
+      },
+      {
+        "term": "cognitive load",
+        "vi": "Tải trọng nhận thức"
+      },
+      {
+        "term": "habitual mindset",
+        "vi": "Tư duy thói quen"
+      },
+      {
+        "term": "introspective focus",
+        "vi": "Hướng nội tâm"
+      },
+      {
+        "term": "psychological safety",
+        "vi": "An toàn tâm lý"
+      },
+      {
+        "term": "fixated thought",
+        "vi": "Tư duy ám ảnh"
+      },
+      {
+        "term": "analytical thinking",
+        "vi": "Tư duy phân tích"
+      }
+    ]
+  },
+  {
+    "block_id": "24867c4a-917d-4080-80f9-f18bff1a71f2",
+    "block_name": "Block 128",
+    "page": "05_Tam ly & Tu duy",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "emotional fatigue",
+        "vi": "Kiệt sức cảm xúc"
+      },
+      {
+        "term": "selective attention",
+        "vi": "Chú ý có chọn lọc"
+      },
+      {
+        "term": "subconscious mind",
+        "vi": "Tiềm thức"
+      },
+      {
+        "term": "cognitive flexibility",
+        "vi": "Nhận thức linh hoạt"
+      },
+      {
+        "term": "acute anxiety",
+        "vi": "Lo âu cấp tính"
+      },
+      {
+        "term": "spatial awareness",
+        "vi": "Nhận thức không gian"
+      },
+      {
+        "term": "delayed gratification",
+        "vi": "Trì hoãn sự thỏa mãn"
+      },
+      {
+        "term": "emotional regulation",
+        "vi": "Điều hòa cảm xúc"
+      },
+      {
+        "term": "implicit bias",
+        "vi": "Thiên kiến ẩn"
+      },
+      {
+        "term": "mental agility",
+        "vi": "Sự nhạy bén trí óc"
+      }
+    ]
+  },
+  {
+    "block_id": "485d88a8-b391-48be-b610-51e84a2749ae",
+    "block_name": "Block 129",
+    "page": "05_Tam ly & Tu duy",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "overthinking",
+        "vi": "Suy nghĩ quá nhiều"
+      },
+      {
+        "term": "self-doubt",
+        "vi": "Sự ngờ vực bản thân"
+      },
+      {
+        "term": "cognitive bias",
+        "vi": "Thiên kiến nhận thức"
+      },
+      {
+        "term": "sensory overload",
+        "vi": "Quá tải giác quan"
+      },
+      {
+        "term": "emotional trigger",
+        "vi": "Tác nhân kích thích cảm xúc"
+      },
+      {
+        "term": "growth mindset",
+        "vi": "Tư duy phát triển"
+      },
+      {
+        "term": "fixed mindset",
+        "vi": "Tư duy bảo thủ"
+      },
+      {
+        "term": "perceptual distortion",
+        "vi": "Bóp méo nhận thức"
+      },
+      {
+        "term": "subconscious influence",
+        "vi": "Ảnh hưởng tiềm thức"
+      },
+      {
+        "term": "emotional intelligence",
+        "vi": "Trí tuệ cảm xúc"
+      }
+    ]
+  },
+  {
+    "block_id": "ed91c171-26fe-4d86-b6d2-e8486aaebc43",
+    "block_name": "Block 130",
+    "page": "05_Tam ly & Tu duy",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "cognitive impairment",
+        "vi": "Suy giảm nhận thức"
+      },
+      {
+        "term": "mental block",
+        "vi": "Rào cản tâm lý"
+      },
+      {
+        "term": "learned helplessness",
+        "vi": "Sự bất lực do thói quen"
+      },
+      {
+        "term": "self-actualization",
+        "vi": "Tự thể hiện bản thân"
+      },
+      {
+        "term": "emotional detachment",
+        "vi": "Sự tách biệt cảm xúc"
+      },
+      {
+        "term": "cognitive dissonance",
+        "vi": "Xung đột nhận thức"
+      },
+      {
+        "term": "mental stamina",
+        "vi": "Sức bền trí óc"
+      },
+      {
+        "term": "introspection",
+        "vi": "Sự tự soi rọi nội tâm"
+      },
+      {
+        "term": "spatial perception",
+        "vi": "Nhận thức không gian"
+      },
+      {
+        "term": "locus of control",
+        "vi": "Điểm kiểm soát tâm lý"
+      }
+    ]
+  },
+  {
+    "block_id": "9e554a1d-1683-4885-b0ed-74a9d6b530fc",
+    "block_name": "Block 131",
+    "page": "05_Tam ly & Tu duy",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "mood oscillation",
+        "vi": "Dao động tâm trạng"
+      },
+      {
+        "term": "psychological barrier",
+        "vi": "Rào cản tâm lý"
+      },
+      {
+        "term": "associative memory",
+        "vi": "Trí nhớ liên tưởng"
+      },
+      {
+        "term": "mental clarity",
+        "vi": "Sự minh mẫn trí óc"
+      },
+      {
+        "term": "cognitive decline",
+        "vi": "Suy giảm nhận thức"
+      },
+      {
+        "term": "emotional impulse",
+        "vi": "Bốc đồng cảm xúc"
+      },
+      {
+        "term": "neuroplasticity",
+        "vi": "Khả năng thích ứng của não"
+      },
+      {
+        "term": "subconscious desire",
+        "vi": "Khát khao tiềm thức"
+      },
+      {
+        "term": "mental resilience",
+        "vi": "Sức bật tinh thần"
+      }
+    ]
+  },
+  {
+    "block_id": "6c1288c8-31a0-4f70-a9ae-4950450e66a6",
+    "block_name": "Block 132",
+    "page": "06_Suc khoe & Sinh hoc",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "chronic sleep deprivation",
+        "vi": "Thiếu ngủ mãn tính"
+      },
+      {
+        "term": "circadian rhythm",
+        "vi": "Nhịp sinh học"
+      },
+      {
+        "term": "hereditary disorder",
+        "vi": "Rối loạn di truyền"
+      },
+      {
+        "term": "symptom",
+        "vi": "Triệu chứng"
+      },
+      {
+        "term": "sputum",
+        "vi": "Đờm"
+      },
+      {
+        "term": "anemia",
+        "vi": "Bệnh thiếu máu"
+      },
+      {
+        "term": "cardiovascular fitness",
+        "vi": "Sức khỏe tim mạch"
+      },
+      {
+        "term": "metabolic rate",
+        "vi": "Tốc độ trao đổi chất"
+      },
+      {
+        "term": "autoimmune response",
+        "vi": "Phản ứng tự miễn"
+      },
+      {
+        "term": "neurological disorder",
+        "vi": "Rối loạn thần kinh"
+      }
+    ]
+  },
+  {
+    "block_id": "c85b29da-8795-4daf-9892-3843f0c8e446",
+    "block_name": "Block 133",
+    "page": "06_Suc khoe & Sinh hoc",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "immune deficiency",
+        "vi": "Suy giảm miễn dịch"
+      },
+      {
+        "term": "cellular regeneration",
+        "vi": "Tái tạo tế bào"
+      },
+      {
+        "term": "gastrointestinal tract",
+        "vi": "Đường tiêu hóa"
+      },
+      {
+        "term": "pathogenic bacteria",
+        "vi": "Vi khuẩn gây bệnh"
+      },
+      {
+        "term": "respiratory infection",
+        "vi": "Nhiễm trùng đường hô hấp"
+      },
+      {
+        "term": "blood pressure",
+        "vi": "Huyết áp"
+      },
+      {
+        "term": "genetic mutation",
+        "vi": "Đột biến gen"
+      },
+      {
+        "term": "chronic illness",
+        "vi": "Bệnh mãn tính"
+      },
+      {
+        "term": "viral transmission",
+        "vi": "Lây truyền vi-rút"
+      },
+      {
+        "term": "metabolic syndrome",
+        "vi": "Hội chứng chuyển hóa"
+      }
+    ]
+  },
+  {
+    "block_id": "89a5fa52-65a9-4e37-bd88-b93926f46ffe",
+    "block_name": "Block 134",
+    "page": "06_Suc khoe & Sinh hoc",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "dietary fiber",
+        "vi": "Chất xơ thực phẩm"
+      },
+      {
+        "term": "muscular dystrophy",
+        "vi": "Loạn dưỡng cơ"
+      },
+      {
+        "term": "bacterial strain",
+        "vi": "Chủng vi khuẩn"
+      },
+      {
+        "term": "hormonal imbalance",
+        "vi": "Mất cân bằng nội tiết"
+      },
+      {
+        "term": "immune system",
+        "vi": "Hệ miễn dịch"
+      },
+      {
+        "term": "sedentary lifestyle",
+        "vi": "Lối sống ít vận động"
+      },
+      {
+        "term": "biological catalyst",
+        "vi": "Chất xúc tác sinh học"
+      },
+      {
+        "term": "arterial blockage",
+        "vi": "Tắc nghẽn động mạch"
+      },
+      {
+        "term": "physical therapy",
+        "vi": "Vật lý trị liệu"
+      },
+      {
+        "term": "systemic inflammation",
+        "vi": "Viêm toàn thân"
+      }
+    ]
+  },
+  {
+    "block_id": "c12e9343-2602-4cbb-b34d-8660547f2c3f",
+    "block_name": "Block 135",
+    "page": "06_Suc khoe & Sinh hoc",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "organ transplant",
+        "vi": "Cấy ghép nội tạng"
+      },
+      {
+        "term": "digestive enzyme",
+        "vi": "Men tiêu hóa"
+      },
+      {
+        "term": "allergic reaction",
+        "vi": "Phản ứng dị ứng"
+      },
+      {
+        "term": "neural pathway",
+        "vi": "Đường truyền thần kinh"
+      },
+      {
+        "term": "physical exhaustion",
+        "vi": "Kiệt sức thể chất"
+      },
+      {
+        "term": "vascular system",
+        "vi": "Hệ mạch máu"
+      },
+      {
+        "term": "toxic residue",
+        "vi": "Dư lượng độc hại"
+      },
+      {
+        "term": "cellular damage",
+        "vi": "Tổn thương tế bào"
+      },
+      {
+        "term": "vital signs",
+        "vi": "Dấu hiệu sinh tồn"
+      },
+      {
+        "term": "clinical trial",
+        "vi": "Thử nghiệm lâm sàng"
+      }
+    ]
+  },
+  {
+    "block_id": "90d9d55e-387a-4d90-9de4-d9f20aa8c7eb",
+    "block_name": "Block 136",
+    "page": "07_Phap ly, Chinh tri & Xa hoi",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "institutional authority",
+        "vi": "Thẩm quyền thể chế"
+      },
+      {
+        "term": "territorial dispute",
+        "vi": "Tranh chấp lãnh thổ"
+      },
+      {
+        "term": "sovereignty",
+        "vi": "Chủ quyền"
+      },
+      {
+        "term": "urbanization",
+        "vi": "Đô thị hóa"
+      },
+      {
+        "term": "infringe",
+        "vi": "Xâm phạm / Vi phạm"
+      },
+      {
+        "term": "potential breach of contract",
+        "vi": "Vi phạm hợp đồng tiềm tàng"
+      },
+      {
+        "term": "statutory regulation",
+        "vi": "Quy định pháp lý"
+      },
+      {
+        "term": "judicial review",
+        "vi": "Xem xét tư pháp"
+      },
+      {
+        "term": "legislative framework",
+        "vi": "Khung pháp lý"
+      },
+      {
+        "term": "civil liberty",
+        "vi": "Quyền tự do dân sự"
+      }
+    ]
+  },
+  {
+    "block_id": "73142894-cdbd-4f49-92f9-7187a3df7a50",
+    "block_name": "Block 137",
+    "page": "07_Phap ly, Chinh tri & Xa hoi",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "bipartisan agreement",
+        "vi": "Thỏa thuận lưỡng đảng"
+      },
+      {
+        "term": "diplomatic immunity",
+        "vi": "Quyền miễn trừ ngoại giao"
+      },
+      {
+        "term": "jurisdictional limit",
+        "vi": "Giới hạn thẩm quyền"
+      },
+      {
+        "term": "humanitarian aid",
+        "vi": "Viện trợ nhân đạo"
+      },
+      {
+        "term": "constitutional amendment",
+        "vi": "Sửa đổi hiến pháp"
+      },
+      {
+        "term": "legal liability",
+        "vi": "Trách nhiệm pháp lý"
+      },
+      {
+        "term": "electoral reform",
+        "vi": "Cải cách bầu cử"
+      },
+      {
+        "term": "public policy",
+        "vi": "Chính sách công"
+      },
+      {
+        "term": "international treaty",
+        "vi": "Hiệp ước quốc tế"
+      },
+      {
+        "term": "socio-economic status",
+        "vi": "Địa vị kinh tế - xã hội"
+      }
+    ]
+  },
+  {
+    "block_id": "e1b8fc37-892b-4629-a2ed-10e20146013a",
+    "block_name": "Block 138",
+    "page": "07_Phap ly, Chinh tri & Xa hoi",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "administrative procedure",
+        "vi": "Thủ tục hành chính"
+      },
+      {
+        "term": "freedom of expression",
+        "vi": "Tự do ngôn luận"
+      },
+      {
+        "term": "law enforcement",
+        "vi": "Cơ quan hành pháp"
+      },
+      {
+        "term": "class-action lawsuit",
+        "vi": "Vụ kiện tập thể"
+      },
+      {
+        "term": "parliamentary system",
+        "vi": "Hệ thống nghị viện"
+      },
+      {
+        "term": "intellectual property",
+        "vi": "Sở hữu trí tuệ"
+      },
+      {
+        "term": "civil disobedience",
+        "vi": "Bất tuân dân sự"
+      },
+      {
+        "term": "social stratification",
+        "vi": "Phân tầng xã hội"
+      },
+      {
+        "term": "diplomatic tension",
+        "vi": "Căng thẳng ngoại giao"
+      },
+      {
+        "term": "legal precedent",
+        "vi": "Án lệ pháp lý"
+      }
+    ]
+  },
+  {
+    "block_id": "f9b1b022-57e5-480d-9160-71eb0fd91298",
+    "block_name": "Block 139",
+    "page": "07_Phap ly, Chinh tri & Xa hoi",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "trade embargo",
+        "vi": "Cấm vận thương mại"
+      },
+      {
+        "term": "public governance",
+        "vi": "Quản trị công"
+      },
+      {
+        "term": "political asylum",
+        "vi": "Tị nạn chính trị"
+      },
+      {
+        "term": "penal code",
+        "vi": "Bộ luật hình sự"
+      },
+      {
+        "term": "civic duty",
+        "vi": "Nghĩa vụ công dân"
+      },
+      {
+        "term": "extrajudicial action",
+        "vi": "Hành động ngoài tư pháp"
+      },
+      {
+        "term": "systemic discrimination",
+        "vi": "Phân biệt đối xử hệ thống"
+      },
+      {
+        "term": "statutory right",
+        "vi": "Quyền theo luật định"
+      },
+      {
+        "term": "government decree",
+        "vi": "Nghị định chính phủ"
+      },
+      {
+        "term": "political coalition",
+        "vi": "Liên minh chính trị"
+      }
+    ]
+  },
+  {
+    "block_id": "4786e0b3-ce83-4153-9e57-8867429d74a6",
+    "block_name": "Block 140",
+    "page": "07_Phap ly, Chinh tri & Xa hoi",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "extradition treaty",
+        "vi": "Hiệp ước dẫn độ"
+      },
+      {
+        "term": "social cohesion",
+        "vi": "Sự gắn kết xã hội"
+      },
+      {
+        "term": "copyright infringement",
+        "vi": "Vi phạm bản quyền"
+      },
+      {
+        "term": "legal dispute",
+        "vi": "Tranh chấp pháp lý"
+      },
+      {
+        "term": "public referendum",
+        "vi": "Trưng cầu dân ý"
+      },
+      {
+        "term": "regulatory compliance",
+        "vi": "Tuân thủ quy định"
+      },
+      {
+        "term": "sovereign immunity",
+        "vi": "Quyền miễn trừ chủ quyền"
+      }
+    ]
+  },
+  {
+    "block_id": "11169956-09e2-4f95-abf3-609b5343f1ef",
+    "block_name": "Block 141",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "stood me up",
+        "vi": "Cho tôi leo cây"
+      },
+      {
+        "term": "out of nowhere",
+        "vi": "Bất ngờ xuất hiện"
+      },
+      {
+        "term": "delicate ecosystem",
+        "vi": "Hệ sinh thái nhạy cảm"
+      },
+      {
+        "term": "biodegradable",
+        "vi": "Phân hủy sinh học"
+      },
+      {
+        "term": "marinate",
+        "vi": "Ướp gia vị / Ngẫm nghĩ"
+      },
+      {
+        "term": "cohabitation",
+        "vi": "Sống thử / Sống chung"
+      },
+      {
+        "term": "bite the bullet",
+        "vi": "Cắn răng chịu đựng"
+      },
+      {
+        "term": "burn the midnight oil",
+        "vi": "Thức khuya làm việc"
+      },
+      {
+        "term": "hit the nail on the head",
+        "vi": "Nói chính xác / Trúng phóc"
+      },
+      {
+        "term": "carbon footprint",
+        "vi": "Dấu chân carbon"
+      }
+    ]
+  },
+  {
+    "block_id": "959cd4d1-6b41-4093-afdd-31f867761142",
+    "block_name": "Block 142",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "sustainable lifestyle",
+        "vi": "Lối sống bền vững"
+      },
+      {
+        "term": "environmental degradation",
+        "vi": "Suy ngoái môi trường"
+      },
+      {
+        "term": "renewable energy",
+        "vi": "Năng lượng tái tạo"
+      },
+      {
+        "term": "once in a blue moon",
+        "vi": "Hiếm khi / Năm thì mười họa"
+      },
+      {
+        "term": "break the ice",
+        "vi": "Phá tan sự ngượng ngùng"
+      },
+      {
+        "term": "spill the beans",
+        "vi": "Tiết lộ bí mật"
+      },
+      {
+        "term": "cost an arm and a leg",
+        "vi": "Đắt lòi mắt / Tốn kém"
+      },
+      {
+        "term": "zero-waste lifestyle",
+        "vi": "Lối sống không rác thải"
+      },
+      {
+        "term": "deforestation",
+        "vi": "Nạn phá rừng"
+      },
+      {
+        "term": "ecological balance",
+        "vi": "Cân bằng sinh thái"
+      }
+    ]
+  },
+  {
+    "block_id": "a1c1b07e-6649-4ec3-8405-065819e6d0d4",
+    "block_name": "Block 143",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "add insult to injury",
+        "vi": "Họa vô đơn chí / Đổ thêm dầu vào lửa"
+      },
+      {
+        "term": "beat around the bush",
+        "vi": "Nói vòng vo tam quốc"
+      },
+      {
+        "term": "Blessing in disguise",
+        "vi": "Trong cái rủi có cái may"
+      },
+      {
+        "term": "call it a day",
+        "vi": "Nghỉ tay / Dừng làm việc"
+      },
+      {
+        "term": "give the benefit of the doubt",
+        "vi": "Tạm tin tưởng"
+      },
+      {
+        "term": "let the cat out of the bag",
+        "vi": "Để lộ bí mật"
+      },
+      {
+        "term": "pulling someone's leg",
+        "vi": "Trêu chọc ai đó"
+      },
+      {
+        "term": "under the weather",
+        "vi": "Cảm thấy mệt mỏi / Ốm"
+      },
+      {
+        "term": "climate change mitigation",
+        "vi": "Giảm thiểu biến đổi khí hậu"
+      },
+      {
+        "term": "toxic waste dump",
+        "vi": "Bãi thải chất độc hại"
+      }
+    ]
+  },
+  {
+    "block_id": "aa994a71-4f2a-48f8-80b8-1c4e814eb88f",
+    "block_name": "Block 144",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "biodiversity loss",
+        "vi": "Mất đa dạng sinh học"
+      },
+      {
+        "term": "energy conservation",
+        "vi": "Tiết kiệm năng lượng"
+      },
+      {
+        "term": "greenhouse gas emission",
+        "vi": "Khí thải nhà kính"
+      },
+      {
+        "term": "marine conservation",
+        "vi": "Bảo tồn biển"
+      },
+      {
+        "term": "throw caution to the wind",
+        "vi": "Liều lĩnh / Bất chấp rủi ro"
+      },
+      {
+        "term": "barking up the wrong tree",
+        "vi": "Nhầm đối tượng / Sai hướng"
+      },
+      {
+        "term": "bite off more than you can chew",
+        "vi": "Ôm đôm quá sức"
+      },
+      {
+        "term": "picture is worth a thousand words",
+        "vi": "Một hình ảnh bằng ngàn lời nói"
+      },
+      {
+        "term": "piece of cake",
+        "vi": "Dễ như ăn bánh"
+      },
+      {
+        "term": "seeing eye to eye",
+        "vi": "Đồng quan điểm"
+      }
+    ]
+  },
+  {
+    "block_id": "6af4ab74-d89e-4a32-91c9-62f247c448c6",
+    "block_name": "Block 145",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "urban sprawl",
+        "vi": "Sự đô thị hóa tràn lan"
+      },
+      {
+        "term": "carbon sequestration",
+        "vi": "Tích tụ carbon"
+      },
+      {
+        "term": "circular economy",
+        "vi": "Nền kinh tế tuần hoàn"
+      },
+      {
+        "term": "acid rain",
+        "vi": "Mưa axit"
+      },
+      {
+        "term": "eco-friendly packaging",
+        "vi": "Bao bì thân thiện môi trường"
+      },
+      {
+        "term": "back to the drawing board",
+        "vi": "Làm lại từ đầu"
+      },
+      {
+        "term": "ball is in your court",
+        "vi": "Tới lượt bạn quyết định"
+      },
+      {
+        "term": "burn bridges",
+        "vi": "Tự tuyệt đường sống / Cắt đứt quan hệ"
+      },
+      {
+        "term": "don't judge a book by its cover",
+        "vi": "Đừng nhìn mặt mà bắt hình dong"
+      },
+      {
+        "term": "elephant in the room",
+        "vi": "Vấn đề lớn bị ngó lơ"
+      }
+    ]
+  },
+  {
+    "block_id": "0a25b940-ce80-455d-951a-380654e78f08",
+    "block_name": "Block 146",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "sustainable agriculture",
+        "vi": "Nông nghiệp bền vững"
+      },
+      {
+        "term": "wildlife corridor",
+        "vi": "Hành lang động vật hoang dã"
+      },
+      {
+        "term": "plastic footprint",
+        "vi": "Dấu chân nhựa"
+      },
+      {
+        "term": "fossil fuel dependency",
+        "vi": "Phụ thuộc vào nhiên liệu hóa thạch"
+      },
+      {
+        "term": "environmental stewardship",
+        "vi": "Quản lý môi trường"
+      },
+      {
+        "term": "Ignorance is bliss",
+        "vi": "Ngu si hưởng thái bình"
+      },
+      {
+        "term": "jump on the bandwagon",
+        "vi": "Chạy theo xu hướng"
+      },
+      {
+        "term": "kill two birds with one stone",
+        "vi": "Một mũi tên trúng hai đích"
+      },
+      {
+        "term": "method to my madness",
+        "vi": "Có lý do trong sự điên rồ"
+      },
+      {
+        "term": "off the beaten track",
+        "vi": "Nơi hẻo lánh / Ít người biết"
+      }
+    ]
+  },
+  {
+    "block_id": "ef4f3509-ead8-4999-a05f-307f3be53286",
+    "block_name": "Block 147",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "renewable energy grid",
+        "vi": "Lưới điện năng lượng tái tạo"
+      },
+      {
+        "term": "habitat destruction",
+        "vi": "Sự phá hủy môi trường sống"
+      },
+      {
+        "term": "e-waste recycling",
+        "vi": "Tái chế rác thải điện tử"
+      },
+      {
+        "term": "carbon offset",
+        "vi": "Bù đắp lượng carbon"
+      },
+      {
+        "term": "water scarcity",
+        "vi": "Khan hiếm nước"
+      },
+      {
+        "term": "on the fence",
+        "vi": "Lưỡng lự / Chưa quyết định"
+      },
+      {
+        "term": "play devil's advocate",
+        "vi": "Đóng vai kẻ phản biện"
+      },
+      {
+        "term": "sit on the fence",
+        "vi": "Tránh chọn phe / Lưỡng lự"
+      },
+      {
+        "term": "take with a grain of salt",
+        "vi": "Bán tín bán nghi"
+      },
+      {
+        "term": "the tip of the iceberg",
+        "vi": "Bề nổi của tảng băng chìm"
+      }
+    ]
+  },
+  {
+    "block_id": "721bb776-19db-4bde-a903-2fc22c2c1747",
+    "block_name": "Block 148",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "ocean acidification",
+        "vi": "Sự axit hóa đại dương"
+      },
+      {
+        "term": "sustainable forestry",
+        "vi": "Lâm nghiệp bền vững"
+      },
+      {
+        "term": "clean energy transition",
+        "vi": "Chuyển dịch năng lượng sạch"
+      },
+      {
+        "term": "organic farming",
+        "vi": "Canh tác hữu cơ"
+      },
+      {
+        "term": "zero-emission vehicle",
+        "vi": "Xe không phát thải"
+      },
+      {
+        "term": "weather the storm",
+        "vi": "Vượt qua sóng gió"
+      },
+      {
+        "term": "wild goose chase",
+        "vi": "Cuộc tìm kiếm vô vọng"
+      },
+      {
+        "term": "you can't have your cake and eat it too",
+        "vi": "Được cái này mất cái kia"
+      },
+      {
+        "term": "ecological footprint",
+        "vi": "Dấu chân sinh thái"
+      },
+      {
+        "term": "waste management",
+        "vi": "Quản lý rác thải"
+      }
+    ]
+  },
+  {
+    "block_id": "226aa53e-d998-4915-a4ad-d8b5ed4448b7",
+    "block_name": "Block 149",
+    "page": "08_Doi song, Thanh ngu & Moi truong",
+    "batch": "Batch 1",
+    "terms": [
+      {
+        "term": "green auditing",
+        "vi": "Kiểm toán môi trường"
+      }
+    ]
+  }
+]

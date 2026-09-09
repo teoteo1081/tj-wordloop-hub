@@ -7,6 +7,26 @@ Key `AQ.Ab8RN6J5el71_ViSQGAYZxB-YMDymgsWf9aTnL3sSUl87Oh6vg` trong `config.js` **
 
 **Việc cần làm ngay đầu phiên sau**: xin người dùng tạo key Gemini MỚI (https://aistudio.google.com/apikey, nhớ bấm nút "Copy key"), cập nhật `js/config.js`, verify bằng script Python gọi thẳng API TRƯỚC khi báo người dùng test, commit+push (sẽ bị GitHub Push Protection chặn lại — cần hỏi người dùng xác nhận qua `AskUserQuestion` rồi mới push, đã có tiền lệ ở phiên này). **Nhắc người dùng: chu kỳ "key mới → vài giờ đến vài ngày → Google revoke lại" SẼ LẶP LẠI MÃI** nếu vẫn giữ kiến trúc "key thẳng trong file JS chạy trình duyệt + repo Public" — nói rõ 2 lựa chọn thật sự bền: (1) nâng cấp GitHub Pro để chuyển repo Private (Pages vẫn chạy được), hoặc (2) dựng 1 backend proxy nhỏ (Cloudflare Worker/Vercel function miễn phí) giữ key phía server, web chỉ gọi qua proxy đó — KHÔNG có cách nào "mẹo" hơn để giấu key trong 1 app 100% client-side cả.
 
+## 📝 ĐANG VIẾT LẠI TOÀN BỘ BÀI ĐỌC "SCENARIO" (46 Block, 8 topic) — 6/46 XONG
+Người dùng yêu cầu: viết 1 bài đọc Claude (~500 từ, đúng quy trình CLAUDE.md) cho **MỌI Block** trong 8 Page dưới section `2a064e84-b574-4c07-8a2d-929f90f70486` (hub TOEIC HUB, notebook có sidebar hiện "01_Doanh nghiệp..." → "08_Đời sống..."), **ĐÈ THẲNG lên `context_passage`** (không phải candidates — user đã xác nhận, khác quy tắc mặc định trong CLAUDE.md). Đã quét Supabase: **46 Block, KHÔNG Block nào từng có bài Claude** (`meta.claude` toàn `false`).
+
+**TIẾN ĐỘ: 6/46 xong** — trọn vẹn topic "01_Doanh nghiệp & Quản trị" (Block 104-109), đã verify + PATCH lên Supabase thật, xác nhận HTTP 204 từng Block. **40 Block còn lại** nằm trong `tools/_passage_todo.json` (đã lưu sẵn, có đủ `block_id` + danh sách 10 từ + nghĩa tiếng Việt mỗi Block, KHÔNG cần query lại Supabase) — chia theo topic:
+- `02_Tài chính & Kinh tế`: 5 Block (110-114)
+- `03_Công nghệ và dữ liệu`: 6 Block (115-120, **Block 120 chỉ có 4 từ**)
+- `04_Giao tiếp & Đàm phán`: 5 Block (121-125, **Block 125 chỉ có 3 từ**)
+- `05_Tâm lý & Tư duy`: 6 Block (126-131, **Block 131 chỉ có 9 từ**)
+- `06_Sức khỏe & Sinh học`: 4 Block (132-135)
+- `07_Pháp lý, Chính trị & Xã hội`: 5 Block (136-140, **Block 140 chỉ có 7 từ**)
+- `08_Đời sống, Thành ngữ & Môi trường`: 9 Block (141-149, **Block 149 chỉ có 1 từ — "green auditing"**, gần như không cần viết cả bài, hỏi lại user có muốn viết đủ 500 từ chỉ để nhét 1 từ không, hay gộp/để đó)
+
+**QUY TRÌNH ĐÃ DỰNG SẴN, DÙNG LẠI Y NGUYÊN** (đã test 6 lần, chạy tốt):
+1. `tools/_verify_passage.js` — verify Node y hệt quy trình CLAUDE.md bắt buộc (10/10 gap khớp term, ≥450 từ, `translate()` khớp đủ `meta.vi`, round-trip `parseMeta`).
+2. `tools/_passage_pipeline.py` — hàm `run(out_path, block_id, terms_vi_dict, marked_text, title, source_vi)` gộp cả 3 bước: ghi JSON case → verify → PATCH thẳng `context_passage` lên Supabase nếu PASS hết (không push nếu có FAIL). Import bằng `sys.path.insert(0,"tools"); from _passage_pipeline import run`.
+3. **Bài học rút ra qua 6 lần làm**: ước lượng số từ TRƯỚC khi verify hầu như LUÔN THIẾU (dự đoán ~480 nhưng verify ra 380-430) — **cứ viết dư hẳn ra ngay từ đầu** (nhắm ~550-600 từ lúc soạn thay vì đúng 500) để đỡ phải quay lại thêm câu 2-3 lần/Block, tốn round-trip. Thêm câu chêm vào KHÔNG được đụng câu chứa `[term]` (dùng `.replace()` chèn câu mới ngay trước/sau 1 mốc văn bản có sẵn, xem ví dụ thật trong lịch sử phiên này nếu cần).
+4. `meta.vi[term.toLowerCase()]` chỉ cần LÀ BẢN DỊCH ĐÚNG của câu chứa term đó — không cần khớp chính xác cấu trúc câu gốc, `Context.translate()` chỉ tra thẳng theo key khi có `viMap`.
+5. Mỗi Block xong, **PATCH thành công (204) là đã lưu thật trên Supabase ngay lập tức** — không cần đợi gộp/đợi hết mới lưu. Sau mỗi ~5-6 Block xong, cập nhật lại % tiến độ trong file này rồi `git add -A && git commit && git push` (dù nội dung bài đọc nằm ở Supabase chứ không phải Git, vẫn nên checkpoint code+tiến độ thường xuyên phòng mất phiên giữa chừng).
+6. Chủ đề gợi ý (đã dùng 6/46): bối cảnh đời thường/công sở đa dạng (startup, nhà máy dệt, hãng nội thất, studio podcast, công ty hàng tiêu dùng...) — **đừng lặp lại đúng bối cảnh cũ**, đổi ngành nghề/nhân vật mỗi Block cho đỡ nhàm, đúng tinh thần "phong phú, hấp dẫn" user yêu cầu.
+
 ## Trạng thái ngay lúc dừng (hết token giữa phiên — chưa làm xong Dictation)
 - Commit mới nhất đã **push xong**: `ced1bbb` — key Gemini lúc push còn sống, giờ đã chết (xem mục khẩn cấp ở trên).
 - **✅ Tab "🎧 Dictation" ĐÃ CODE XONG + PUSH** (đúng spec chốt bên dưới) — nghe từng câu (TTS có sẵn, `Speech.speakWord`), gõ lại, tự so `normalizeAnswer(given) === normalizeAnswer(sentence)`, 100% free không AI. Tab đứng sau "Active Recall Quiz", "Nghĩa" đã dời lên ngay sau Dictation, trước "Phiếu đầy đủ" — đúng thứ tự yêu cầu. **CHƯA verify bằng trình duyệt thật** (chỉ `node --check`) — việc ĐẦU TIÊN phiên sau: mở web, vào 1 Block đã có bài đọc, bấm tab Dictation, thử nghe + gõ đúng/sai, xác nhận UI hiển thị đúng, rồi báo lại người dùng.
