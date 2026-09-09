@@ -477,7 +477,8 @@
 
     var newPassage;
     try {
-      newPassage = await w.Context.generateAI(ws, cfg2, null, promptOverride);
+      var topicHint = (w.App && w.App.currentTopicHint) ? w.App.currentTopicHint() : "";
+      newPassage = await w.Context.generateAI(ws, cfg2, null, promptOverride, topicHint);
     } catch (e) {
       console.warn("Sinh bài đọc bằng AI thất bại:", e);
       if (w.App && w.App.showAiError) w.App.showAiError(e);

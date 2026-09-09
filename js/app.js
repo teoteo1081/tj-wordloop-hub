@@ -292,6 +292,17 @@
     w.$("#crumb").innerHTML = html;
   }
 
+  /* Gợi ý chủ đề/lĩnh vực gốc của Block đang mở, lấy từ tên Notebook +
+     Section (Page thường chỉ là "TJ"/số thứ tự, không mô tả lĩnh vực) —
+     truyền cho Context.generateAI làm topicHint để bài đọc AI sinh nghiêng
+     đúng lĩnh vực thay vì hoàn toàn random theo SETTINGS chung chung. */
+  App.currentTopicHint = function () {
+    var nb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
+    var sec = S.sections.find(function (s) { return s.id === S.sectionId; });
+    var parts = [nb && nb.name, sec && sec.name].filter(Boolean);
+    return parts.join(" — ");
+  };
+
   /* ══════════════ RENDER: THANH BATCH ══════════════ */
   function renderBatches() {
     var list = S.pageId ? batchesOfPage(S.pageId) : [];

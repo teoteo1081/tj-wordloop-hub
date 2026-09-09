@@ -481,20 +481,28 @@
     /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta).
        Sinh MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
        câu rời" — từ vựng chỉ là điểm neo xen giữa văn xuôi tự nhiên.
-       difficulty: "easy" | "medium" | "hard" (mặc định "medium") — chỉ
-       ảnh hưởng ĐỘ KHÓ CÂU/TỪ XUNG QUANH, số từ vẫn ~500, vẫn đủ hết từ
-       vựng của Block như nhau ở cả 3 mức.
+       difficulty: "easy" | "medium" | "hard" — ĐỂ TRỐNG/undefined thì TỰ
+       RANDOM 1 trong 3 mức (đa dạng hoá độ khó câu văn xung quanh giữa các
+       lần sinh, không cần UI chọn — UI chọn độ khó đã bị bỏ trước đây vì
+       "hong có tác dụng", đây là random NGẦM, không hiện lựa chọn nào cho
+       user). Chỉ ảnh hưởng ĐỘ KHÓ CÂU/TỪ XUNG QUANH, số từ vẫn ~500, vẫn
+       đủ hết từ vựng của Block như nhau ở cả 3 mức.
        promptOverride: chuỗi thay cho DEFAULT_PROMPT_TEMPLATE nếu user tự
        sửa trong ô prompt cạnh nút "🔄 Tạo lại" — để trống/undefined thì
-       dùng mẫu mặc định. */
-    generateAI: async function (words, cfg, difficulty, promptOverride) {
+       dùng mẫu mặc định.
+       topicHint: gợi ý CHỦ ĐỀ/LĨNH VỰC GỐC của bộ từ này (vd tên Notebook/
+       Section — "Digital Marketing", "TOEIC Reading"...) — có thì bài đọc
+       sẽ nghiêng nội dung về đúng lĩnh vực đó thay vì hoàn toàn random
+       theo SETTINGS; để trống/undefined thì bỏ qua, chỉ dùng SETTINGS. */
+    generateAI: async function (words, cfg, difficulty, promptOverride, topicHint) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
       /* KHÔNG tự check "chưa có key" ở đây — để _callProvider() làm việc đó,
          vì nó ném lỗi có đủ `.kind = "no_key"` cho describeError() hiển thị
          đúng thông báo trên UI (check trùng ở đây từng ném Error thường,
          thiếu field .kind, khiến UI hiện "Lỗi không xác định" sai). */
-      var diffKey = w.Context.DIFFICULTY[difficulty] ? difficulty : "medium";
+      var DIFF_KEYS = ["easy", "medium", "hard"];
+      var diffKey = w.Context.DIFFICULTY[difficulty] ? difficulty : DIFF_KEYS[Math.floor(Math.random() * DIFF_KEYS.length)];
       var diffDesc = w.Context.DIFFICULTY[diffKey];
 
       var setting = w.Context.SETTINGS[Math.floor(Math.random() * w.Context.SETTINGS.length)];
@@ -514,6 +522,21 @@
       /* Nếu prompt tự sửa lỡ xoá mất {{WORDLIST}} -> vẫn nối danh sách từ
          vào cuối, tránh gọi AI mà thiếu hẳn từ vựng thật của Block. */
       body = body.indexOf("{{WORDLIST}}") >= 0 ? body.replace(/\{\{WORDLIST\}\}/g, wordList) : (body + "\n\n" + wordList);
+      if (topicHint && String(topicHint).trim()) {
+        /* QUAN TRỌNG: phải nói rõ đây là NỘI DUNG CHÍNH, còn "BỐI CẢNH BẮT
+           BUỘC" bên dưới chỉ là ĐỊA ĐIỂM/TÌNH HUỐNG bao quanh — nếu chỉ
+           viết "nên liên quan" (câu gợi ý), model sẽ ưu tiên đúng chữ
+           "BẮT BUỘC" của setting và bỏ qua hẳn topicHint (đã test thật:
+           bối cảnh "sân bay bị hoãn chuyến" ra đời dù topicHint là
+           "Digital Marketing", không dính dáng gì cả). Giờ ép topicHint
+           làm CHỦ ĐỀ NỘI DUNG, setting chỉ còn là khung cảnh/nhân vật. */
+        body = "CHỦ ĐỀ NỘI DUNG CHÍNH bài đọc PHẢI xoay quanh lĩnh vực: " + String(topicHint).trim() + ". " +
+          "\"BỐI CẢNH BẮT BUỘC\" ở dưới CHỈ LÀ khung địa điểm/tình huống/nhân vật bao quanh câu chuyện, " +
+          "KHÔNG PHẢI chủ đề nội dung — nhân vật trong bối cảnh đó phải đang nói/nghĩ/làm việc gì đó " +
+          "LIÊN QUAN THẬT SỰ tới lĩnh vực \"" + String(topicHint).trim() + "\" (vd nếu bối cảnh là sân bay " +
+          "nhưng lĩnh vực là Digital Marketing thì nhân vật có thể đang đọc báo cáo quảng cáo trên " +
+          "điện thoại trong lúc chờ chuyến bay, KHÔNG phải viết về việc bay/hoãn chuyến chung chung).\n\n" + body;
+      }
 
       var sys = "Bạn là trợ lý viết bài đọc hiểu tiếng Anh để luyện từ vựng cho người Việt học " +
         "tiếng Anh. Luôn trả lời DUY NHẤT một object JSON đúng schema được yêu cầu, không thêm " +
