@@ -455,7 +455,8 @@
     var myBlockId = b.id;
 
     var cfg2 = w.APP_CONFIG || {};
-    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
+    /* Gemini giờ gọi qua proxy (chỉ cần Cloud mode), không cần cfg2.GEMINI_API_KEY. */
+    if (!cfg2.OPENAI_API_KEY && !(cfg2.SUPABASE_URL && cfg2.SUPABASE_ANON_KEY)) {
       w.toast("Chưa cấu hình API key AI — hãy dán bài đọc của bạn vào ô bên dưới", "err");
       return;
     }

@@ -141,11 +141,18 @@
       return "";     /* câu lạ (đoạn văn cũ / tự sửa) -> không dịch bừa */
     },
 
-    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (Gemini, MIỄN PHÍ) ═══════════
-       Cần window.APP_CONFIG.GEMINI_API_KEY (đặt trong js/keys.local.js,
-       KHÔNG commit lên git — hoặc thẳng trong js/config.js). Gọi thẳng từ
-       trình duyệt — không có backend. (Từng hỗ trợ cả OpenAI trả phí, đã
-       bỏ — chỉ dùng Gemini free tier.)
+    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (OpenAI ưu tiên, Gemini dự phòng) ═══
+       OpenAI: cần window.APP_CONFIG.OPENAI_API_KEY (đặt trong
+       js/keys.local.js, KHÔNG commit lên git — chỉ tồn tại trên máy local
+       của TJ, "tiền thật" nên không đưa lên web live). Gọi thẳng từ
+       trình duyệt tới api.openai.com — không có backend riêng.
+       Gemini: KHÔNG còn gọi thẳng Google với key trong config.js nữa (key
+       kiểu đó bị Google tự thu hồi liên tục vì repo Public) — giờ gọi qua
+       Supabase Edge Function gemini-proxy (supabase/functions/gemini-proxy),
+       key thật nằm server-side dưới dạng Supabase secret. Client chỉ cần
+       cfg.SUPABASE_URL/SUPABASE_ANON_KEY (luôn có ở Cloud mode) để gọi
+       proxy — dùng được ở CẢ web live lẫn máy local, không cần key riêng
+       cho từng máy nữa. Xem Context._callProvider/_callGemini/_callOpenAI.
        Trả về CHUỖI để lưu y hệt chỗ dùng Context.generate(): văn bản có
        [đánh dấu] + một khối JSON ẩn phía sau (ngăn bởi META_SEP) chứa
        bản dịch từng câu + tiêu đề + nguồn, để đọc lại đúng như lúc sinh. */
@@ -225,27 +232,40 @@
        thật (theo yêu cầu "note ra được tốn bao nhiêu đô cho mỗi bài"). */
     _lastCostUsd: null,
 
-    /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey).
+    /* Gọi Gemini QUA PROXY (supabase/functions/gemini-proxy) — KHÔNG còn
+       gọi thẳng Google với key nằm trong config.js nữa. Lý do: key trần
+       trong config.js (repo Public) đã bị Google TỰ ĐỘNG THU HỒI 3 LẦN
+       LIÊN TIẾP trong ~24 tiếng (kể cả sau khi giới hạn domain trong Cloud
+       Console) — restriction chỉ giới hạn ai DÙNG ĐƯỢC key, không ngăn
+       được GitHub/Google secret-scanning coi lộ key là sự cố cần thu hồi
+       ngay. Giờ GEMINI_API_KEY chỉ tồn tại dưới dạng Supabase secret
+       (server-side), không client nào (web live lẫn máy local) cần biết
+       giá trị thật nữa — xem chi tiết trong file proxy.
        TỰ THỬ LẠI tối đa 3 lần khi Google báo 503/429 (quá tải tạm thời —
        hay gặp với model "flash" free tier giờ cao điểm, KHÔNG phải lỗi
        key/code) — đợi 1.5s/3s/6s giữa các lần, chỉ thật sự báo lỗi cho
        người dùng nếu thử hết cả 3 lần vẫn không được. */
     _callGemini: async function (cfg, sys, user) {
+      if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+        var noProxy = new Error("gemini: cần chạy Cloud mode (có SUPABASE_URL/SUPABASE_ANON_KEY) để gọi qua proxy");
+        noProxy.kind = "api"; noProxy.provider = "gemini";
+        throw noProxy;
+      }
       var model = cfg.GEMINI_MODEL || "gemini-3.6-flash";
-      var url = "https://generativelanguage.googleapis.com/v1beta/models/" + model +
-                ":generateContent?key=" + encodeURIComponent(cfg.GEMINI_API_KEY);
-      var body = JSON.stringify({
-        systemInstruction: { parts: [{ text: sys }] },
-        contents: [{ parts: [{ text: user }] }],
-        generationConfig: { temperature: 0.9, responseMimeType: "application/json" }
-      });
+      var url = cfg.SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/gemini-proxy";
+      var body = JSON.stringify({ model: model, sys: sys, user: user });
+      var headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + cfg.SUPABASE_ANON_KEY,
+        "apikey": cfg.SUPABASE_ANON_KEY
+      };
 
       var lastErr = null;
       for (var attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await new Promise(function (r) { setTimeout(r, 1500 * Math.pow(2, attempt - 1)); });
         var res;
         try {
-          res = await w.Context._fetchAI(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }, "gemini");
+          res = await w.Context._fetchAI(url, { method: "POST", headers: headers, body: body }, "gemini");
         } catch (e) { lastErr = e; if (e.kind !== "network") break; continue; }   /* mất mạng thoáng qua -> thử lại; timeout thì dừng luôn */
         if (res.ok) {
           var data = await res.json();
@@ -309,27 +329,34 @@
       throw lastErr;
     },
 
-    /* Chọn nhà cung cấp: có OPENAI_API_KEY thì DÙNG TRƯỚC (theo yêu cầu
-       thay thế Gemini) — Gemini free tier chỉ còn là DỰ PHÒNG tự động
-       nếu OpenAI lỗi VÀ máy cũng có sẵn GEMINI_API_KEY. Không có cả 2 key
-       thì báo rõ "chưa cấu hình" (kind: "no_key") thay vì lỗi mơ hồ.
+    /* Chọn nhà cung cấp: có OPENAI_API_KEY (chỉ có trên máy local, xem
+       keys.local.js) thì DÙNG TRƯỚC — Gemini (qua proxy, xem _callGemini)
+       chỉ còn là DỰ PHÒNG tự động nếu OpenAI lỗi, hoặc là nhà cung cấp
+       DUY NHẤT trên web live/máy không có OPENAI_API_KEY. Gemini giờ CHỈ
+       cần cfg.SUPABASE_URL/SUPABASE_ANON_KEY (luôn có sẵn ở Cloud mode) —
+       KHÔNG còn cần cfg.GEMINI_API_KEY client-side nữa (key đã chuyển hẳn
+       vào Supabase secret phía server, xem gemini-proxy). Không có cả
+       OPENAI_API_KEY lẫn SUPABASE_URL thì báo rõ "chưa cấu hình" (kind:
+       "no_key") thay vì lỗi mơ hồ.
        Ghi lại _lastProvider ("openai"/"gemini") NGAY KHI THÀNH CÔNG — để
        generateAI() lưu vào meta.provider, giúp TJ biết bài nào tốn tiền
        OpenAI thật, bài nào chỉ chạy Gemini free (kiểm soát chi phí). */
     _lastProvider: null,
     _callProvider: async function (cfg, sys, user) {
-      if (!cfg || (!cfg.OPENAI_API_KEY && !cfg.GEMINI_API_KEY)) {
-        var noKey = new Error("Chưa cấu hình API key AI nào (OpenAI/Gemini) trong js/keys.local.js");
+      var hasOpenAI = !!(cfg && cfg.OPENAI_API_KEY);
+      var hasGeminiProxy = !!(cfg && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+      if (!hasOpenAI && !hasGeminiProxy) {
+        var noKey = new Error("Chưa cấu hình OpenAI key (js/keys.local.js) và cũng chưa chạy Cloud mode để gọi Gemini qua proxy");
         noKey.kind = "no_key";
         throw noKey;
       }
-      if (cfg.OPENAI_API_KEY) {
+      if (hasOpenAI) {
         try {
           var r1 = await w.Context._callOpenAI(cfg, sys, user);
           w.Context._lastProvider = "openai";
           return r1;
         } catch (eOpenAI) {
-          if (!cfg.GEMINI_API_KEY) throw eOpenAI;
+          if (!hasGeminiProxy) throw eOpenAI;
           try {
             var r2 = await w.Context._callGemini(cfg, sys, user);
             w.Context._lastProvider = "gemini";

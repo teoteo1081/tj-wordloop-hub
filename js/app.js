@@ -915,7 +915,9 @@
          key cũng gọi được AI, không phân biệt vai trò. */
       var cfg2 = w.APP_CONFIG || {};
       var vocabFillMeta = null;   /* {provider, cost_usd, at} — dán lên MỌI Block vừa tạo trong lượt dán này, xem bên dưới */
-      if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
+      /* Gemini giờ luôn "có" (gọi qua proxy) miễn app đang chạy Cloud mode
+         (SUPABASE_URL) — không còn cần cfg2.GEMINI_API_KEY client-side. */
+      if (cfg2.OPENAI_API_KEY || (cfg2.SUPABASE_URL && cfg2.SUPABASE_ANON_KEY)) {
         var needy = parsed.filter(function (x) {
           return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
         });
@@ -985,11 +987,11 @@
      thấy nguyên bài, chỉ khác từ nào được tô). */
   async function doPasteExtract() {
     if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
-    /* "AI chỉ Admin" đã BỎ theo yêu cầu — mọi User đều dùng được, chỉ cần
-       máy đã cấu hình GEMINI_API_KEY. */
+    /* "AI chỉ Admin" đã BỎ theo yêu cầu — mọi User đều dùng được. Gemini
+       giờ gọi qua proxy (chỉ cần Cloud mode), không cần cfg2.GEMINI_API_KEY. */
     var cfg2 = w.APP_CONFIG || {};
-    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
-      w.toast("Cần key OpenAI/Gemini trong js/keys.local.js để dùng tính năng này", "err");
+    if (!cfg2.OPENAI_API_KEY && !(cfg2.SUPABASE_URL && cfg2.SUPABASE_ANON_KEY)) {
+      w.toast("Cần key OpenAI (js/keys.local.js) hoặc chạy Cloud mode để dùng tính năng này", "err");
       return;
     }
     if (w.App && w.App.hideAiError) w.App.hideAiError();

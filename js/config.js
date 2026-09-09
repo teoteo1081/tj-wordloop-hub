@@ -13,15 +13,14 @@ window.APP_CONFIG = {
   SUPABASE_URL: "https://pqarpszsipbdugrumhfy.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxYXJwc3pzaXBiZHVncnVtaGZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDc0NTcsImV4cCI6MjEwNDI4MzQ1N30.zB6uvPPt-vQ78TVwPUTMmfulbFVz-lNz9F5RJF9owwc",
 
-  // ⚠️ Key dưới đây BỘC LỘ RÕ (nằm trong code chạy trên trình duyệt + repo GitHub Public)
-  // BẮT BUỘC nằm ở đây (không phải keys.local.js) để GitHub Pages phục vụ
-  // được cho web thật — keys.local.js bị gitignore nên KHÔNG lên được
-  // GitHub Pages, web thật sẽ 404/thiếu key nếu để ở đó (đã thử, hỏng).
-  // Key này đã bị Google thu hồi 2 LẦN (repo Public bị quét tự động) —
-  // key hiện tại (2026-09-10, lần 3) đã giới hạn Application restrictions
-  // = Websites (chỉ chạy được từ teoteo1081.github.io/* + localhost:8934/*)
-  // trong Google Cloud Console, để KHÔNG bị thu hồi lại như 2 lần trước.
-  GEMINI_API_KEY: "AQ.Ab8RN6KP7vAZsAXxzrNVU--e3LWFVsBOTi3q10FKRxerfJnSqw",
+  // ĐÃ BỎ HẲN GEMINI_API_KEY khỏi file này (2026-09-10) — key trần ở đây
+  // (repo Public) đã bị Google TỰ ĐỘNG THU HỒI 3 LẦN LIÊN TIẾP trong vòng
+  // ~24 tiếng, kể cả sau khi giới hạn domain trong Cloud Console (restriction
+  // không ngăn được secret-scanning thu hồi). Gemini giờ gọi qua Supabase
+  // Edge Function gemini-proxy (supabase/functions/gemini-proxy/index.ts) —
+  // key thật nằm server-side dưới dạng Supabase secret, KHÔNG BAO GIỜ xuất
+  // hiện trong file nào commit lên git nữa. Xem Context._callGemini trong
+  // js/context.js — chỉ cần SUPABASE_URL/SUPABASE_ANON_KEY bên dưới là đủ.
 
   APP_NAME: "TJ WordLoop Hub",
   WORDS_PER_BLOCK: 10,        // chuẩn 10 từ / block
