@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=9">
+<link rel="stylesheet" href="css/app.css?v=10">
 </head>
 <body>
 
@@ -244,9 +244,10 @@
         <div class="dtabs-scroll">
           <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
           <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
+          <button class="dtab" data-tab="dictation">🎧 Dictation</button>
+          <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
           <button class="dtab" data-tab="sheet">📋 Phiếu<span class="dt-long"> đầy đủ</span></button>
           <button class="dtab" data-tab="single">🔤 Từng câu</button>
-          <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
           <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
         </div>
         <span class="bn-pos" id="bn-pos" hidden></span>
@@ -383,6 +384,12 @@
       <!-- TAB: NGHĨA (10 từ đảo nghĩa, trắc nghiệm 4 đáp án — riêng, không tính SRS) -->
       <div class="tab-pane" id="pane-meaning">
         <div class="card final-wrap" id="meaning-card"></div>
+      </div>
+
+      <!-- TAB: DICTATION (nghe câu chứa từ vựng, gõ lại — tự so text, KHÔNG
+           cần AI, KHÔNG tính SRS/Done, chỉ để luyện nghe/chính tả thêm) -->
+      <div class="tab-pane" id="pane-dictation">
+        <div class="card final-wrap" id="dictation-card"></div>
       </div>
 
       <!-- TAB: TIẾN TRÌNH -->
@@ -758,7 +765,7 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/db.js?v=5"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=8"></script>
+<script src="js/detail.js?v=9"></script>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>

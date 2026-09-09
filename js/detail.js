@@ -59,8 +59,10 @@
     D.blockId = blockId;
     D._exam = null;
     D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
+    D._dictationQuiz = null;
     D.si = null;
     D.mi = null;
+    D.di = null;
     D._srcTab = "paste";
     D._pasteDraft = "";
     var b = block();
@@ -188,6 +190,11 @@
       if (!D._meaningQuiz) D._meaningQuiz = D.buildMeaningQuiz();
       if (D.mi == null) D.mi = 0;
       D.renderMeaning();
+    }
+    if (name === "dictation") {
+      if (!D._dictationQuiz) D._dictationQuiz = D.buildDictationQuiz();
+      if (D.di == null) D.di = 0;
+      D.renderDictation();
     }
     if (name !== "study") w.Speech.stop();
     saveLastBlock(name);
@@ -717,6 +724,29 @@
     });
 
     return { mc: mc, total: mc.length, graded: false };
+  };
+
+  /* ---------- Đề Dictation (nghe câu chứa từ vựng, gõ lại — riêng,
+     KHÔNG ảnh hưởng SRS/"✓ Done", chỉ luyện nghe/chính tả thêm) ----------
+     100% FREE — không gọi AI: đọc bằng TTS có sẵn (Speech.speakWord, nhận
+     text bất kỳ chứ không chỉ 1 từ), tự so sánh text đã chuẩn hoá
+     (w.normalizeAnswer — bỏ dấu câu, hạ thường, gộp khoảng trắng) để chấm
+     đúng/sai, không cần mạng/không tốn quota AI nào cả. Câu lấy từ chính
+     bài đọc ngữ cảnh của Block (Context.gapSentences), thay {{GAP}} bằng
+     đúng từ gốc để có câu ĐẦY ĐỦ (không che từ, khác đề "Từng câu"). */
+  D.buildDictationQuiz = function () {
+    var b = block();
+    if (!b || !b.context_passage) return null;
+    var passageText = w.Context.parseMeta(b.context_passage).marked;
+    var raw = w.Context.gapSentences(passageText);
+    if (!raw.length) return null;
+
+    var items = shuffle(raw).slice(0, EXAM_CAP).map(function (g) {
+      var sentence = g.text.replace("{{GAP}}", g.term).trim();
+      return { term: g.term, sentence: sentence, given: "", checked: false, ok: false };
+    });
+
+    return { items: items, total: items.length, graded: false };
   };
 
   /* Khối "đáp án" hiện sau khi chấm: nghĩa của từ + bản dịch cả câu.
@@ -1293,6 +1323,107 @@
     D.renderStudy();
     D.renderProgress();
     w.toast("Đúng " + correct + "/" + ex.total + " (" + ex.score + "%)", ex.score >= PASS_MARK ? "ok" : "err");
+  };
+
+  /* ---------- TAB: DICTATION (nghe câu, gõ lại — luyện riêng, KHÔNG
+     ghi vào block_progress/word_progress, chỉ luyện trong phiên hiện tại
+     — khác Nghĩa/Active Recall Quiz vốn có ghi điểm; đây cố tình để đơn
+     giản, nhẹ, không có gì mất nếu thoát giữa chừng). ---------- */
+  D.renderDictation = function () {
+    var ex = D._dictationQuiz;
+    var box = w.$("#dictation-card");
+    if (!ex) { box.innerHTML = '<div class="quiz-done">Block này chưa có bài đọc ngữ cảnh nên chưa tạo được câu Dictation — vào tab "Bài học &amp; Đọc" dán/tạo bài đọc trước đã.</div>'; return; }
+
+    if (ex.graded) { box.innerHTML = D.dictationResultHtml(ex) + D.dictationResultActionsHtml(); D.bindDictationResult(); return; }
+
+    if (D.di == null || D.di < 0) D.di = 0;
+    if (D.di >= ex.items.length) D.di = ex.items.length - 1;
+    var q = ex.items[D.di];
+    var answered = ex.items.filter(function (x) { return x.checked; }).length;
+    var pct = Math.round((answered / ex.total) * 100);
+
+    var feedbackHtml = q.checked
+      ? '<div class="quiz-feedback ' + (q.ok ? "ok" : "no") + '">' +
+          (q.ok ? "✅ Chính xác!" : "❌ Câu đúng: <b>" + w.esc(q.sentence) + "</b>") +
+        "</div>"
+      : "";
+
+    var last = D.di >= ex.items.length - 1;
+    var lastActionHtml = last
+      ? (q.checked ? '<button class="btn-primary" id="dc-finish">🏁 Xem kết quả</button>' : "")
+      : '<button class="btn-primary" id="dc-next"' + (q.checked ? "" : " disabled") + ">Câu tiếp →</button>";
+
+    box.innerHTML =
+      '<div class="exam-bar-row">' +
+        '<span class="exam-idx">CÂU ' + (D.di + 1) + " / " + ex.items.length + "</span>" +
+        '<span class="exam-score">đã làm ' + answered + "/" + ex.total + "</span>" +
+      "</div>" +
+      '<div class="quiz-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="gap-card">' +
+        '<button class="btn-primary" id="dc-play" title="Nghe lại câu">🎧 Nghe câu' + (q.checked ? " lại" : "") + "</button>" +
+      "</div>" +
+      '<textarea id="dc-input" class="dictation-input" placeholder="Gõ lại đúng câu vừa nghe…" ' +
+        (q.checked ? "disabled" : "") + ">" + w.esc(q.given || "") + "</textarea>" +
+      feedbackHtml +
+      '<div class="exam-actions">' +
+        '<button class="btn-soft" id="dc-prev"' + (D.di === 0 ? " disabled" : "") + ">← Trước</button>" +
+        (q.checked ? "" : '<button class="btn-primary" id="dc-check">Kiểm tra</button>') +
+        lastActionHtml +
+      "</div>";
+
+    D.bindDictation();
+    if (!q.checked) w.Speech.speakWord(q.sentence);   /* tự đọc luôn khi vào câu mới, khỏi phải bấm tay lần đầu */
+  };
+
+  D.bindDictation = function () {
+    var ex = D._dictationQuiz;
+    var q = ex.items[D.di];
+
+    var playBtn = w.$("#dc-play");
+    if (playBtn) playBtn.onclick = function () { w.Speech.speakWord(q.sentence); };
+
+    var input = w.$("#dc-input");
+    if (input) input.oninput = function (e) { q.given = e.target.value; };
+
+    var checkBtn = w.$("#dc-check");
+    if (checkBtn) checkBtn.onclick = function () {
+      q.given = input ? input.value : q.given;
+      q.checked = true;
+      q.ok = w.normalizeAnswer(q.given) === w.normalizeAnswer(q.sentence);
+      D.renderDictation();
+      if (q.ok) w.Speech.speakWord(q.sentence);
+    };
+
+    var p = w.$("#dc-prev"), n = w.$("#dc-next"), f = w.$("#dc-finish");
+    if (p) p.onclick = function () { D.di--; D.renderDictation(); };
+    if (n) n.onclick = function () { D.di++; D.renderDictation(); };
+    if (f) f.onclick = function () {
+      var correct = ex.items.filter(function (x) { return x.ok; }).length;
+      ex.correct = correct;
+      ex.score = w.pct(correct, ex.total);
+      ex.graded = true;
+      D.renderDictation();
+    };
+
+    if (input && !q.checked) input.focus();
+  };
+
+  D.dictationResultHtml = function (ex) {
+    return '<div class="exam-result ' + (ex.score >= PASS_MARK ? "pass" : "failed") + '">' +
+        '<div class="score">' + ex.score + "%</div>" +
+        '<div class="verdict">' + (ex.score >= PASS_MARK ? "✅ Nghe/chính tả tốt!" : "🙂 Luyện thêm cho quen") + "</div>" +
+        '<div class="detail">Đúng ' + ex.correct + "/" + ex.total + ' câu · chỉ để luyện tập, không tính vào tiến trình/chu kỳ ôn</div>' +
+      "</div>";
+  };
+  D.dictationResultActionsHtml = function () {
+    return '<div class="exam-actions">' +
+      '<button class="btn-soft" id="dictation-again">🔁 Làm lại</button>' +
+      '<button class="btn-primary" id="dictation-back">← Về danh sách Block</button>' +
+    "</div>";
+  };
+  D.bindDictationResult = function () {
+    w.$("#dictation-again").onclick = function () { D._dictationQuiz = D.buildDictationQuiz(); D.di = 0; D.renderDictation(); };
+    w.$("#dictation-back").onclick = function () { D.close(); w.App.renderBlocks(); };
   };
 
   /* ══════════════ TAB 3 — TIẾN TRÌNH ══════════════ */

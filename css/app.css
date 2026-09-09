@@ -1180,6 +1180,10 @@ textarea{
   font-size:.8rem;resize:vertical;outline:none;line-height:1.6;
 }
 textarea:focus{border-color:var(--blue);}
+/* Ô gõ lại câu Dictation — chữ thường (không monospace như textarea mặc
+   định, đây là câu tiếng Anh bình thường chứ không phải code/JSON), thấp
+   hơn hẳn 180px mặc định vì chỉ cần gõ 1 câu. */
+.dictation-input{height:70px;font-family:inherit;font-size:.95rem;margin:.6rem 0;}
 .text-input{
   width:100%;background:var(--bg-soft);border:1px solid var(--border);color:var(--text);
   padding:.65rem .8rem;border-radius:8px;font-size:.9rem;outline:none;

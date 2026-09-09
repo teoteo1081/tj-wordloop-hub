@@ -1,25 +1,50 @@
 # TJ WordLoop Hub — Bàn giao nhanh
 
-> **Claude đọc file này**: đây là bàn giao từ 1 phiên làm việc khác trên cùng dự án, cùng người dùng (không phải người lạ). Đọc hết file này, rồi đọc `README.md` + `CLAUDE.md` trong repo trước khi làm gì — 2 file đó có toàn bộ chi tiết kỹ thuật, quy ước, và các quyết định đã chốt (đừng đề xuất lại). Sau đó xử lý tiếp mục "Vấn đề đang dở" bên dưới theo đúng thứ tự ưu tiên, hoặc theo yêu cầu mới của người dùng nếu có. File này thay thế bản `HANDOFF.md` cũ hơn (một số con số trong bản cũ — vd tiến độ viết bài đọc — đã bị lệch so với Supabase thật, phiên này đã kiểm lại bằng REST API trước khi ghi số liệu bên dưới).
+> **Claude đọc file này**: bàn giao từ phiên làm việc trước, cùng dự án/cùng người dùng (Thao). Đọc hết file này rồi đọc `README.md` + `CLAUDE.md` trong repo trước khi làm gì tiếp — đừng đề xuất lại quyết định đã chốt. Bản này THAY THẾ bản `HANDOFF.md` cũ hơn (nội dung cũ về ticker/Journey redesign coi như đã xong từ lâu, không còn liên quan phiên này).
 
-## Tóm tắt phiên làm việc gần nhất (rất dài, nhiều yêu cầu dồn dập)
-- **Fix bug nghiêm trọng**: `DB.getFullTree` (dùng cho cây Journey) từng check sai `DB.mode` thay vì `progressLocal()`, gửi id hồ sơ local (không phải uuid) lên Supabase → lỗi `invalid input syntax for type uuid`, sập cả cây Journey khi kho từ vựng là Cloud nhưng chưa đăng nhập thật. Đã sửa + verify bằng Node.
-- **Redesign Journey**: Tổng quan giờ luôn là số TOÀN APP; KPI đầu = Đã thuộc/Đã học/Tổng từ; 4 chip + 4 tab theo giai đoạn Tony Buzan (mỗi tab liệt kê Block đến hạn ôn ngay / đã ôn chờ hạn kế, theo Block không theo từng từ); màn hình chia 2 khung song song (trạng thái | cây thư mục); chú thích cho lịch 28 ngày.
-- **`js/ticker.js` (mới)**: thanh "đánh máy" nổi, chạy các từ đã học trong cả Notebook đang mở, dạng băng chuyền nhiều chip màu (không phải gõ-xoá 1 từ) — đã qua vài vòng chỉnh theo phản hồi trực tiếp, xem chi tiết + lý do trong CLAUDE.md.
-- **Thêm rồi bị revert** (đã làm xong, đã đảo lại về nguyên bản theo yêu cầu — ĐỪNG LÀM LẠI, xem CLAUDE.md mục "Quyết định đã chốt"): dashboard lọc Block theo trạng thái (bấm số trong ô cảnh báo để lọc `#blocks-list`), dropdown sắp xếp Block theo trạng thái ôn, mũi tên Batch trước/sau đặt cạnh tiêu đề "Batch 1".
-- **Vẫn giữ**: `App.flattenBatches`/`App.stepBatch` (duyệt Batch xuyên Page/Notebook cùng Hub) — dùng cho nút Block trước/sau trong Chi tiết Block; Batch đang chọn hiện trong breadcrumb trên cùng; vocab-chip mỗi Block card giới hạn 4 từ + "+N từ" (đỡ mỗi card cao lênh khênh khi list dài); đổi icon Notebook được luôn lúc đổi tên (trước đây chỉ chọn được lúc tạo mới).
-- **Gọn hoá mobile**: bài Nghĩa/Từng câu (chữ + đáp án) thu nhỏ vừa 1 màn hình; breadcrumb/vocab-chips không xuống hàng nữa, tự rút gọn/cuộn ngang; 2 nút Paste chỉ còn icon trên mobile.
-- **1 subagent audit UI/UX toàn app** (đọc code, không có trình duyệt thật) — đã vá ngay 5 lỗi ưu tiên cao tìm được: nút "🎯 Vào bài thi cuối bài" gọi sai id tab làm treo màn hình, nút "⋯" trên Block card vô hình do CSS, 4 chỗ hardcode màu hex phá theme sáng, contextmenu thiếu `[data-block]`, thiếu aria-label cho vài icon-button chủ lực. Còn vài việc audit đề xuất nhưng CHƯA làm (cần đầu tư nhiều hơn) — xem README.md mục "Việc còn dang dở", phần cuối.
-- **Viết thêm bài đọc Claude**: Block 7 và Block 8 của "TOEIC_COLOCATION" mỗi Block mới có 1/3 bài (đã verify kỹ + đẩy lên Supabase). Trạng thái thật của cả 60 Block: 35 đã đủ 3 bài, 2 mới 1/3 (Block 7, 8), 23 còn trống hoàn toàn — danh sách chính xác + lệnh query trong README.md.
+## 🚨 VIỆC KHẨN CẤP NHẤT — key Gemini đã CHẾT, cần key mới
+Key `AQ.Ab8RN6J5el71_ViSQGAYZxB-YMDymgsWf9aTnL3sSUl87Oh6vg` trong `config.js` **đã bị Google tự thu hồi** — verify bằng curl trực tiếp, HTTP 401 "invalid authentication credentials". Test lúc push (~1h trước) còn OK (200), giờ chết hẳn. Đúng nguyên nhân: key lộ công khai trên GitHub Public → Google tự phát hiện + revoke (đã cảnh báo trước khi push, giờ xảy ra thật). Đây LÀ LÝ DO người dùng báo "dán từ vựng không ra bảng" (Block vẫn tạo được, chỉ AI không điền cột được nữa) — không phải bug code.
+
+**Việc cần làm ngay đầu phiên sau**: xin người dùng tạo key Gemini MỚI (https://aistudio.google.com/apikey, nhớ bấm nút "Copy key"), cập nhật `js/config.js`, verify bằng script Python gọi thẳng API TRƯỚC khi báo người dùng test, commit+push (sẽ bị GitHub Push Protection chặn lại — cần hỏi người dùng xác nhận qua `AskUserQuestion` rồi mới push, đã có tiền lệ ở phiên này). **Nhắc người dùng: chu kỳ "key mới → vài giờ đến vài ngày → Google revoke lại" SẼ LẶP LẠI MÃI** nếu vẫn giữ kiến trúc "key thẳng trong file JS chạy trình duyệt + repo Public" — nói rõ 2 lựa chọn thật sự bền: (1) nâng cấp GitHub Pro để chuyển repo Private (Pages vẫn chạy được), hoặc (2) dựng 1 backend proxy nhỏ (Cloudflare Worker/Vercel function miễn phí) giữ key phía server, web chỉ gọi qua proxy đó — KHÔNG có cách nào "mẹo" hơn để giấu key trong 1 app 100% client-side cả.
+
+## Trạng thái ngay lúc dừng (hết token giữa phiên — chưa làm xong Dictation)
+- Commit mới nhất đã **push xong**: `ced1bbb` — key Gemini lúc push còn sống, giờ đã chết (xem mục khẩn cấp ở trên).
+- **✅ Tab "🎧 Dictation" ĐÃ CODE XONG + PUSH** (đúng spec chốt bên dưới) — nghe từng câu (TTS có sẵn, `Speech.speakWord`), gõ lại, tự so `normalizeAnswer(given) === normalizeAnswer(sentence)`, 100% free không AI. Tab đứng sau "Active Recall Quiz", "Nghĩa" đã dời lên ngay sau Dictation, trước "Phiếu đầy đủ" — đúng thứ tự yêu cầu. **CHƯA verify bằng trình duyệt thật** (chỉ `node --check`) — việc ĐẦU TIÊN phiên sau: mở web, vào 1 Block đã có bài đọc, bấm tab Dictation, thử nghe + gõ đúng/sai, xác nhận UI hiển thị đúng, rồi báo lại người dùng.
+- **⚠️ QUYẾT ĐỊNH PHẠM VI (tự quyết vì hết token, CHƯA hỏi người dùng xác nhận)**: Dictation KHÔNG ghi gì vào `block_progress`/`word_progress`/SRS — chỉ luyện trong phiên, thoát tab là mất kết quả, không tính vào "✓ Done". Lý do: giữ đơn giản/nhanh xong trong thời gian ít token còn lại. Nếu người dùng muốn Dictation cũng tính điểm như "Nghĩa" (đã có `meaning_passed`/`meaning_best` + tự đẩy chu kỳ ôn SRS nếu ≥80%, xem `D.submitMeaning` dòng ~1276-1319 làm mẫu) thì cần: thêm cột `dictation_passed`/`dictation_best` vào `block_progress` (SQL `alter table`, cập nhật `tools/supabase_schema.sql`), viết `D.submitDictation` phỏng theo `D.submitMeaning`, cập nhật điều kiện "✓ Done" (`detail.js` tìm `bp.passed || bp.meaning_passed`) + `db.js` (`getJourneySummary`, `bumpLearnedToday` liên quan) — HỎI người dùng trước khi làm, đừng tự quyết thêm.
+- Người dùng cũng hỏi "đổi qua OpenAI để xem" — **mình không còn giữ key OpenAI nào** (đã xoá theo yêu cầu trước đó, không lưu ở đâu cả). Nếu người dùng vẫn muốn OpenAI dự phòng, phải xin key MỚI.
+
+## Tính năng "🎧 Dictation" — SPEC ĐÃ CHỐT (hỏi trực tiếp người dùng, đừng đổi ý tự ý)
+- **Cách chấm**: 100% FREE, KHÔNG gọi AI — nghe câu đọc bằng giọng TTS có sẵn (`speech.js`, y hệt cơ chế đang dùng), người học gõ lại, app **tự so sánh text** (không phân biệt hoa/thường, không phân biệt dấu câu) → đúng/sai rõ ràng.
+- **Đơn vị**: Nghe **TỪNG CÂU** (câu trong đoạn văn ngữ cảnh có chứa từ vựng của Block) — **không phải từng từ**. Tái dùng đúng nguồn câu đã có sẵn: `Context.gapSentences(marked)` (xem `js/context.js:498`) — đang dùng cho đề điền-từ ở tab "Từng câu"/"Phiếu đầy đủ", trả về `[{term, text}]` với `{{GAP}}` — với Dictation thì KHÔNG che từ, đọc nguyên câu, người học gõ lại nguyên câu.
+- **Vị trí tab**: chèn ngay **SAU** "📝 Active Recall Quiz", **TRƯỚC** "🔀 Nghĩa". Đồng thời **dời tab "🔀 Nghĩa"** lên đứng ngay sau Dictation, trước "📋 Phiếu đầy đủ" (đổi thứ tự tab).
+  - Thứ tự tab HIỆN TẠI (trước khi sửa): `study → quiz → sheet → single → meaning → progress` (xem `index.html` dòng ~240-246, `data-tab="..."`).
+  - Thứ tự tab MỚI cần ra: `study → quiz → dictation(MỚI) → meaning → sheet → single → progress`.
+- **Việc cần làm cụ thể**:
+  1. `index.html`: thêm `<button class="dtab" data-tab="dictation">🎧 Dictation</button>` đúng vị trí; sắp lại thứ tự các nút tab theo trên; thêm `<div class="tab-pane" id="pane-dictation">` (theo mẫu `pane-meaning`/`pane-single`).
+  2. `detail.js`: viết `D.buildDictationQuiz()` (dùng `Context.gapSentences`, có thể tái dùng luôn danh sách câu nếu đã có `D._exam`/nguồn chung — xem cách `D.buildMeaningQuiz`/`_meaningQuiz` đang làm ở dòng ~188, 1121, 1197, 1242, 1283 để bắt chước đúng pattern: 1 bộ đề riêng mỗi lần vào Block, nút "Làm lại"...). So sánh text: chuẩn hoá cả 2 chuỗi (`.toLowerCase().trim()`, bỏ dấu câu bằng regex) trước khi so `===`.
+  3. **Quyết định CÒN THIẾU cần hỏi/tự quyết**: Dictation có ghi điểm vào `block_progress` không? Gợi ý bám theo đúng pattern "Nghĩa" đã có sẵn (`meaning_passed`/`meaning_best`, KHÔNG đẩy chu kỳ ôn Tony Buzan, chỉ tính vào "✓ Done" nếu đạt ≥80%) — thêm cột mới `dictation_passed`/`dictation_best` vào bảng `block_progress` (cần thêm SQL `alter table` + cập nhật `tools/supabase_schema.sql`, giống hệt cách đã thêm cột `updated_at` phiên trước) rồi cập nhật điều kiện "✓ Done" ở `detail.js:224` (`bp.passed || bp.meaning_passed` → thêm `|| bp.dictation_passed`) và `db.js` (`getJourneySummary`, `bumpLearnedToday`...).
+  4. Bump cache-buster `index.html`/`detail.js` sau khi sửa (quy ước bắt buộc của project — xem comment ngay trong `index.html` chỗ nạp script, KHÔNG ĐƯỢC QUÊN, đã gây bug thật nhiều lần).
+  5. Test bằng `node --check js/detail.js` trước khi commit, rồi `git add -A && git commit ... && git push`.
+
+## Việc ĐÃ XONG trong phiên này (đừng làm lại)
+- **Bỏ hẳn OpenAI khỏi code** (theo yêu cầu — chỉ dùng Gemini free): xoá `_callOpenAI`, mọi nhánh fallback, mọi check `OPENAI_API_KEY` trong `context.js`/`app.js`/`detail.js`/`index.html`/`README.md`.
+- **Mở AI cho MỌI User** (bỏ chính sách cũ "AI chỉ Admin"): "+ Paste từ mới" (tự điền cột thiếu), "✨ Dán bài, tự trích từ" → mở toang, không phân role. Riêng "🔄 Tạo lại" bài đọc (ảnh hưởng bài đọc CHUNG mọi người) → gộp chung quyền với `canEditPassage` (Admin hoặc tài khoản được cấp cờ riêng), KHÔNG mở hoàn toàn công khai — đây là chủ ý, đừng đổi nếu không ai yêu cầu.
+- **Đa dạng chủ đề đoạn văn AI**: thêm `Context.SETTINGS`/`Context.STYLES` (20 bối cảnh + 6 văn phong ngẫu nhiên) ép cứng vào prompt `generateAI` — trước đó AI hay lặp lại vài chủ đề "họp hành văn phòng" dù đã gợi ý đa dạng bằng lời, vì prompt y hệt nhau mỗi lần.
+- **Retry tự động cho Gemini** (`_callGemini`, `context.js`): thử lại tối đa 3 lần (1.5s/3s/6s) khi gặp HTTP 503/429 — đã tự kiểm chứng bằng script Python gọi thẳng API: lần đầu fail 503 liên tiếp 3 lần, lần 4 mới qua. Đây là nguyên nhân THẬT của các lần AI báo lỗi "chưa sẵn sàng" trước đó, KHÔNG phải lỗi key/code.
+- **⚠️ ĐÃ THỬ VÀ THẤT BẠI — ĐỪNG LÀM LẠI**: từng thử giấu `GEMINI_API_KEY` sang `js/keys.local.js` (gitignored) để tránh GitHub Push Protection — **làm HỎNG web live** vì GitHub Pages (free) chỉ phục vụ đúng file có trong Git, file gitignore không bao giờ lên được, web thật 404/thiếu key. Đã revert, giờ key **BẮT BUỘC** nằm trong `config.js` (có Git track, đã push, người dùng đã xác nhận chấp nhận rủi ro key lộ công khai — coi như Supabase anon key, rủi ro thấp vì Gemini free tier có giới hạn quota sẵn).
+- **"🕒 Data cập nhật lần cuối"**: thêm ở chân sidebar trái, dưới khu "Chu kỳ Tony Buzan" (`#sidebar-data-updated`, gọi từ `App.renderDataUpdated` trong `app.js`, chạy 1 lần lúc `boot()`) — **LUÔN hiện mọi màn hình**, không phải chỉ ở Journey (ban đầu đặt nhầm chỗ ở màn Journey, đã dời theo đúng yêu cầu người dùng chỉ tay vào ảnh chụp). Đọc cột `updated_at` (bảng `words`/`blocks`) do TRIGGER Supabase tự set — xem `tools/supabase_schema.sql` mục "CẬP NHẬT LẦN CUỐI" (đã chạy trên Supabase SQL Editor, đã verify bằng REST API có timestamp thật).
+- **Dọn UI theo yêu cầu trực tiếp**: bỏ nhãn "Block X/Y · Batch Z" (`#bn-pos`, `detail.js`); bỏ badge %/✓ thuộc cạnh mỗi từ ở bảng "1. Danh sách từ vựng cần học" (số liệu vẫn còn đủ ở tab "Tiến trình trí nhớ").
+- **2 file Python thay `sync_vocab.py`**: `tools/export_vocab.py` (Supabase → Excel) + `tools/import_vocab.py` (Excel → Supabase), logic dùng chung ở `tools/_vocab_common.py` — không còn phải đổi `MODE` trong 1 file nữa.
 
 ## Đường dẫn
-- **Code (GitHub, PUBLIC**): https://github.com/teoteo1081/tj-wordloop-hub
-- **Web live (GitHub Pages, chính)**: https://teoteo1081.github.io/tj-wordloop-hub/ — chỉ cần `git push` là tự build lại
-- **Web live (Netlify, dự phòng)**: https://tj-wordloop-hub.netlify.app — kiểm tra kỹ site này có đang chạy ĐÚNG commit mới nhất không trước khi dùng nó để test/chụp ảnh báo bug (từng bị nghi ngờ đứng ở bản cũ do tài khoản Netlify hết hạn mức tháng), ưu tiên test trên GitHub Pages hoặc `localhost:8934`.
-- **Supabase project**: `pqarpszsipbdugrumhfy` (Singapore) — https://supabase.com/dashboard/project/pqarpszsipbdugrumhfy
+- **Code (GitHub, PUBLIC)**: https://github.com/teoteo1081/tj-wordloop-hub
+- **Web live (GitHub Pages)**: https://teoteo1081.github.io/tj-wordloop-hub/ — `git push` là tự build lại, đợi vài phút + Ctrl+Shift+R để hết cache.
+- **Supabase project**: `pqarpszsipbdugrumhfy` (Singapore) — SQL Editor: https://supabase.com/dashboard/project/pqarpszsipbdugrumhfy/sql/new
+- **Link Admin "TJ"**: `https://teoteo1081.github.io/tj-wordloop-hub/?u=f3fd95c9-06e8-4d39-b6f2-efc113d436cf` (mở 1 lần trên máy/trình duyệt nào là tự nhớ). Có 2 profile `is_admin=true`: "TJ" và "Anti_TJ" — coi chừng nhầm.
 
-## Khoá cấu hình (đã có sẵn trong `js/config.js`, đã commit)
-Xem trực tiếp `js/config.js` — là **anon public key** (an toàn client-side, bị chặn bởi RLS), không phải service_role/secret. Không cần đổi. Dùng key này để query REST API trực tiếp bằng `curl` khi cần (vd lấy từ vựng 1 Block, kiểm tra `context_passage_candidates`) — nhanh hơn nhiều so với export/import file JSON qua UI.
+## Khoá cấu hình
+- `js/config.js` (có Git track, đã push) — `SUPABASE_ANON_KEY` (an toàn, chặn bởi RLS) + `GEMINI_API_KEY` (đã chấp nhận rủi ro lộ công khai, xem lý do ở trên — ĐỪNG chuyển ra `keys.local.js` nữa).
+- `tools/export_vocab.py`/`import_vocab.py`/`manage_users.py` tự đọc key từ `js/config.js`.
 
 ## Chạy local
 ```bash
@@ -27,17 +52,9 @@ cd TJHUB
 python3 -m http.server 8934
 # mở http://localhost:8934 — KHÔNG mở bằng file://
 ```
-Deploy lại sau khi sửa (GitHub Pages tự build khi push):
-```bash
-git add -A && git commit -m "..." && git push
-```
+Deploy: `git add -A && git commit -m "..." && git push` (GitHub Pages tự build).
+**Luôn bump `?v=N` của file JS/CSS vừa sửa trong `index.html`** trước khi push — quên bước này là nguyên nhân phổ biến nhất khiến "sửa rồi mà web vẫn y như cũ" (browser/CDN cache bản cũ).
 
 ## Đọc thêm
-- `README.md` — tài liệu đầy đủ (kiến trúc, Journey, ticker, 3 kiểu thi, SRS, việc còn dang dở kèm số liệu chính xác + lệnh query)
-- `CLAUDE.md` — quyết định đã chốt (đừng đề xuất lại, kể cả những cái đã làm rồi bị revert), lỗi đã sửa (đừng lặp lại), checklist viết bài đọc (đã cập nhật kỹ hơn bản trước)
-
-## ⚠️ Vấn đề đang dở — CẦN LÀM TIẾP (theo thứ tự ưu tiên)
-1. **Viết bài đọc Claude cho 23 Block còn trống hoàn toàn** của "TOEIC_COLOCATION" (danh sách + lệnh lấy từ vựng: README.md mục "Việc còn dang dở") + viết thêm 2 bài nữa cho Block 7, 8 (mới có 1/3). Quy trình đầy đủ đã viết lại chi tiết trong CLAUDE.md — đọc kỹ mục "Tránh chữ viết tắt có dấu chấm" (bug thật đã gặp, làm gãy câu điền-từ).
-2. **Audit UI/UX còn vài việc chưa làm** (subagent đã tìm ra, mới vá phần ưu tiên cao): các phần tử bấm-được dạng `<div>` (`.block-card`, `.jrow`) chưa hỗ trợ bàn phím/trình đọc màn hình; `.batches-bar` chưa wrap tốt trên màn hẹp khi nhiều nút cùng hàng; chưa có trạng thái "Đang tải…" lúc mở app ở chế độ Cloud/mạng chậm; chưa có phím tắt cho bài trắc nghiệm.
-3. **Đăng nhập thật (magic link)** để đồng bộ tiến trình học giữa các thiết bị — hạ tầng đã có (`js/auth.js`, `#modal-cloud`) từ trước, chỉ chưa có ai dùng thật.
-4. Nếu người dùng phàn nàn UI "rườm rà" ở đâu đó lần nữa — hỏi rõ ĐÚNG phần tử nào trước khi sửa hàng loạt (bài học từ phiên này: 1 câu mô tả mơ hồ có thể trỏ tới nhiều thứ khác nhau, sửa nhầm chỗ tốn công revert).
+- `README.md` — kiến trúc đầy đủ, 3 kiểu bài kiểm tra, SRS, Journey.
+- `CLAUDE.md` — quyết định đã chốt, quy trình viết bài đọc.
