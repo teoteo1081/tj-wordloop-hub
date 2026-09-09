@@ -87,32 +87,6 @@
     J._calMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     J.renderCalendar();
     await J.loadTree();
-    J.renderDataUpdated();   /* không chặn màn hình chính — tự chạy song song, xong thì hiện */
-  };
-
-  /* Dòng gọn "Data cập nhật lần cuối" trên card Tony Buzan — xem
-     DB.getVocabLastUpdated. Tách hàm riêng (không await trong J.open) để
-     không làm chậm màn Journey chính chờ thêm 2 query phụ. */
-  J.renderDataUpdated = async function () {
-    var el = w.$("#journey-data-updated");
-    if (!el) return;
-    try {
-      var d = await w.DB.getVocabLastUpdated();
-      if (!d) { el.hidden = true; return; }
-      var mins = Math.round((Date.now() - d.getTime()) / 60000);
-      var rel;
-      if (mins < 1) rel = "vừa xong";
-      else if (mins < 60) rel = mins + " phút trước";
-      else if (mins < 24 * 60) rel = Math.round(mins / 60) + " giờ trước";
-      else rel = Math.round(mins / (24 * 60)) + " ngày trước";
-      var clock = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-      var dateStr = pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1);
-      el.textContent = "🕒 Data cập nhật lần cuối: " + rel + " (" + clock + " " + dateStr + ")";
-      el.className = "journey-data-updated" + (mins < 24 * 60 ? " fresh" : "");
-      el.hidden = false;
-    } catch (e) {
-      el.hidden = true;   /* im lặng ẩn nếu lỗi (vd chưa chạy SQL thêm cột) — không toast phiền */
-    }
   };
 
   J.close = function () {

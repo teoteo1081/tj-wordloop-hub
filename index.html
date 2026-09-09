@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=8">
+<link rel="stylesheet" href="css/app.css?v=9">
 </head>
 <body>
 
@@ -162,6 +162,11 @@
         <div class="legend-row"><i class="dot c2"></i> Lần 3 · 1 tuần</div>
         <div class="legend-row"><i class="dot c3"></i> Lần 4 · 1 tháng</div>
         <div class="legend-row"><i class="dot c4"></i> Lần 5–6 · 3–6 tháng</div>
+        <!-- "Data cập nhật lần cuối" — LUÔN hiện ở sidebar (không riêng
+             màn Journey nữa) để nhìn 1 phát biết ngay có sửa từ vựng/bài
+             đọc mới chưa. Tự ẩn nếu local mode / chưa chạy SQL thêm cột
+             updated_at. Xem App.renderDataUpdated trong app.js. -->
+        <div class="legend-updated" id="sidebar-data-updated" hidden></div>
       </div>
     </div>
   </aside>
@@ -454,11 +459,9 @@
         <div class="journey-col">
           <div class="card">
             <div class="card-title">🚦 Theo tiến độ Tony Buzan</div>
-            <!-- Dòng gọn báo "Data cập nhật lần cuối" — hiện = có sửa từ
-                 vựng/bài đọc mới (bất kể sửa từ web, tools/import_vocab.py
-                 hay Table Editor); TỰ ẨN nếu local mode / chưa chạy SQL
-                 cột updated_at (xem DB.getVocabLastUpdated trong db.js). -->
-            <div class="journey-data-updated" id="journey-data-updated" hidden></div>
+            <!-- Dòng "Data cập nhật lần cuối" đã CHUYỂN sang sidebar trái
+                 (#sidebar-data-updated, luôn hiện mọi màn hình) — xem
+                 App.renderDataUpdated trong app.js. -->
             <div class="jtabs" id="jtabs"><!-- JS: 4 nút tab --></div>
             <div class="jtab-panel" id="jtab-panel"><!-- JS: 2 danh sách Block --></div>
           </div>
@@ -757,8 +760,8 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/reader.js?v=1"></script>
 <script src="js/detail.js?v=8"></script>
 <script src="js/export.js?v=1"></script>
-<script src="js/journey.js?v=4"></script>
+<script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=13"></script>
+<script src="js/app.js?v=14"></script>
 </body>
 </html>

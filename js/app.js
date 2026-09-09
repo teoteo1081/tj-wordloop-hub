@@ -616,6 +616,35 @@
     } catch (e) { /* offline/lỗi mạng -> giữ số cũ, không chặn app */ }
   };
 
+  /* Dòng "🕒 Data cập nhật lần cuối" ở CHÂN SIDEBAR TRÁI (#sidebar-data-updated,
+     dưới khu "Chu kỳ Tony Buzan") — LUÔN hiện ở mọi màn hình (không riêng
+     Journey nữa), gọi 1 lần lúc boot(). Đọc DB.getVocabLastUpdated (cột
+     updated_at do trigger DB tự set — xem tools/supabase_schema.sql),
+     phản ánh đúng lần sửa gần nhất bất kể sửa từ web/import_vocab.py/Table
+     Editor. Tự ẩn nếu local mode hoặc chưa chạy SQL thêm cột, không báo lỗi. */
+  App.renderDataUpdated = async function () {
+    var el = w.$("#sidebar-data-updated");
+    if (!el) return;
+    try {
+      var d = await w.DB.getVocabLastUpdated();
+      if (!d) { el.hidden = true; return; }
+      var mins = Math.round((Date.now() - d.getTime()) / 60000);
+      var rel;
+      if (mins < 1) rel = "vừa xong";
+      else if (mins < 60) rel = mins + " phút trước";
+      else if (mins < 24 * 60) rel = Math.round(mins / 60) + " giờ trước";
+      else rel = Math.round(mins / (24 * 60)) + " ngày trước";
+      var pad2 = function (n) { return String(n).padStart(2, "0"); };
+      var clock = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+      var dateStr = pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1);
+      el.textContent = "🕒 Cập nhật: " + rel + " (" + clock + " " + dateStr + ")";
+      el.className = "legend-updated" + (mins < 24 * 60 ? " fresh" : "");
+      el.hidden = false;
+    } catch (e) {
+      el.hidden = true;   /* im lặng ẩn nếu lỗi (vd chưa chạy SQL thêm cột) — không toast phiền */
+    }
+  };
+
   function renderAll() {
     /* chốt chặn: block đang mở mà không còn trong dữ liệu hiện tại thì đóng lại */
     if (w.Detail && w.Detail.blockId &&
@@ -2376,6 +2405,7 @@
     renderAll();
     bind();
     App.refreshWordCounter();
+    App.renderDataUpdated();   /* fire-and-forget, không chặn màn hình chính */
     w.$("#word-counter").onclick = function () { w.Journey.open(); };
 
     /* Mở lại đúng Block + đúng tab đang xem dở trước khi refresh (dựa
