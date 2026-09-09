@@ -154,7 +154,7 @@
     parseMeta: function (raw) {
       var s = String(raw || "");
       var i = s.indexOf(w.Context.META_SEP);
-      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false, pasted: false, claude: false, provider: null };
+      if (i < 0) return { marked: s, vi: null, title: null, source: null, ai: false, pasted: false, claude: false, provider: null, origin: null, cost_usd: null };
       var meta = {};
       try { meta = JSON.parse(s.slice(i + w.Context.META_SEP.length)) || {}; } catch (e) { meta = {}; }
       return {
@@ -166,7 +166,8 @@
         pasted: !!meta.pasted,
         claude: !!meta.claude,
         provider: meta.provider || null,  /* "openai" | "gemini" | null — chỉ có ý nghĩa khi ai===true */
-        origin: meta.origin || null       /* "local" | "web" | null — máy nào gọi AI lúc sinh bài này */
+        origin: meta.origin || null,      /* "local" | "web" | null — máy nào gọi AI lúc sinh bài này */
+        cost_usd: (typeof meta.cost_usd === "number") ? meta.cost_usd : null   /* ước tính USD OpenAI đã tốn — null nếu Gemini/không phải AI */
       };
     },
 
@@ -206,6 +207,24 @@
       return err;
     },
 
+    /* Đơn giá OpenAI ước tính (USD / 1 triệu token) — gõ tay, KHÔNG có API
+       nào tự tra giá real-time, nên nếu OpenAI đổi bảng giá thì số này cũ
+       đi cho tới khi ai đó sửa lại tay. Chỉ áp dụng khi provider là OpenAI
+       (Gemini free tier = luôn 0đ). Model không có trong bảng -> coi như
+       giá gpt-4o-mini (rẻ nhất, ước tính an toàn ở mức thấp). */
+    OPENAI_PRICING: {
+      "gpt-4o-mini": { in: 0.15, out: 0.60 },
+      "gpt-4o": { in: 2.50, out: 10.00 },
+      "gpt-4.1-mini": { in: 0.40, out: 1.60 },
+      "gpt-4.1": { in: 2.00, out: 8.00 }
+    },
+    /* Chi phí ước tính (USD) của LẦN GỌI OPENAI THÀNH CÔNG GẦN NHẤT — null
+       nếu lần thành công gần nhất là Gemini (free) hoặc chưa gọi lần nào.
+       generateAI() đọc biến này ngay sau _callProvider() để ghi vào
+       meta.cost_usd, hiện lên UI cho TJ biết bài nào tốn bao nhiêu tiền
+       thật (theo yêu cầu "note ra được tốn bao nhiêu đô cho mỗi bài"). */
+    _lastCostUsd: null,
+
     /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey).
        TỰ THỬ LẠI tối đa 3 lần khi Google báo 503/429 (quá tải tạm thời —
        hay gặp với model "flash" free tier giờ cao điểm, KHÔNG phải lỗi
@@ -232,7 +251,7 @@
           var data = await res.json();
           var cand = data.candidates && data.candidates[0];
           var raw = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-          if (raw) return raw;
+          if (raw) { w.Context._lastCostUsd = 0; return raw; }   /* Gemini free tier -> luôn 0đ */
           lastErr = new Error("gemini: trả về rỗng (có thể bị chặn bởi bộ lọc an toàn nội dung)");
           lastErr.kind = "empty"; lastErr.provider = "gemini";
           break;   /* rỗng không phải lỗi quá tải -> thử lại vô ích, dừng ngay */
@@ -268,7 +287,16 @@
         if (res.ok) {
           var data = await res.json();
           var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-          if (raw) return raw;
+          if (raw) {
+            /* Tính chi phí ước tính từ usage token thật OpenAI trả về —
+               chỉ ước tính (bảng giá gõ tay ở OPENAI_PRICING), không phải
+               số tiền chính xác OpenAI trừ (còn tuỳ giảm giá/khuyến mãi
+               tài khoản), nhưng đủ để TJ ước lượng đại khái. */
+            var usage = data.usage || {};
+            var price = w.Context.OPENAI_PRICING[model] || w.Context.OPENAI_PRICING["gpt-4o-mini"];
+            w.Context._lastCostUsd = (usage.prompt_tokens || 0) / 1e6 * price.in + (usage.completion_tokens || 0) / 1e6 * price.out;
+            return raw;
+          }
           lastErr = new Error("openai: trả về rỗng"); lastErr.kind = "empty"; lastErr.provider = "openai";
           break;
         }
@@ -425,13 +453,41 @@
       "bài blog chia sẻ trải nghiệm", "đối thoại xen lẫn tường thuật"
     ],
 
+    /* Mẫu prompt MẶC ĐỊNH (phần "viết gì" — không gồm hướng dẫn schema
+       JSON, cái đó luôn cố định để không vỡ parsing dù user chỉnh prompt
+       tuỳ ý). 3 placeholder {{SETTING}}/{{STYLE}}/{{DIFF}} được code tự
+       random/tính rồi thay vào lúc gọi; {{WORDLIST}} là danh sách 10 từ
+       của Block — nếu user lỡ xoá mất placeholder này khi tự sửa prompt,
+       generateAI() vẫn tự nối danh sách từ vào cuối để không bao giờ gọi
+       AI mà thiếu từ vựng thật của Block (xem đoạn nối bên dưới). Hiện ở
+       UI thành 1 ô textarea cạnh nút "🔄 Tạo lại" — không sửa thì dùng y
+       hệt mẫu này, sửa gì cũng được trước khi bấm Tạo lại (theo yêu cầu). */
+    DEFAULT_PROMPT_TEMPLATE:
+      "Viết một BÀI ĐỌC HIỂU tiếng Anh hoàn chỉnh, TỰ NHIÊN, dài khoảng 450–550 từ, chia 3–5 " +
+      "đoạn văn (ngăn cách bằng 1 dòng trống).\n\n" +
+      "BỐI CẢNH BẮT BUỘC (không được đổi sang chủ đề khác): {{SETTING}}.\n" +
+      "VĂN PHONG BẮT BUỘC: {{STYLE}}.\n" +
+      "Lồng ghép TỰ NHIÊN nhóm từ vựng bên dưới vào đúng bối cảnh này — nếu từ vựng nghe " +
+      "\"lệch tông\" với bối cảnh (vd từ công nghệ nhưng bối cảnh là bữa tiệc gia đình) thì " +
+      "vẫn cứ dùng, chỉ cần lồng khéo (vd một nhân vật trong bữa tiệc đang nói về công việc " +
+      "công nghệ của mình) — KHÔNG được bỏ bối cảnh để quay về chủ đề an toàn quen thuộc.\n\n" +
+      "ĐỘ KHÓ của câu văn xung quanh (không phải độ khó của từ vựng cần học bên dưới, cái đó " +
+      "giữ nguyên): {{DIFF}}.\n\n" +
+      "Bài đọc PHẢI chứa TẤT CẢ các từ sau, mỗi từ xuất hiện ĐÚNG MỘT LẦN, NGUYÊN VĂN (không " +
+      "chia động từ, không đổi số ít/nhiều), xen kẽ tự nhiên trong bài — KHÔNG dồn hết vào 1 " +
+      "câu, KHÔNG viết kiểu mỗi từ 1 câu tách rời nhau, mà để bài đọc trôi chảy như văn viết " +
+      "thật:\n\n{{WORDLIST}}",
+
     /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta).
-       Dùng Gemini (miễn phí). Sinh MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
+       Sinh MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
        câu rời" — từ vựng chỉ là điểm neo xen giữa văn xuôi tự nhiên.
        difficulty: "easy" | "medium" | "hard" (mặc định "medium") — chỉ
        ảnh hưởng ĐỘ KHÓ CÂU/TỪ XUNG QUANH, số từ vẫn ~500, vẫn đủ hết từ
-       vựng của Block như nhau ở cả 3 mức. */
-    generateAI: async function (words, cfg, difficulty) {
+       vựng của Block như nhau ở cả 3 mức.
+       promptOverride: chuỗi thay cho DEFAULT_PROMPT_TEMPLATE nếu user tự
+       sửa trong ô prompt cạnh nút "🔄 Tạo lại" — để trống/undefined thì
+       dùng mẫu mặc định. */
+    generateAI: async function (words, cfg, difficulty, promptOverride) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
       /* KHÔNG tự check "chưa có key" ở đây — để _callProvider() làm việc đó,
@@ -450,25 +506,19 @@
           (x.def_en ? " — " + x.def_en : "");
       }).join("\n");
 
+      var template = (promptOverride && String(promptOverride).trim()) ? String(promptOverride) : w.Context.DEFAULT_PROMPT_TEMPLATE;
+      var body = template
+        .replace(/\{\{SETTING\}\}/g, setting)
+        .replace(/\{\{STYLE\}\}/g, style)
+        .replace(/\{\{DIFF\}\}/g, diffDesc);
+      /* Nếu prompt tự sửa lỡ xoá mất {{WORDLIST}} -> vẫn nối danh sách từ
+         vào cuối, tránh gọi AI mà thiếu hẳn từ vựng thật của Block. */
+      body = body.indexOf("{{WORDLIST}}") >= 0 ? body.replace(/\{\{WORDLIST\}\}/g, wordList) : (body + "\n\n" + wordList);
+
       var sys = "Bạn là trợ lý viết bài đọc hiểu tiếng Anh để luyện từ vựng cho người Việt học " +
         "tiếng Anh. Luôn trả lời DUY NHẤT một object JSON đúng schema được yêu cầu, không thêm " +
         "chữ nào khác, không dùng markdown code fence.";
-      var user =
-        "Viết một BÀI ĐỌC HIỂU tiếng Anh hoàn chỉnh, TỰ NHIÊN, dài khoảng 450–550 từ, chia 3–5 " +
-        "đoạn văn (ngăn cách bằng 1 dòng trống).\n\n" +
-        "BỐI CẢNH BẮT BUỘC (không được đổi sang chủ đề khác): " + setting + ".\n" +
-        "VĂN PHONG BẮT BUỘC: " + style + ".\n" +
-        "Lồng ghép TỰ NHIÊN nhóm từ vựng bên dưới vào đúng bối cảnh này — nếu từ vựng nghe " +
-        "\"lệch tông\" với bối cảnh (vd từ công nghệ nhưng bối cảnh là bữa tiệc gia đình) thì " +
-        "vẫn cứ dùng, chỉ cần lồng khéo (vd một nhân vật trong bữa tiệc đang nói về công việc " +
-        "công nghệ của mình) — KHÔNG được bỏ bối cảnh để quay về chủ đề an toàn quen thuộc.\n\n" +
-        "ĐỘ KHÓ của câu văn xung quanh (không phải độ khó của từ vựng cần học bên dưới, cái đó " +
-        "giữ nguyên): " + diffDesc + ".\n\n" +
-        "Bài đọc PHẢI chứa TẤT CẢ các từ sau, mỗi từ xuất hiện ĐÚNG MỘT LẦN, NGUYÊN VĂN (không " +
-        "chia động từ, không đổi số ít/nhiều), xen kẽ tự nhiên trong bài — KHÔNG dồn hết vào 1 " +
-        "câu, KHÔNG viết kiểu mỗi từ 1 câu tách rời nhau, mà để bài đọc trôi chảy như văn viết " +
-        "thật:\n\n" +
-        wordList +
+      var user = body +
         "\n\nSau khi viết xong, với MỖI từ ở trên, ghi lại bản dịch tiếng Việt của ĐÚNG câu trong " +
         "bài chứa từ đó (chỉ câu đó thôi, không phải cả đoạn).\n\n" +
         "Đặt thêm 1 tiêu đề tiếng Anh ngắn (5–8 từ) và 1 dòng mô tả nguồn bằng tiếng Việt.\n\n" +
@@ -476,6 +526,7 @@
         '{"title":"...", "source_vi":"...", "passage_en":"...", ' +
         '"translations":[{"term":"...","vi":"..."}]}';
 
+      w.Context._lastCostUsd = null;   /* reset để không lỡ giữ số cũ nếu lần này ném lỗi trước khi gọi xong */
       var raw = await w.Context._callProvider(cfg, sys, user);
       var parsed = JSON.parse(raw);
       if (!parsed.passage_en) throw new Error("Thiếu 'passage_en' trong JSON trả về");
@@ -494,7 +545,10 @@
          không có "location" thì coi là "local" — đúng cho trường hợp chạy
          qua Node script, xem tools/ hoặc lịch sử phiên làm việc). Không
          thay thế provider — 1 bài Gemini có thể sinh từ local HOẶC web,
-         còn OpenAI thì luôn "local" (key chỉ nằm trong keys.local.js). */
+         còn OpenAI thì luôn "local" (key chỉ nằm trong keys.local.js).
+         cost_usd: ước tính USD lần gọi OpenAI vừa rồi tốn (null nếu chạy
+         qua Gemini free) — đọc từ _lastCostUsd ngay sau _callProvider ở
+         trên, xem OPENAI_PRICING/_callOpenAI. */
       var origin = "local";
       try {
         if (typeof location !== "undefined" && location.hostname &&
@@ -506,7 +560,8 @@
         title: parsed.title || "",
         source: parsed.source_vi || "Bài đọc do AI sinh riêng cho Block này.",
         provider: w.Context._lastProvider || "",
-        origin: origin
+        origin: origin,
+        cost_usd: w.Context._lastCostUsd
       };
       return marked + w.Context.META_SEP + JSON.stringify(meta);
     },

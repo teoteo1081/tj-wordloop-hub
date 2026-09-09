@@ -72,6 +72,10 @@
     D.di = null;
     D._srcTab = "paste";
     D._pasteDraft = "";
+    /* Reset ô prompt AI về mặc định mỗi lần mở Block khác — tránh lỡ mang
+       prompt tự sửa của Block trước sang nhầm Block này. */
+    var promptBox = w.$("#regen-prompt");
+    if (promptBox) promptBox.value = w.Context.DEFAULT_PROMPT_TEMPLATE;
     var b = block();
     if (!b) return;
 
@@ -305,7 +309,7 @@
   };
 
   /* Mỗi Block có ĐÚNG 1 bài đọc đang dùng (context_passage). Ngoài ra
-     Claude có thể chuẩn bị sẵn tối đa 3 bài khác nhau trong
+     Claude có thể chuẩn bị sẵn nhiều bài khác nhau (không giới hạn) trong
      context_passage_candidates (mảng, mỗi phần tử là chuỗi full [đánh
      dấu]+meta như bài thật) — LUÔN hiện để chọn thử, dù bài đọc chính
      đang trống hay đã có sẵn (tự dán/AI/Claude), không tự động dùng,
@@ -387,6 +391,13 @@
       badge.textContent = meta.ai ? aiLabel : (meta.claude ? "✍️ Claude" : (meta.pasted ? "📝 Tự dán" : ""));
       badge.className = "ai-badge" + (meta.ai ? " ai" : ((meta.claude || meta.pasted) ? " tpl" : ""));
     }
+    /* Chi phí ước tính OpenAI đã tốn để sinh ĐÚNG bài đang xem (Gemini/Claude/
+       Dán = luôn 0đ, không hiện gì) — theo yêu cầu "note ra tốn bao nhiêu đô". */
+    var costEl = w.$("#passage-cost");
+    if (costEl) {
+      costEl.textContent = (typeof meta.cost_usd === "number" && meta.cost_usd > 0)
+        ? "· ~$" + meta.cost_usd.toFixed(4) : "";
+    }
 
     var built = w.Context.build(meta.marked);
     D._passagePlain = built.plain;
@@ -441,9 +452,15 @@
       w.$("#passage-glossary").innerHTML = "";
     }
 
+    /* Ô prompt cạnh nút "🔄 Tạo lại" — không sửa gì thì giá trị trong đó
+       vẫn ĐÚNG BẰNG DEFAULT_PROMPT_TEMPLATE (đã prefill lúc mở Block/
+       render lại), nên cứ đọc thẳng textarea, không cần so sánh gì thêm. */
+    var promptEl = w.$("#regen-prompt");
+    var promptOverride = promptEl ? promptEl.value : null;
+
     var newPassage;
     try {
-      newPassage = await w.Context.generateAI(ws, cfg2);
+      newPassage = await w.Context.generateAI(ws, cfg2, null, promptOverride);
     } catch (e) {
       console.warn("Sinh bài đọc bằng AI thất bại:", e);
       if (w.App && w.App.showAiError) w.App.showAiError(e);
@@ -453,7 +470,14 @@
     }
 
     b.context_passage = newPassage;
+    /* "🔄 Tạo lại" giờ KHÔNG chỉ áp dụng ngay mà còn lưu thêm (nối vào cuối,
+       không giới hạn số lượng, không đè mất bài cũ) vào đúng khe nguồn
+       (OpenAI/Gemini) trong context_passage_candidates — để lần sau còn
+       xem lại/so sánh, chỉ mất khi bấm 🗑 Xoá tay 1 bài cụ thể. */
+    var provKey = w.Context._lastProvider === "openai" ? "openai" : w.Context._lastProvider === "gemini" ? "gemini" : null;
+    if (provKey) b.context_passage_candidates = addCandidate(b.context_passage_candidates, provKey, newPassage);
     try { await w.DB.saveContext(b.id, newPassage); } catch (e) { /* offline vẫn hiển thị được */ }
+    if (provKey) { try { await w.DB.saveContext(b.id, b.context_passage_candidates, "context_passage_candidates"); } catch (e) {} }
 
     if (D.blockId !== myBlockId) return;   /* đã chuyển Block trong lúc chờ */
     D._exam = null;
@@ -462,7 +486,9 @@
 
   /* Dùng bài người dùng tự dán — tự bôi [ngoặc] đúng các từ của Block,
      không cần AI, không cần mạng. Dán rồi thì lưu lại, lần sau mở Block
-     vẫn thấy đúng bài đó (không tự sinh lại). */
+     vẫn thấy đúng bài đó (không tự sinh lại). Cũng lưu thêm vào khe
+     "Dán" trong context_passage_candidates (tối đa 3 bài, cũ nhất bị đẩy
+     ra) để giữ lại vài bài đã dán gần đây, xem lại được qua tab Dán 1/2/3. */
   D.usePastedPassage = async function (text) {
     var b = block(), ws = words();
     if (!b) return;
@@ -473,28 +499,66 @@
     var val = marked + w.Context.META_SEP + JSON.stringify(meta);
 
     b.context_passage = val;
+    b.context_passage_candidates = addCandidate(b.context_passage_candidates, "paste", val);
     try { await w.DB.saveContext(b.id, val); } catch (e) { /* offline vẫn hiển thị được */ }
+    try { await w.DB.saveContext(b.id, b.context_passage_candidates, "context_passage_candidates"); } catch (e) {}
     D._exam = null;
     await D.renderPassage();
   };
 
-  /* ---------- Nguồn bài đọc: Dán, hoặc chọn 1 bài Claude viết sẵn ----------
-     1 hàng tab "📝 Dán" + "Claude 1/2/3" (tuỳ Block có sẵn bao nhiêu bài),
-     bấm tab nào thì xem thử tab đó, rồi bấm CHUNG 1 nút "Dùng bài này"
-     mới đẩy lên chính thức. Không có nút "Nhờ AI viết" riêng ở đây nữa —
-     dùng nút "🔄 Tạo lại" phía trên (nhờ AI) là đủ, khỏi lặp chức năng. */
-  D._srcTab = "paste";     /* "paste" | 0 | 1 | 2 (chỉ số trong candidates) */
+  /* ---------- Nguồn bài đọc: Dán, Claude, OpenAI, Gemini ----------
+     1 hàng tab "📝 Dán" (khung soạn/dán trực tiếp, chưa lưu) + các khe ĐÃ
+     LƯU nhóm theo ĐÚNG nguồn thật (đọc từ meta của từng candidate, không
+     dựa thứ tự mảng): "Dán 1/2/3" (bài đã dán trước đây), "Claude 1/2/3"
+     (Claude viết tay sẵn), "OpenAI 1/2/3", "Gemini 1/2/3" — mỗi nguồn tối
+     đa 3 bài, cũ nhất bị đẩy ra khi có bài mới (xem addCandidate). Bấm tab
+     nào xem thử tab đó, rồi bấm CHUNG 1 nút "Dùng bài này" mới đẩy lên
+     chính thức. Không có nút "Nhờ AI viết" riêng ở đây nữa — dùng nút
+     "🔄 Tạo lại" phía trên (nhờ AI) là đủ, khỏi lặp chức năng. */
+  D._srcTab = "paste";     /* "paste" (khung soạn) | "<nhóm>:<idx>" vd "openai:0" */
   D._pasteDraft = "";      /* giữ nội dung đang gõ dở khi chuyển qua lại giữa các tab */
+
+  var SRC_GROUPS = ["paste", "claude", "openai", "gemini"];
+  var SRC_LABELS = { paste: "Dán", claude: "Claude", openai: "OpenAI", gemini: "Gemini" };
+
+  /* Nhóm context_passage_candidates theo NGUỒN THẬT (đọc meta từng phần
+     tử) chứ không theo vị trí trong mảng — mảng chỉ là 1 kho chung chứa
+     tất cả bài của cả 4 nguồn, thứ tự lưu không có ý nghĩa gì cả (chỉ
+     groupCandidates() mới quyết định thứ tự hiện — theo thứ tự lưu trong
+     TỪNG nhóm, cũ trước mới sau, đánh số 1/2/3/4... KHÔNG giới hạn số
+     lượng, theo yêu cầu "không giới hạn bao nhiêu đoạn". */
+  function groupCandidates(list) {
+    var g = { paste: [], claude: [], openai: [], gemini: [] };
+    (Array.isArray(list) ? list : []).forEach(function (raw) {
+      var meta = w.Context.parseMeta(raw);
+      var key = meta.pasted ? "paste" : meta.claude ? "claude" : meta.provider === "openai" ? "openai" : meta.provider === "gemini" ? "gemini" : null;
+      if (key) g[key].push(raw);
+    });
+    return g;
+  }
+
+  /* Thêm 1 bài mới vào CUỐI đúng nhóm nguồn — KHÔNG giới hạn số lượng,
+     bài cũ không bao giờ bị mất/đẩy ra, chỉ có Xoá tay (D.deleteCandidateTab)
+     mới bớt đi. Trả về mảng phẳng mới để ghi thẳng vào context_passage_candidates. */
+  function addCandidate(list, groupKey, raw) {
+    var g = groupCandidates(list);
+    g[groupKey] = g[groupKey].concat([raw]);
+    return g.paste.concat(g.claude, g.openai, g.gemini);
+  }
 
   D.renderSourcePicker = function (b) {
     var tabsEl = w.$("#src-tabs");
     var bodyEl = w.$("#src-body");
     if (!tabsEl || !bodyEl) return;
-    var list = Array.isArray(b.context_passage_candidates) ? b.context_passage_candidates : [];
+    updateDeleteBtnVisibility();
+    var groups = groupCandidates(b.context_passage_candidates);
 
     var tabsHtml = '<button data-src="paste" class="' + (D._srcTab === "paste" ? "active" : "") + '">📝 Dán</button>';
-    list.forEach(function (_, i) {
-      tabsHtml += '<button data-src="' + i + '" class="' + (D._srcTab === i ? "active" : "") + '">Claude ' + (i + 1) + "</button>";
+    SRC_GROUPS.forEach(function (gKey) {
+      groups[gKey].forEach(function (_, i) {
+        var key = gKey + ":" + i;
+        tabsHtml += '<button data-src="' + key + '" class="' + (D._srcTab === key ? "active" : "") + '">' + SRC_LABELS[gKey] + " " + (i + 1) + "</button>";
+      });
     });
     tabsEl.innerHTML = tabsHtml;
 
@@ -506,28 +570,60 @@
       return;
     }
 
-    var raw = list[D._srcTab];
+    var m = /^(paste|claude|openai|gemini):(\d+)$/.exec(D._srcTab);
+    var raw = m ? groups[m[1]][Number(m[2])] : null;
     if (!raw) { bodyEl.innerHTML = ""; D._srcTab = "paste"; return D.renderSourcePicker(b); }
     var meta = w.Context.parseMeta(raw);
     var built = w.Context.build(meta.marked);
+    var costTag = (typeof meta.cost_usd === "number" && meta.cost_usd > 0) ? " · ~$" + meta.cost_usd.toFixed(4) : "";
     bodyEl.innerHTML = '<div class="claude-preview">' +
-      (meta.title ? "<b>" + w.esc(meta.title) + "</b><br>" : "") +
+      (meta.title ? "<b>" + w.esc(meta.title) + "</b>" + w.esc(costTag) + "<br>" : "") +
       w.esc(built.plain).replace(/\n/g, "<br>") +
       "</div>";
   };
 
-  D.useClaudeCandidate = async function (idx) {
+  /* Nút "🗑 Xoá bài này" chỉ hiện khi đang xem 1 khe ĐÃ LƯU (không hiện ở
+     tab "📝 Dán" — đó là khung soạn, chưa có gì để xoá). */
+  function updateDeleteBtnVisibility() {
+    var delBtn = w.$("#btn-delete-source");
+    if (delBtn) delBtn.hidden = (D._srcTab === "paste");
+  }
+
+  /* tabKey dạng "<nhóm>:<idx>" (vd "openai:1") — thay cho chỉ số phẳng cũ
+     vì candidates giờ nhóm theo nguồn, không còn 1 danh sách phẳng nữa. */
+  D.useCandidateTab = async function (tabKey) {
     var b = block();
     if (!b) return;
     if (!canEditPassage()) { w.toast("Bạn không có quyền đổi bài đọc chung", "err"); return; }
-    var list = Array.isArray(b.context_passage_candidates) ? b.context_passage_candidates : [];
-    var val = list[idx];
+    var m = /^(paste|claude|openai|gemini):(\d+)$/.exec(tabKey);
+    if (!m) return;
+    var groups = groupCandidates(b.context_passage_candidates);
+    var val = groups[m[1]][Number(m[2])];
     if (!val) return;
 
     b.context_passage = val;
     try { await w.DB.saveContext(b.id, val); } catch (e) { /* offline vẫn hiển thị được */ }
     D._exam = null;
     await D.renderPassage();
+  };
+
+  /* Xoá 1 bài đã lưu (dở/sai) khỏi đúng khe nguồn — KHÔNG đụng tới
+     context_passage đang active dù bài đó trùng nội dung (2 bản độc lập,
+     xem thiết kế ở đầu file). Xoá xong tự lùi về tab "📝 Dán". */
+  D.deleteCandidateTab = async function (tabKey) {
+    var b = block();
+    if (!b) return;
+    if (!canEditPassage()) { w.toast("Bạn không có quyền đổi bài đọc chung", "err"); return; }
+    var m = /^(paste|claude|openai|gemini):(\d+)$/.exec(tabKey);
+    if (!m) return;
+    var groups = groupCandidates(b.context_passage_candidates);
+    if (!groups[m[1]][Number(m[2])]) return;
+    groups[m[1]].splice(Number(m[2]), 1);
+    b.context_passage_candidates = groups.paste.concat(groups.claude, groups.openai, groups.gemini);
+    try { await w.DB.saveContext(b.id, b.context_passage_candidates, "context_passage_candidates"); } catch (e) {}
+    D._srcTab = "paste";
+    await D.renderPassage();
+    w.toast("Đã xoá bài này");
   };
 
   /* ══════════════ TAB 2 — ACTIVE RECALL QUIZ (ĐIỀN TỪ) ══════════════ */
@@ -1573,7 +1669,8 @@
     w.$("#src-tabs").addEventListener("click", function (e) {
       var btn = e.target.closest("button[data-src]");
       if (!btn) return;
-      D._srcTab = btn.dataset.src === "paste" ? "paste" : Number(btn.dataset.src);
+      /* data-src giờ luôn là chuỗi: "paste" hoặc "<nhóm>:<idx>" (vd "openai:0") */
+      D._srcTab = btn.dataset.src;
       D.renderSourcePicker(block());
     });
     w.$("#btn-use-source").onclick = async function () {
@@ -1583,9 +1680,16 @@
         await D.usePastedPassage(text);
         D._pasteDraft = "";
       } else {
-        await D.useClaudeCandidate(D._srcTab);
+        await D.useCandidateTab(D._srcTab);
       }
       w.toast("Đã lưu bài đọc");
+    };
+    w.$("#btn-delete-source").onclick = async function () {
+      if (D._srcTab === "paste") return;   /* nút bị ẩn ở tab này rồi, phòng hờ */
+      await D.deleteCandidateTab(D._srcTab);
+    };
+    w.$("#btn-regen-prompt-reset").onclick = function () {
+      w.$("#regen-prompt").value = w.Context.DEFAULT_PROMPT_TEMPLATE;
     };
     w.$("#btn-toggle-vocab").onclick = function () {
       try { localStorage.setItem(LS_VOCAB_COLLAPSE, vocabCollapsed() ? "0" : "1"); } catch (e) {}

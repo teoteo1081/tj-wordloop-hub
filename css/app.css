@@ -753,6 +753,17 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .ai-badge.tpl{color:var(--amber-l);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.1);}
 .word-count{font-size:.72rem;color:var(--text-3);font-weight:600;}
 .word-count:empty{display:none;}
+/* Chi phí ước tính OpenAI đã tốn để sinh bài đang xem — để trống (Gemini
+   free/không phải AI) thì tự ẩn, xem #passage-cost trong detail.js. */
+.ai-cost{font-size:.72rem;font-weight:600;}
+.ai-cost:empty{display:none;}
+
+/* Ô prompt AI cạnh nút "🔄 Tạo lại" — gấp lại mặc định (details/summary),
+   mở ra mới thấy prompt gốc để sửa, đỡ chiếm chỗ màn hình lúc không cần. */
+.regen-prompt-box{margin:.5rem 0;border:1px solid var(--border);border-radius:10px;padding:.4rem .7rem;background:var(--bg-raise);}
+.regen-prompt-box summary{cursor:pointer;font-size:.78rem;font-weight:700;color:var(--text-2);padding:.3rem 0;}
+.regen-prompt-box textarea{width:100%;min-height:120px;margin-top:.4rem;font-family:inherit;font-size:.82rem;line-height:1.4;padding:.5rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-1);resize:vertical;}
+.regen-prompt-actions{display:flex;align-items:center;gap:.6rem;margin-top:.4rem;flex-wrap:wrap;}
 .glossary{
   background:var(--bg-hover);border:1px solid var(--border-soft);border-radius:8px;
   padding:.75rem 1rem;margin-top:.7rem;font-size:.8rem;line-height:1.65;

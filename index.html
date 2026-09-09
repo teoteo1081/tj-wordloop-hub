@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=11">
+<link rel="stylesheet" href="css/app.css?v=12">
 </head>
 <body>
 
@@ -316,6 +316,17 @@
               <button class="btn-primary" id="btn-read">🎧 Nghe US</button>
             </div>
           </div>
+          <!-- Prompt AI ngay cạnh "🔄 Tạo lại" — mặc định gấp lại, mở ra thấy
+               ĐÚNG prompt gốc đang dùng, sửa gì cũng được, để trống/không sửa
+               thì Tạo lại vẫn dùng đúng prompt mặc định (xem D.regenPromptText). -->
+          <details class="regen-prompt-box" id="regen-prompt-box">
+            <summary>✏️ Prompt AI đang dùng cho "🔄 Tạo lại" (bấm để xem/sửa)</summary>
+            <textarea id="regen-prompt" spellcheck="false"></textarea>
+            <div class="regen-prompt-actions">
+              <button class="btn-soft" id="btn-regen-prompt-reset" type="button">↺ Về mặc định</button>
+              <span class="muted" style="font-size:12px">Không sửa gì thì Tạo lại vẫn dùng đúng prompt mặc định ở trên.</span>
+            </div>
+          </details>
           <!-- Chế độ đọc: cả bài (mặc định) / từng câu / từng đoạn -->
           <div class="read-modes" id="read-modes">
             <button class="rm-btn active" data-mode="full">📄 Cả bài</button>
@@ -328,6 +339,7 @@
             <div class="piece-row">
               <h4 class="piece" id="passage-title"></h4>
               <span class="ai-badge" id="passage-ai-badge"></span>
+              <span class="ai-cost muted" id="passage-cost" title="Chi phí ước tính OpenAI đã tốn để sinh bài này"></span>
               <span class="word-count" id="passage-wordcount"></span>
             </div>
             <div class="passage" id="passage"></div>
@@ -349,6 +361,7 @@
             <div id="src-body"><!-- JS: renderSourcePicker() --></div>
             <div class="passage-empty-actions">
               <button class="btn-primary" id="btn-use-source">✅ Dùng bài này</button>
+              <button class="btn-soft danger" id="btn-delete-source" hidden>🗑 Xoá bài này</button>
             </div>
           </div>
           <!-- Thay #passage-empty khi tài khoản KHÔNG có quyền đổi bài đọc
@@ -771,12 +784,12 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/keys.local.js?v=1"></script>
 <script src="js/util.js?v=1"></script>
 <script src="js/srs.js?v=1"></script>
-<script src="js/context.js?v=7"></script>
+<script src="js/context.js?v=8"></script>
 <script src="js/speech.js?v=1"></script>
 <script src="js/db.js?v=5"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=13"></script>
+<script src="js/detail.js?v=15"></script>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
