@@ -10,8 +10,7 @@ Key `AQ.Ab8RN6J5el71_ViSQGAYZxB-YMDymgsWf9aTnL3sSUl87Oh6vg` trong `config.js` **
 ## 📝 ĐANG VIẾT LẠI TOÀN BỘ BÀI ĐỌC "SCENARIO" (46 Block, 8 topic) — 6/46 XONG
 Người dùng yêu cầu: viết 1 bài đọc Claude (~500 từ, đúng quy trình CLAUDE.md) cho **MỌI Block** trong 8 Page dưới section `2a064e84-b574-4c07-8a2d-929f90f70486` (hub TOEIC HUB, notebook có sidebar hiện "01_Doanh nghiệp..." → "08_Đời sống..."), **ĐÈ THẲNG lên `context_passage`** (không phải candidates — user đã xác nhận, khác quy tắc mặc định trong CLAUDE.md). Đã quét Supabase: **46 Block, KHÔNG Block nào từng có bài Claude** (`meta.claude` toàn `false`).
 
-**TIẾN ĐỘ: 6/46 xong** — trọn vẹn topic "01_Doanh nghiệp & Quản trị" (Block 104-109), đã verify + PATCH lên Supabase thật, xác nhận HTTP 204 từng Block. **40 Block còn lại** nằm trong `tools/_passage_todo.json` (đã lưu sẵn, có đủ `block_id` + danh sách 10 từ + nghĩa tiếng Việt mỗi Block, KHÔNG cần query lại Supabase) — chia theo topic:
-- `02_Tài chính & Kinh tế`: 5 Block (110-114)
+**TIẾN ĐỘ: 11/46 xong** — trọn vẹn 2 topic đầu: "01_Doanh nghiệp & Quản trị" (Block 104-109) + "02_Tài chính & Kinh tế" (Block 110-114), đã verify + PATCH lên Supabase thật, xác nhận HTTP 204 từng Block, đã `git push` xong tooling+tiến độ tới commit `cb5a612` (và tiếp tục sau đó). **35 Block còn lại** nằm trong `tools/_passage_todo.json` (đã CẬP NHẬT lại sau mỗi lần xong, chỉ còn đúng phần CHƯA làm, có đủ `block_id` + 10 từ + nghĩa tiếng Việt, KHÔNG cần query lại Supabase) — chia theo topic:
 - `03_Công nghệ và dữ liệu`: 6 Block (115-120, **Block 120 chỉ có 4 từ**)
 - `04_Giao tiếp & Đàm phán`: 5 Block (121-125, **Block 125 chỉ có 3 từ**)
 - `05_Tâm lý & Tư duy`: 6 Block (126-131, **Block 131 chỉ có 9 từ**)
