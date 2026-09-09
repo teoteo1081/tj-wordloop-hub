@@ -422,9 +422,10 @@
     generateAI: async function (words, cfg, difficulty) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
-      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
-        throw new Error("chưa có API key AI nào (OpenAI/Gemini)");
-      }
+      /* KHÔNG tự check "chưa có key" ở đây — để _callProvider() làm việc đó,
+         vì nó ném lỗi có đủ `.kind = "no_key"` cho describeError() hiển thị
+         đúng thông báo trên UI (check trùng ở đây từng ném Error thường,
+         thiếu field .kind, khiến UI hiện "Lỗi không xác định" sai). */
       var diffKey = w.Context.DIFFICULTY[difficulty] ? difficulty : "medium";
       var diffDesc = w.Context.DIFFICULTY[diffKey];
 
@@ -509,9 +510,7 @@
     extractVocab: async function (text, cfg) {
       var raw = w.Context.stripPasteNoise(text);
       if (!raw) throw new Error("Chưa dán đoạn văn nào");
-      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
-        throw new Error("chưa có API key AI nào (OpenAI/Gemini)");
-      }
+      /* Không tự check "chưa có key" ở đây — xem lý do ở generateAI() phía trên. */
       if (raw.length > 12000) {
         throw new Error("Đoạn văn dài " + raw.length + " ký tự, quá giới hạn 12000 (~1 bài báo dài / ~15 phút transcript) — cắt bớt rồi dán lại");
       }
@@ -565,9 +564,7 @@
        words: [{term, level?, pos?, ipa?, def_en?, meaning_vi?}] — SỬA
        TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}. */
     enrichWords: async function (words, cfg) {
-      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
-        throw new Error("chưa có API key AI nào (OpenAI/Gemini)");
-      }
+      /* Không tự check "chưa có key" ở đây — xem lý do ở generateAI() phía trên. */
       var needy = (words || []).filter(function (x) {
         return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi);
       });
