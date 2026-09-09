@@ -17,3 +17,4 @@ tools/tu_vung.xlsx
 *.bak-*
 .DS_Store
 tools/__pycache__/
+supabase/.temp/
