@@ -17,7 +17,7 @@ window.APP_CONFIG = {
   // BẮT BUỘC nằm ở đây (không phải keys.local.js) để GitHub Pages phục vụ
   // được cho web thật — keys.local.js bị gitignore nên KHÔNG lên được
   // GitHub Pages, web thật sẽ 404/thiếu key nếu để ở đó (đã thử, hỏng).
-  GEMINI_API_KEY: "AQ.Ab8RN6J5el71_ViSQGAYZxB-YMDymgsWf9aTnL3sSUl87Oh6vg",
+  GEMINI_API_KEY: "AQ.Ab8RN6Im9wylL-gOVHC2aJl4X9aIcL9R1KZRlBdxJb1f-2ESmw",   // key mới 2026-09-10, key cũ đã bị Google thu hồi
 
   APP_NAME: "TJ WordLoop Hub",
   WORDS_PER_BLOCK: 10,        // chuẩn 10 từ / block
