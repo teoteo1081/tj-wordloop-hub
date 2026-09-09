@@ -671,6 +671,13 @@
        nút này. Người thường (kể cả vào bằng link thật) không có cách nào
        tạo thêm tài khoản mới từ trong app — xem giải thích ở #modal-admin. */
     w.$("#mi-admin").style.display = u.admin ? "" : "none";
+    /* "✨ Dán bài, tự trích từ" TOÀN BỘ là tính năng AI (không có nhánh
+       không-AI như doPaste) — ẩn hẳn cho User thường, chỉ Admin thấy,
+       khớp đúng chính sách "AI chỉ Admin" (xem doPaste/doPasteExtract —
+       trước đây lỗ hổng: 2 chỗ này chưa gate theo role, chỉ #btn-regen có,
+       đã vá cùng lúc với dòng này). */
+    var extractBtn = w.$("#btn-paste-extract");
+    if (extractBtn) extractBtn.hidden = !u.admin;
     reflectAddressBar(modeSlug, u.name);
   }
 
@@ -825,10 +832,14 @@
     try {
       /* Dán chỉ có term (hoặc thiếu vài cột) mà có sẵn key AI -> tự tra từ
          điển AI điền nốt level/pos/ipa/def_en/meaning_vi còn thiếu, không
-         đụng tới cột nào đã có sẵn dữ liệu. Không có key thì bỏ qua bước
-         này, tạo Block như cũ (để trống cột thiếu, không chặn ai cả). */
+         đụng tới cột nào đã có sẵn dữ liệu. Không có key HOẶC không phải
+         Admin thì bỏ qua bước này, tạo Block như cũ (để trống cột thiếu,
+         không chặn việc tạo Block — chỉ chặn đúng bước gọi AI, khớp chính
+         sách "AI chỉ Admin" đã chốt, lỗ hổng cũ: chỗ này quên gate theo
+         role, ai cũng gọi được AI miễn máy có key). */
       var cfg2 = w.APP_CONFIG || {};
-      if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
+      var isAdmin = !!(w.Auth.user && w.Auth.user.admin);
+      if (isAdmin && (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY)) {
         var needy = parsed.filter(function (x) {
           return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
         });
@@ -874,6 +885,13 @@
      thấy nguyên bài, chỉ khác từ nào được tô). */
   async function doPasteExtract() {
     if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
+    /* Toàn bộ tính năng này LÀ AI (không có nhánh không-AI) -> chỉ Admin.
+       Nút đã ẩn hẳn cho User thường (renderUserChip), chốt lại đây phòng
+       gọi thẳng qua console/devtools bỏ qua UI. */
+    if (!(w.Auth.user && w.Auth.user.admin)) {
+      w.toast("Chỉ Admin dùng được tính năng này", "err");
+      return;
+    }
     var cfg2 = w.APP_CONFIG || {};
     if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
       w.toast("Cần key Gemini/OpenAI trong js/keys.local.js để dùng tính năng này", "err");
