@@ -251,7 +251,13 @@
         noProxy.kind = "api"; noProxy.provider = "gemini";
         throw noProxy;
       }
-      var model = cfg.GEMINI_MODEL || "gemini-3.6-flash";
+      /* "gemini-3.6-flash" (model mới nhất) có free-tier CỰC THẤP — chỉ
+         20 request/ngày/dự án (đã hit 429 thật, quotaId
+         "GenerateRequestsPerDayPerProjectPerModel-FreeTier", limit 20) —
+         không đủ dùng thật. "gemini-3.5-flash-lite" có quota RIÊNG (tính
+         theo từng model) và cao hơn nhiều, vẫn hoàn toàn free — đổi mặc
+         định sang model này (đã verify qua proxy thật, không bị 429). */
+      var model = cfg.GEMINI_MODEL || "gemini-3.5-flash-lite";
       var url = cfg.SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/gemini-proxy";
       var body = JSON.stringify({ model: model, sys: sys, user: user });
       var headers = {
