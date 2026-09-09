@@ -56,6 +56,13 @@
   };
 
   D.open = function (blockId, tab) {
+    /* Hẹn giờ tự chấm câu cuối (Từng câu/Nghĩa) đặt cho Block ĐANG RỜI ĐI —
+       nếu không clear ở đây, chuyển Block nhanh trong lúc hẹn giờ (1.1-1.7s)
+       còn đang chờ sẽ khiến nó chạy SAU khi D._exam/D._meaningQuiz đã đổi
+       sang Block mới (hoặc về null) -> D.submitFinal()/D.submitMeaning() ăn
+       nhầm dữ liệu Block mới, hoặc ném lỗi vì exam là null. */
+    clearTimeout(D._autoNext);
+    clearTimeout(D._autoNextMeaning);
     D.blockId = blockId;
     D._exam = null;
     D._meaningQuiz = null;   /* mỗi Block một bộ từ khác nhau, không dùng lại đề Block cũ */
@@ -149,6 +156,8 @@
   };
 
   D.close = function () {
+    clearTimeout(D._autoNext);
+    clearTimeout(D._autoNextMeaning);
     w.Speech.stop();
     w.$("#screen-detail").hidden = true;
     w.$("#screen-blocks").hidden = false;
