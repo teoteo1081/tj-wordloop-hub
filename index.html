@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=7">
+<link rel="stylesheet" href="css/app.css?v=8">
 </head>
 <body>
 
@@ -454,6 +454,11 @@
         <div class="journey-col">
           <div class="card">
             <div class="card-title">🚦 Theo tiến độ Tony Buzan</div>
+            <!-- Dòng gọn báo "Data cập nhật lần cuối" — hiện = có sửa từ
+                 vựng/bài đọc mới (bất kể sửa từ web, tools/import_vocab.py
+                 hay Table Editor); TỰ ẨN nếu local mode / chưa chạy SQL
+                 cột updated_at (xem DB.getVocabLastUpdated trong db.js). -->
+            <div class="journey-data-updated" id="journey-data-updated" hidden></div>
             <div class="jtabs" id="jtabs"><!-- JS: 4 nút tab --></div>
             <div class="jtab-panel" id="jtab-panel"><!-- JS: 2 danh sách Block --></div>
           </div>
@@ -578,7 +583,7 @@ mitigate | giảm nhẹ"></textarea>
       Dán 1 bài báo, đoạn văn, hoặc transcript video (YouTube: bấm <b>"Hiện bản ghi"</b> dưới
       video rồi copy toàn bộ; Yglish: copy phần lời thoại) — AI sẽ tự tìm các từ vựng cấp độ
       <b>B1 trở lên</b>, chia thành Block 10 từ để học, và giữ NGUYÊN chính bài bạn dán làm bài
-      đọc (không sinh bài khác). Cần đã có key Gemini/OpenAI trong <code>js/keys.local.js</code>.
+      đọc (không sinh bài khác). Cần đã có key Gemini trong <code>js/keys.local.js</code>.
     </p>
 
     <div class="wp-lbl">Tên Batch (tuỳ chọn)</div>
@@ -739,21 +744,21 @@ mitigate | giảm nhẹ"></textarea>
      lại, không phụ thuộc người dùng có refresh cứng/xoá cache hay không. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js?v=1"></script>
-<!-- keys.local.js: key OpenAI cá nhân, KHÔNG có trong git (.gitignore) — nếu
+<!-- keys.local.js: key Gemini cá nhân, KHÔNG có trong git (.gitignore) — nếu
      thiếu file này (máy khác / clone lại repo) thì trình duyệt chỉ log lỗi
      404 rồi bỏ qua, app tự dùng bài đọc mẫu, không vỡ chức năng nào khác. -->
 <script src="js/keys.local.js?v=1"></script>
 <script src="js/util.js?v=1"></script>
 <script src="js/srs.js?v=1"></script>
-<script src="js/context.js?v=1"></script>
+<script src="js/context.js?v=2"></script>
 <script src="js/speech.js?v=1"></script>
-<script src="js/db.js?v=4"></script>
+<script src="js/db.js?v=5"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=4"></script>
+<script src="js/detail.js?v=8"></script>
 <script src="js/export.js?v=1"></script>
-<script src="js/journey.js?v=3"></script>
+<script src="js/journey.js?v=4"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=11"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

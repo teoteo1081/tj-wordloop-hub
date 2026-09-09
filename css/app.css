@@ -1471,6 +1471,12 @@ textarea:focus{border-color:var(--blue);}
    Đã bỏ hẳn khối "Tổng quan" (3 thẻ .jstat + 4 chip .jgroup-chip) từng
    đứng trên lịch — trùng lặp với 4 tab Tony Buzan bên dưới, theo yêu cầu
    người dùng (che tiêu đề, rườm rà). */
+/* Dòng gọn "Data cập nhật lần cuối" trên card Tony Buzan — nhìn 1 phát
+   biết có sửa từ vựng mới chưa (xem DB.getVocabLastUpdated trong db.js).
+   Vàng nhạt = vừa cập nhật gần đây (<24h), xám = đã cũ hơn — tự đổi màu
+   trong journey.js, không cần hover/bấm gì thêm. */
+.journey-data-updated{font-size:.72rem;color:var(--text-2);margin:-.4rem 0 .6rem;display:flex;align-items:center;gap:.35rem;}
+.journey-data-updated.fresh{color:var(--amber, #d97706);font-weight:600;}
 .journey-legend{display:flex;gap:.9rem;font-size:.72rem;color:var(--text-2);flex-wrap:wrap;}
 .journey-legend span{display:flex;align-items:center;gap:.3rem;}
 .jdot{width:.6rem;height:.6rem;border-radius:3px;display:inline-block;}

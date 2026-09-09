@@ -83,7 +83,7 @@ Mỗi Block có **đúng 1 bài đọc đang dùng**: `block.context_passage` (c
 - **"📝 Dán"** — dán bài của riêng bạn vào ô, app tự bôi `[ngoặc]` đúng các từ của Block bằng `Context._markTerms()`.
 - **"Claude 1/2/3"** — nếu Block có `context_passage_candidates` (mảng tối đa 3 bài Claude viết tay sẵn), hiện thêm các tab này. Đây là cách **KHÔNG tốn quota AI**.
 
-Chọn tab nào thì xem trước tab đó, bấm **"✅ Dùng bài này"** mới đẩy lên chính thức. Muốn nhờ AI viết bài mới thì dùng nút **"🔄 Tạo lại"** ở đầu card bài đọc (chỉ chạy khi có `GEMINI_API_KEY`/`OPENAI_API_KEY` trong `keys.local.js`, ưu tiên Gemini free nhưng ~20 request/ngày với tài khoản mới).
+Chọn tab nào thì xem trước tab đó, bấm **"✅ Dùng bài này"** mới đẩy lên chính thức. Muốn nhờ AI viết bài mới thì dùng nút **"🔄 Tạo lại"** ở đầu card bài đọc (chỉ chạy khi có `GEMINI_API_KEY` trong `keys.local.js` — Gemini free tier, ~20 request/ngày với tài khoản mới; đã bỏ hẳn OpenAI, không dùng nữa vì tốn phí).
 
 Bộ mẫu câu cứng cũ (`OPENERS`/`MIDDLES`/`CLOSERS`, kiểu "quarterly planning meeting" lặp lại) **đã bị loại bỏ hoàn toàn** — không còn là fallback im lặng nữa vì nội dung vô nghĩa/lặp lại. `db.js` có 1 lượt dọn tự động (`cleanupLegacyPassages`, chạy mỗi lần mở app ở chế độ local) xoá sạch bài đọc nào không có `ai`/`pasted`/`claude` trong meta.
 
@@ -116,8 +116,8 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
 - **Lưu từ khi đọc** (kiểu LingQ): bôi/bấm từ trong bài đọc → lưu vào Batch "⭐ Từ đã lưu" của Page hiện tại, đủ 10 từ tự sang Block mới (đánh số tiếp theo Block cũ nhất trong batch đó, không nhảy về 1 nếu batch đã có số).
 
 ## Khoá API / bí mật
-- `js/keys.local.js` — **gitignored**, không commit. Có `GEMINI_API_KEY`/`OPENAI_API_KEY`. Đổi máy phải tự chép lại file này.
-- `js/config.js` — **có commit** (repo private). `SUPABASE_ANON_KEY` an toàn để lộ (chặn bởi RLS). **Tuyệt đối không** đặt `service_role`/`sb_secret_...` vào đây.
+- `js/keys.local.js` — **gitignored**, không commit. Có `GEMINI_API_KEY`. Đổi máy phải tự chép lại file này.
+- `js/config.js` — **có commit** (repo **Public** trên GitHub — mọi key trong file này coi như công khai). `SUPABASE_ANON_KEY` an toàn để lộ (chặn bởi RLS); `GEMINI_API_KEY` hiện cũng đang để thẳng ở đây (chấp nhận rủi ro lộ quota Google, đã có push protection cảnh báo). **Tuyệt đối không** đặt `service_role`/`sb_secret_...` vào đây.
 
 ## Việc còn dang dở
 - **Đăng nhập thật (magic link) để đồng bộ tiến trình học** (đã thuộc từ nào, streak Journey) giữa các thiết bị — hiện chỉ kho từ vựng/bài đọc đồng bộ qua Supabase, tiến trình vẫn theo từng máy (`progressLocal()` = true cho tới khi có đăng nhập thật).

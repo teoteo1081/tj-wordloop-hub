@@ -97,15 +97,19 @@
   }
 
   D.renderBatchNav = function () {
+    /* #bn-pos ("Block X/Y · Batch Z") đã BỎ theo yêu cầu (gây rối mắt,
+       không cần thiết) — luôn giữ hidden, không set chữ nữa. Chỉ còn cặp
+       nút ←/→ chuyển Block. */
     var buttons = w.$("#bn-buttons"), pos = w.$("#bn-pos");
-    if (!buttons || !pos) return;
+    if (pos) pos.hidden = true;
+    if (!buttons) return;
     var info = blockNavInfo();
     if (!info || info.blockIdx < 0) {
-      buttons.hidden = true; pos.hidden = true;
+      buttons.hidden = true;
       return;
     }
 
-    buttons.hidden = false; pos.hidden = false;
+    buttons.hidden = false;
     /* Không tự tắt nút ←/→ nữa — giờ hết Block/Batch của Page này thì lăn
        tiếp qua Page/Notebook khác (D.gotoAdjacentBlock -> App.stepBatch),
        nên rất hiếm khi THẬT SỰ hết đường đi; chỉ khi đã ở đầu/cuối cả Hub
@@ -113,7 +117,6 @@
        Notebook khác mới biết chắc). */
     w.$("#bn-prev").disabled = false;
     w.$("#bn-next").disabled = false;
-    pos.textContent = "Block " + (info.blockIdx + 1) + "/" + info.blockList.length + " · " + info.curBatch.name;
   };
 
   D.gotoAdjacentBlock = async function (dir) {
@@ -260,20 +263,17 @@
   }
 
   D.renderStudy = function () {
-    var ws = words(), wp = S().wp;
+    var ws = words();
 
     w.$("#vocab-tbody").innerHTML = ws.map(function (x) {
-      var p = wp[x.id] || { attempts: 0, correct: 0 };
-      var rate = w.pct(p.correct, p.attempts);
-      /* chưa ôn lần nào thì không gắn nhãn, để cột Vocabulary sạch như bản in */
-      var cls = rate >= 80 ? "hi" : (rate >= 50 ? "mid" : "");
-      var memText = p.mastered ? "✓ thuộc" : (p.attempts ? rate + "%" : "");
+      /* Đã BỎ badge "100%"/"✓ thuộc" cạnh từ (theo yêu cầu — rối mắt ở
+         giao diện học). Tiến trình % vẫn còn xem đầy đủ ở tab "📊 Tiến
+         trình trí nhớ", chỉ bớt lặp lại ở đúng bảng học này thôi. */
       return "" +
         "<tr>" +
           '<td><div class="term-cell">' +
             '<button class="spk" data-say="' + w.esc(x.term) + '" title="Nghe">🔊</button>' +
             "<b>" + w.esc(x.term) + "</b>" +
-            (memText ? '<span class="mem-dot ' + cls + '">' + memText + "</span>" : "") +
           "</div></td>" +
           /* data-label để trên điện thoại mỗi dòng biến thành 1 thẻ có nhãn */
           '<td class="' + levelClass(x.level) + '" data-label="Level">' + w.esc(x.level || "—") + "</td>" +
@@ -314,8 +314,12 @@
     var hint = w.$("#passage-empty-hint");
     var editOk = canEditPassage();
 
+    /* "🔄 Tạo lại" (AI) TỪNG tách riêng CHỈ Admin (không theo cờ
+       canEditPassage) để tránh tốn quota AI chung — nay GỘP CHUNG cùng
+       gate với khu dán/chọn nguồn (canEditPassage) theo yêu cầu, không
+       còn coi AI là đặc quyền cao hơn các cách đổi bài đọc khác nữa. */
     var regenBtn = w.$("#btn-regen");
-    if (regenBtn) regenBtn.hidden = !w.Auth.isAdmin();
+    if (regenBtn) regenBtn.hidden = !editOk;
 
     var emptyBox = w.$("#passage-empty");
     var noPermHint = w.$("#passage-noperm-hint");
@@ -393,11 +397,11 @@
   D.generatePassage = async function () {
     var b = block(), ws = words();
     if (!b) return;
-    if (!w.Auth.isAdmin()) { w.toast("Chỉ Admin dùng được AI viết bài đọc", "err"); return; }
+    if (!w.Auth.hasPassageEdit()) { w.toast("Bạn chưa có quyền đổi bài đọc chung của Block", "err"); return; }
     var myBlockId = b.id;
 
     var cfg2 = w.APP_CONFIG || {};
-    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
+    if (!cfg2.GEMINI_API_KEY) {
       w.toast("Chưa cấu hình API key AI — hãy dán bài đọc của bạn vào ô bên dưới", "err");
       return;
     }

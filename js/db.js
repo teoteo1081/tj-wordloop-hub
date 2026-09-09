@@ -1036,6 +1036,30 @@
     }
   };
 
+  /* ══════════════ "CẬP NHẬT LẦN CUỐI" (màn Journey) ══════════════
+     Trả về Date mới nhất trong 2 cột updated_at (words + blocks) — cột
+     này do TRIGGER phía Supabase tự set (xem tools/supabase_schema.sql),
+     nên phản ánh ĐÚNG lần sửa gần nhất bất kể sửa từ web UI, từ
+     tools/import_vocab.py, hay sửa tay trong Table Editor.
+     Local mode / chưa chạy SQL thêm cột (project cũ) -> trả về null,
+     UI tự ẩn dòng này, không báo lỗi. */
+  DB.getVocabLastUpdated = async function () {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    try {
+      var qw = await DB.sb.from("words").select("updated_at").order("updated_at", { ascending: false }).limit(1);
+      var qb = await DB.sb.from("blocks").select("updated_at").order("updated_at", { ascending: false }).limit(1);
+      if (qw.error || qb.error) return null;   /* cột chưa tồn tại (chưa chạy SQL mới) -> im lặng bỏ qua */
+      var tw = qw.data && qw.data[0] && qw.data[0].updated_at;
+      var tb = qb.data && qb.data[0] && qb.data[0].updated_at;
+      if (!tw && !tb) return null;
+      var dw = tw ? new Date(tw) : null, db2 = tb ? new Date(tb) : null;
+      if (dw && db2) return dw > db2 ? dw : db2;
+      return dw || db2;
+    } catch (e) {
+      return null;
+    }
+  };
+
   /* ══════════════ SAO LƯU / PHỤC HỒI (chỉ chế độ local) ══════════════ */
   DB.exportJSON = function () { return JSON.stringify(local(), null, 2); };
 

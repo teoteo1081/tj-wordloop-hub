@@ -141,10 +141,11 @@
       return "";     /* câu lạ (đoạn văn cũ / tự sửa) -> không dịch bừa */
     },
 
-    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (Gemini miễn phí, hoặc OpenAI) ═══════════
-       Cần window.APP_CONFIG.GEMINI_API_KEY hoặc OPENAI_API_KEY (đặt trong
-       js/keys.local.js, KHÔNG commit lên git). Gọi thẳng từ trình duyệt —
-       không có backend.
+    /* ═══════════ SINH BÀI ĐỌC BẰNG AI (Gemini, MIỄN PHÍ) ═══════════
+       Cần window.APP_CONFIG.GEMINI_API_KEY (đặt trong js/keys.local.js,
+       KHÔNG commit lên git — hoặc thẳng trong js/config.js). Gọi thẳng từ
+       trình duyệt — không có backend. (Từng hỗ trợ cả OpenAI trả phí, đã
+       bỏ — chỉ dùng Gemini free tier.)
        Trả về CHUỖI để lưu y hệt chỗ dùng Context.generate(): văn bản có
        [đánh dấu] + một khối JSON ẩn phía sau (ngăn bởi META_SEP) chứa
        bản dịch từng câu + tiêu đề + nguồn, để đọc lại đúng như lúc sinh. */
@@ -165,31 +166,6 @@
         pasted: !!meta.pasted,
         claude: !!meta.claude
       };
-    },
-
-    /* Gọi OpenAI (trả phí, cần credit) */
-    _callOpenAI: async function (cfg, sys, user) {
-      var res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + cfg.OPENAI_API_KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: cfg.OPENAI_MODEL || "gpt-4o-mini",
-          temperature: 0.9,
-          response_format: { type: "json_object" },
-          messages: [{ role: "system", content: sys }, { role: "user", content: user }]
-        })
-      });
-      if (!res.ok) {
-        var errText = await res.text().catch(function () { return ""; });
-        throw new Error("OpenAI HTTP " + res.status + ": " + errText.slice(0, 180));
-      }
-      var data = await res.json();
-      var raw = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (!raw) throw new Error("OpenAI trả về rỗng");
-      return raw;
     },
 
     /* Gọi Gemini (MIỄN PHÍ, key lấy tại aistudio.google.com/apikey) */
@@ -278,9 +254,32 @@
       hard:   "KHÓ (B2-C1): câu dài 20-28 từ, dùng cấu trúc phức tạp (mệnh đề quan hệ, đảo ngữ, câu ghép nhiều vế), từ xung quanh nâng cao hơn"
     },
 
+    /* Kho bối cảnh + văn phong + góc nhìn — TỰ CHỌN NGẪU NHIÊN ở phía code
+       (không nhờ AI "tự nghĩ ra cho đa dạng") rồi ép thẳng vào prompt mỗi
+       lần sinh bài. Lý do: nếu chỉ đưa AI 1 câu gợi ý chung chung, model
+       (nhất là bản "flash" nhẹ/rẻ) có xu hướng LUÔN quay lại đúng vài chủ
+       đề "an toàn" quen thuộc (họp hành văn phòng...) dù nhiệt độ đã cao —
+       ép random cứng ở code mới chắc chắn đổi bài mỗi lần. */
+    SETTINGS: [
+      "một chuyến du lịch/phượt xa nhà", "bữa tiệc gia đình nhiều thế hệ",
+      "một trận đấu thể thao nghiệp dư", "phòng thí nghiệm/nghiên cứu khoa học",
+      "một quán cà phê nhỏ trong hẻm", "chuyến bay bị hoãn ở sân bay",
+      "dự án khởi nghiệp công nghệ", "một khu chợ đêm địa phương",
+      "buổi phỏng vấn xin việc", "chuyến thám hiểm/leo núi",
+      "lớp học nấu ăn cuối tuần", "một bệnh viện/phòng khám thú y",
+      "buổi biểu diễn âm nhạc đường phố", "vụ mất tích của một con thú cưng",
+      "cuộc thi nấu ăn truyền hình", "một hiệu sách cũ sắp đóng cửa",
+      "chuyến đi biển với bạn bè", "công trường xây dựng đang gấp rút",
+      "một lớp học online xuyên múi giờ", "câu chuyện khởi nghiệp thất bại rồi gượng dậy"
+    ],
+    STYLES: [
+      "kể chuyện ngôi thứ nhất (tôi)", "tường thuật báo chí khách quan",
+      "nhật ký cá nhân", "lời kể lại của một nhân vật phụ",
+      "bài blog chia sẻ trải nghiệm", "đối thoại xen lẫn tường thuật"
+    ],
+
     /* words: [{term, meaning_vi, def_en}] -> Promise<string> (đã kèm meta).
-       Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. Sinh
-       MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
+       Dùng Gemini (miễn phí). Sinh MỘT BÀI ĐỌC LIỀN MẠCH (~450-550 từ) chứ không phải kiểu "mỗi từ 1
        câu rời" — từ vựng chỉ là điểm neo xen giữa văn xuôi tự nhiên.
        difficulty: "easy" | "medium" | "hard" (mặc định "medium") — chỉ
        ảnh hưởng ĐỘ KHÓ CÂU/TỪ XUNG QUANH, số từ vẫn ~500, vẫn đủ hết từ
@@ -288,11 +287,14 @@
     generateAI: async function (words, cfg, difficulty) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
-      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
-        throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
+      if (!cfg || !cfg.GEMINI_API_KEY) {
+        throw new Error("chưa có GEMINI_API_KEY");
       }
       var diffKey = w.Context.DIFFICULTY[difficulty] ? difficulty : "medium";
       var diffDesc = w.Context.DIFFICULTY[diffKey];
+
+      var setting = w.Context.SETTINGS[Math.floor(Math.random() * w.Context.SETTINGS.length)];
+      var style = w.Context.STYLES[Math.floor(Math.random() * w.Context.STYLES.length)];
 
       var wordList = words.map(function (x) {
         return "- " + x.term +
@@ -305,9 +307,13 @@
         "chữ nào khác, không dùng markdown code fence.";
       var user =
         "Viết một BÀI ĐỌC HIỂU tiếng Anh hoàn chỉnh, TỰ NHIÊN, dài khoảng 450–550 từ, chia 3–5 " +
-        "đoạn văn (ngăn cách bằng 1 dòng trống), có mạch truyện/chủ đề xuyên suốt do bạn TỰ CHỌN " +
-        "theo đúng chủ đề của nhóm từ bên dưới (đừng lúc nào cũng là họp hành văn phòng — có thể " +
-        "là một chuyến đi, chuyện gia đình, dự án học tập, thể thao, công nghệ, khoa học…).\n\n" +
+        "đoạn văn (ngăn cách bằng 1 dòng trống).\n\n" +
+        "BỐI CẢNH BẮT BUỘC (không được đổi sang chủ đề khác): " + setting + ".\n" +
+        "VĂN PHONG BẮT BUỘC: " + style + ".\n" +
+        "Lồng ghép TỰ NHIÊN nhóm từ vựng bên dưới vào đúng bối cảnh này — nếu từ vựng nghe " +
+        "\"lệch tông\" với bối cảnh (vd từ công nghệ nhưng bối cảnh là bữa tiệc gia đình) thì " +
+        "vẫn cứ dùng, chỉ cần lồng khéo (vd một nhân vật trong bữa tiệc đang nói về công việc " +
+        "công nghệ của mình) — KHÔNG được bỏ bối cảnh để quay về chủ đề an toàn quen thuộc.\n\n" +
         "ĐỘ KHÓ của câu văn xung quanh (không phải độ khó của từ vựng cần học bên dưới, cái đó " +
         "giữ nguyên): " + diffDesc + ".\n\n" +
         "Bài đọc PHẢI chứa TẤT CẢ các từ sau, mỗi từ xuất hiện ĐÚNG MỘT LẦN, NGUYÊN VĂN (không " +
@@ -322,10 +328,7 @@
         '{"title":"...", "source_vi":"...", "passage_en":"...", ' +
         '"translations":[{"term":"...","vi":"..."}]}';
 
-      /* Ưu tiên Gemini (miễn phí) nếu có key, không thì dùng OpenAI. */
-      var raw = cfg.GEMINI_API_KEY
-        ? await w.Context._callGemini(cfg, sys, user)
-        : await w.Context._callOpenAI(cfg, sys, user);
+      var raw = await w.Context._callGemini(cfg, sys, user);
       var parsed = JSON.parse(raw);
       if (!parsed.passage_en) throw new Error("Thiếu 'passage_en' trong JSON trả về");
 
@@ -371,8 +374,8 @@
     extractVocab: async function (text, cfg) {
       var raw = w.Context.stripPasteNoise(text);
       if (!raw) throw new Error("Chưa dán đoạn văn nào");
-      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
-        throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
+      if (!cfg || !cfg.GEMINI_API_KEY) {
+        throw new Error("chưa có GEMINI_API_KEY");
       }
       if (raw.length > 12000) {
         throw new Error("Đoạn văn dài " + raw.length + " ký tự, quá giới hạn 12000 (~1 bài báo dài / ~15 phút transcript) — cắt bớt rồi dán lại");
@@ -403,9 +406,7 @@
         "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
         '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","sentence_vi":"..."}]}';
 
-      var raw2 = cfg.GEMINI_API_KEY
-        ? await w.Context._callGemini(cfg, sys, user)
-        : await w.Context._callOpenAI(cfg, sys, user);
+      var raw2 = await w.Context._callGemini(cfg, sys, user);
       var parsed = JSON.parse(raw2);
       var lower = raw.toLowerCase();
       var seen = {};
@@ -429,8 +430,8 @@
        words: [{term, level?, pos?, ipa?, def_en?, meaning_vi?}] — SỬA
        TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}. */
     enrichWords: async function (words, cfg) {
-      if (!cfg || (!cfg.GEMINI_API_KEY && !cfg.OPENAI_API_KEY)) {
-        throw new Error("chưa có GEMINI_API_KEY hay OPENAI_API_KEY");
+      if (!cfg || !cfg.GEMINI_API_KEY) {
+        throw new Error("chưa có GEMINI_API_KEY");
       }
       var needy = (words || []).filter(function (x) {
         return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi);
@@ -462,9 +463,7 @@
           "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
           '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"..."}]}';
 
-        var raw = cfg.GEMINI_API_KEY
-          ? await w.Context._callGemini(cfg, sys, user)
-          : await w.Context._callOpenAI(cfg, sys, user);
+        var raw = await w.Context._callGemini(cfg, sys, user);
         var parsed = JSON.parse(raw);
         var got = parsed.words || [];
 

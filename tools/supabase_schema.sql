@@ -179,6 +179,34 @@ create policy "own_profile_update" on profiles
   for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
 
 -- ══════════════════════════════════════════════════════════════════
+-- "CẬP NHẬT LẦN CUỐI" — tự ghi nhận thời điểm sửa gần nhất của words/
+-- blocks, BẤT KỂ sửa từ đâu (web UI, tools/import_vocab.py, hay sửa tay
+-- trong Supabase Table Editor) — vì trigger nằm ở tầng database, không
+-- phải tầng app, nên không sợ sót nguồn nào. Dùng để hiện dòng "Data cập
+-- nhật lần cuối" ở màn Journey (xem DB.getVocabLastUpdated trong db.js).
+-- ══════════════════════════════════════════════════════════════════
+alter table words  add column if not exists updated_at timestamptz not null default now();
+alter table blocks add column if not exists updated_at timestamptz not null default now();
+
+create or replace function set_updated_at() returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_words_updated_at on words;
+create trigger trg_words_updated_at before insert or update on words
+  for each row execute function set_updated_at();
+
+drop trigger if exists trg_blocks_updated_at on blocks;
+create trigger trg_blocks_updated_at before insert or update on blocks
+  for each row execute function set_updated_at();
+
+create index if not exists idx_words_updated_at  on words(updated_at);
+create index if not exists idx_blocks_updated_at on blocks(updated_at);
+
+-- ══════════════════════════════════════════════════════════════════
 -- CHỈ MỤC — cho nhanh khi bảng words/blocks lớn (9000+ dòng)
 -- ══════════════════════════════════════════════════════════════════
 create index if not exists idx_notebooks_hub    on notebooks(hub_id);

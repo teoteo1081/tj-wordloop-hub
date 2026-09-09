@@ -684,13 +684,11 @@
        thật) không có cách nào tạo thêm tài khoản mới từ trong app — xem
        giải thích ở #modal-admin. */
     w.$("#mi-admin").style.display = isAdmin ? "" : "none";
-    /* "✨ Dán bài, tự trích từ" TOÀN BỘ là tính năng AI (không có nhánh
-       không-AI như doPaste) — ẩn hẳn cho User thường, chỉ Admin thấy,
-       khớp đúng chính sách "AI chỉ Admin" (xem doPaste/doPasteExtract —
-       trước đây lỗ hổng: 2 chỗ này chưa gate theo role, chỉ #btn-regen có,
-       đã vá cùng lúc với dòng này). */
+    /* "✨ Dán bài, tự trích từ" — TỪNG chỉ Admin thấy ("AI chỉ Admin"),
+       nay MỞ CHO MỌI USER (theo yêu cầu) — ai cũng dùng được AI (Gemini
+       free) để trích từ vựng, không cần phân biệt vai trò nữa. */
     var extractBtn = w.$("#btn-paste-extract");
-    if (extractBtn) extractBtn.hidden = !isAdmin;
+    if (extractBtn) extractBtn.hidden = false;
     /* Nút "🔄 Xem như User"/"🔄 Về giao diện Admin" — CHỈ Admin THẬT thấy
        (u.admin, không phải isAdmin() — nếu không, bật xong thì chính nút
        để quay lại cũng biến mất, kẹt luôn trong chế độ xem thử). */
@@ -853,14 +851,12 @@
     try {
       /* Dán chỉ có term (hoặc thiếu vài cột) mà có sẵn key AI -> tự tra từ
          điển AI điền nốt level/pos/ipa/def_en/meaning_vi còn thiếu, không
-         đụng tới cột nào đã có sẵn dữ liệu. Không có key HOẶC không phải
-         Admin thì bỏ qua bước này, tạo Block như cũ (để trống cột thiếu,
-         không chặn việc tạo Block — chỉ chặn đúng bước gọi AI, khớp chính
-         sách "AI chỉ Admin" đã chốt, lỗ hổng cũ: chỗ này quên gate theo
-         role, ai cũng gọi được AI miễn máy có key). */
+         đụng tới cột nào đã có sẵn dữ liệu. Không có key thì bỏ qua bước
+         này, tạo Block như cũ (để trống cột thiếu, không chặn việc tạo
+         Block). "AI chỉ Admin" đã BỎ theo yêu cầu — giờ ai có máy cấu hình
+         key cũng gọi được AI, không phân biệt vai trò. */
       var cfg2 = w.APP_CONFIG || {};
-      var isAdmin = w.Auth.isAdmin();
-      if (isAdmin && (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY)) {
+      if (cfg2.GEMINI_API_KEY) {
         var needy = parsed.filter(function (x) {
           return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
         });
@@ -906,16 +902,11 @@
      thấy nguyên bài, chỉ khác từ nào được tô). */
   async function doPasteExtract() {
     if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
-    /* Toàn bộ tính năng này LÀ AI (không có nhánh không-AI) -> chỉ Admin.
-       Nút đã ẩn hẳn cho User thường (renderUserChip), chốt lại đây phòng
-       gọi thẳng qua console/devtools bỏ qua UI. */
-    if (!w.Auth.isAdmin()) {
-      w.toast("Chỉ Admin dùng được tính năng này", "err");
-      return;
-    }
+    /* "AI chỉ Admin" đã BỎ theo yêu cầu — mọi User đều dùng được, chỉ cần
+       máy đã cấu hình GEMINI_API_KEY. */
     var cfg2 = w.APP_CONFIG || {};
-    if (!cfg2.GEMINI_API_KEY && !cfg2.OPENAI_API_KEY) {
-      w.toast("Cần key Gemini/OpenAI trong js/keys.local.js để dùng tính năng này", "err");
+    if (!cfg2.GEMINI_API_KEY) {
+      w.toast("Cần key Gemini trong js/keys.local.js để dùng tính năng này", "err");
       return;
     }
     var rawInput = w.$("#extract-input").value;
