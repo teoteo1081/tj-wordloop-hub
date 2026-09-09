@@ -284,6 +284,23 @@
 
   D.renderStudy = function () {
     var ws = words();
+    var b = block();
+
+    /* Nguồn/chi phí AI đã tốn để tự điền cột còn thiếu cho bảng từ vựng
+       này — giống badge bài đọc, đọc từ blocks.vocab_fill_meta (ghi lúc
+       dán từ mới ở app.js doPaste()). Không có (Gemini free/điền tay/chưa
+       từng thiếu cột) thì tự ẩn. */
+    var vfBadge = w.$("#vocab-fill-badge");
+    if (vfBadge) {
+      var vf = b && b.vocab_fill_meta;
+      if (vf && vf.provider) {
+        var vfLabel = vf.provider === "openai" ? "✨ OpenAI" : vf.provider === "gemini" ? "✨ Gemini" : "✨ AI";
+        if (typeof vf.cost_usd === "number" && vf.cost_usd > 0) vfLabel += " · ~$" + vf.cost_usd.toFixed(4);
+        vfBadge.textContent = vfLabel;
+      } else {
+        vfBadge.textContent = "";
+      }
+    }
 
     w.$("#vocab-tbody").innerHTML = ws.map(function (x) {
       /* Đã BỎ badge "100%"/"✓ thuộc" cạnh từ (theo yêu cầu — rối mắt ở

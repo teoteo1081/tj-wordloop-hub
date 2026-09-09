@@ -903,6 +903,7 @@
          Block). "AI chỉ Admin" đã BỎ theo yêu cầu — giờ ai có máy cấu hình
          key cũng gọi được AI, không phân biệt vai trò. */
       var cfg2 = w.APP_CONFIG || {};
+      var vocabFillMeta = null;   /* {provider, cost_usd, at} — dán lên MỌI Block vừa tạo trong lượt dán này, xem bên dưới */
       if (cfg2.GEMINI_API_KEY || cfg2.OPENAI_API_KEY) {
         var needy = parsed.filter(function (x) {
           return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
@@ -912,6 +913,18 @@
           try {
             var r = await w.Context.enrichWords(parsed, cfg2);
             if (r.filled) w.toast("AI đã tự điền " + r.filled + " ô còn thiếu", "ok");
+            /* Ghi lại nguồn/chi phí để hiện cạnh "Danh sách từ vựng cần học"
+               (giống bài đọc) — theo yêu cầu "cho thêm là nguồn nào tốn kém".
+               1 lượt dán có thể tạo NHIỀU Block cùng lúc, chia đều chi phí
+               cho từng Block (ước tính, không phải tách chính xác theo
+               từng lượt gọi AI 25-từ/lần). */
+            if (r.cost_usd || Object.keys(r.providers || {}).length) {
+              var domProvider = null, domCount = -1;
+              Object.keys(r.providers || {}).forEach(function (p) {
+                if (r.providers[p] > domCount) { domCount = r.providers[p]; domProvider = p; }
+              });
+              vocabFillMeta = { provider: domProvider, total_cost_usd: r.cost_usd || 0, at: Date.now() };
+            }
           } catch (e) {
             console.warn("enrichWords thất bại, vẫn tạo Block với dữ liệu đang có:", e);
             if (w.App && w.App.showAiError) w.App.showAiError(e);   /* không chặn tạo Block, chỉ báo rõ lý do AI không điền được */
@@ -922,6 +935,17 @@
 
       var name = "Batch " + (batchesOfPage(S.pageId).length + 1);
       var res = await w.DB.addBatchFromWords(S.pageId, parsed, name, nextGlobalIndex());
+
+      if (vocabFillMeta && res.blocks.length) {
+        var perBlockMeta = Object.assign({}, vocabFillMeta, {
+          cost_usd: vocabFillMeta.total_cost_usd / res.blocks.length,
+          shared_with_blocks: res.blocks.length
+        });
+        for (var bi = 0; bi < res.blocks.length; bi++) {
+          res.blocks[bi].vocab_fill_meta = perBlockMeta;
+          try { await w.DB.saveContext(res.blocks[bi].id, perBlockMeta, "vocab_fill_meta"); } catch (e) { /* offline vẫn hiển thị được */ }
+        }
+      }
 
       S.batches.push(res.batch);
       S.blocks = S.blocks.concat(res.blocks);

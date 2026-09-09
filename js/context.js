@@ -650,10 +650,17 @@
       var needy = (words || []).filter(function (x) {
         return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi);
       });
-      if (!needy.length) return { words: words, filled: 0 };
+      if (!needy.length) return { words: words, filled: 0, cost_usd: 0, providers: {} };
 
       var BATCH = 25;
       var filled = 0;
+      /* Điền cho >25 từ chia nhiều lượt gọi AI (1 lượt/25 từ) — CỘNG DỒN
+         chi phí + đếm số lượt qua từng nhà cung cấp ở ĐÂY thay vì chỉ đọc
+         _lastProvider/_lastCostUsd 1 lần ở cuối (side-channel đó chỉ giữ
+         kết quả lượt gọi CUỐI CÙNG, sẽ mất thông tin các lượt trước nếu
+         >25 từ) — để badge "nguồn nào tốn kém" cạnh bảng từ vựng phản ánh
+         ĐÚNG tổng chi phí thật của CẢ đợt điền, không chỉ đợt cuối. */
+      var totalCost = 0, providers = {};
 
       for (var i = 0; i < needy.length; i += BATCH) {
         var chunk = needy.slice(i, i + BATCH);
@@ -677,9 +684,14 @@
           "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
           '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"..."}]}';
 
+        w.Context._lastCostUsd = null;
         var raw = await w.Context._callProvider(cfg, sys, user);
         var parsed = JSON.parse(raw);
         var got = parsed.words || [];
+
+        var pUsed = w.Context._lastProvider || "?";
+        providers[pUsed] = (providers[pUsed] || 0) + 1;
+        if (typeof w.Context._lastCostUsd === "number") totalCost += w.Context._lastCostUsd;
 
         for (var k = 0; k < chunk.length; k++) {
           var orig = chunk[k], suggestion = got[k];
@@ -691,7 +703,10 @@
           if (!orig.meaning_vi && suggestion.meaning_vi) { orig.meaning_vi = suggestion.meaning_vi; filled++; }
         }
       }
-      return { words: words, filled: filled };
+      /* providers: đếm số LƯỢT GỌI qua từng nhà cung cấp (vd {openai:2} nếu
+         >25 từ cần 2 lượt, cả 2 đều qua OpenAI) — "nguồn nào" dùng cái có
+         số lượt nhiều nhất để hiện badge, xem app.js/detail.js. */
+      return { words: words, filled: filled, cost_usd: totalCost, providers: providers };
     },
 
     /* Lấy các câu trong đoạn văn, mỗi câu chứa 1 từ vựng, để dựng đề điền từ.

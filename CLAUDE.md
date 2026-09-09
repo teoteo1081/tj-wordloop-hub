@@ -13,8 +13,8 @@
 ## Kiến trúc tóm tắt (chi tiết xem README.md)
 - `js/db.js` là lớp duy nhất biết dữ liệu nằm ở local hay Supabase (`DB.mode`). Code khác **không bao giờ** đọc `localStorage` trực tiếp hay gọi Supabase trực tiếp — luôn qua `DB.xxx()`.
 - `S` (định nghĩa trong `app.js`, dùng chung sang `detail.js`) chỉ chứa dữ liệu của **Notebook đang mở** (`S.blocks`/`S.words`/`S.wp`/`S.bp`), KHÔNG phải toàn bộ app. Cần thống kê toàn app (vd Journey) phải gọi hàm riêng đọc thẳng `local()`/Supabase toàn cục (`DB.getJourneySummary`), không dùng `S`.
-- Mỗi Block: `context_passage` (bài đang dùng, DUY NHẤT) + `context_passage_candidates` (mảng ≤3 bài Claude viết sẵn, chỉ để chọn thử — không tự áp dụng).
-- `Context.parseMeta(raw)` trả về `{marked, vi, title, source, ai, pasted, claude}` — 3 cờ `ai`/`pasted`/`claude` loại trừ lẫn nhau, dùng để: (a) hiện badge đúng nguồn gốc bài đọc, (b) cleanup sweep trong `db.js` biết bài nào là "rác" (không cờ nào = mẫu cứng cũ, xoá).
+- Mỗi Block: `context_passage` (bài đang dùng, DUY NHẤT) + `context_passage_candidates` (mảng KHÔNG giới hạn số lượng bài Dán/Claude/OpenAI/Gemini đã lưu, chỉ để chọn thử — không tự áp dụng, xem mục "Nguồn bài đọc" bên dưới) + `vocab_fill_meta` (JSONB, cột thêm 2026-09-10 — `{provider, cost_usd, at, shared_with_blocks?}`, ghi lúc `Context.enrichWords` tự điền cột thiếu cho bảng từ vựng lúc dán từ mới ở `app.js` `doPaste()`, hiện badge cạnh "Danh sách từ vựng cần học" trong `detail.js` `D.renderStudy`).
+- `Context.parseMeta(raw)` trả về `{marked, vi, title, source, ai, pasted, claude, provider, origin, cost_usd}` — 3 cờ `ai`/`pasted`/`claude` loại trừ lẫn nhau, dùng để: (a) hiện badge đúng nguồn gốc + chi phí bài đọc, (b) nhóm candidates theo nguồn thật trong `detail.js` (`groupCandidates`), (c) cleanup sweep trong `db.js` biết bài nào là "rác" (không cờ nào = mẫu cứng cũ, xoá).
 
 ## Lỗi đã sửa — đừng lặp lại
 - `_markTerms` xử lý sai nếu từ ngắn là substring của từ dài hơn trong cùng danh sách (vd "cost" bên trong "irreversible cost") → **luôn sort terms dài nhất trước** khi bọc `[ngoặc]`.
