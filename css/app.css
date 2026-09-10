@@ -301,14 +301,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    chiều cao giới hạn, để khi có NHIỀU Notebook lồng nhau (dài), nó tự
    cuộn RIÊNG bên trong thay vì đẩy khối "🏆 RANKING"/"Chu kỳ Tony Buzan"
    xuống tuốt cuối, phải cuộn hết cây mới thấy (TJ yêu cầu). */
-/* max-height dùng dvh (không phải vh thường) — trên mobile, vh tính theo
-   viewport GỒM CẢ thanh địa chỉ, nên mỗi lần thanh địa chỉ ẩn/hiện lúc
-   cuộn, vh đổi giá trị -> max-height này co giãn lại -> đẩy giật
-   "🏆 RANKING"/"Chu kỳ Tony Buzan" ngay dưới nó (TJ báo "bị giật lên
-   trên"). dvh (dynamic viewport height) sinh ra đúng để tránh bug này,
-   hỗ trợ rộng khắp Chrome/Safari/Edge mobile hiện tại. Giữ vh làm
-   fallback cho trình duyệt rất cũ (dòng dưới ghi đè nếu dvh được hỗ trợ). */
-#notebook-list{max-height:42vh;max-height:42dvh;overflow-y:auto;}
+/* Không còn cần tự giới hạn max-height/tự cuộn riêng nữa — #notebook-list
+   giờ là NỘI DUNG DUY NHẤT bên trong .sidebar-scroll (xem index.html:
+   "🏆 RANKING"/"Chu kỳ Tony Buzan" đã dời RA NGOÀI .sidebar-scroll, làm
+   anh em cố định của nó), nên cứ để chính .sidebar-scroll (flex:1;
+   overflow-y:auto) lo việc cuộn, đơn giản hơn và không còn phụ thuộc vh
+   (nguồn gây giật trên mobile trước đây khi thanh địa chỉ ẩn/hiện). */
+#notebook-list{overflow-y:auto;}
 /* Gọn kiểu VS Code Explorer (theo yêu cầu TJ) — hàng thấp, đệm sát trái,
    chữ nhỏ vừa đủ đọc, không còn khoảng trắng thừa như trước. */
 .nav-item{
@@ -342,10 +341,12 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .nb-caret:hover{background:var(--bg-hover);color:var(--text);}
 .nb-caret-sp{flex-shrink:0;width:.75rem;}
 
-/* Không còn "margin-top:auto" (đẩy tuốt xuống cuối) — giờ #notebook-list
-   ở trên đã tự cuộn riêng, "🏆 RANKING" + "Chu kỳ Tony Buzan" nên bám
-   NGAY dưới cây Notebook, luôn thấy được ngay, khỏi phải cuộn xa. */
-.sidebar-foot{padding-top:.65rem;border-top:1px solid var(--border-soft);}
+/* Nằm NGOÀI .sidebar-scroll (xem index.html + .sidebar-scroll{flex:1} ở
+   trên) nên không còn thừa hưởng padding ngang của nó -> tự khai lại
+   .5rem .5rem ở đây, và flex-shrink:0 để không bị bóp nhỏ khi cây
+   Notebook phía trên dài ra hết chỗ (nó tự cuộn riêng, khối này đứng
+   NGUYÊN VỊ TRÍ, cố định ở đáy sidebar, TJ yêu cầu không trôi/giật nữa). */
+.sidebar-foot{padding:.65rem .5rem .5rem;flex-shrink:0;border-top:1px solid var(--border-soft);}
 .legend-title{font-size:.62rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;}
 .legend-row{font-size:.66rem;color:var(--text-3);display:flex;align-items:center;gap:.3rem;margin-bottom:.15rem;}
 /* "🕒 Data cập nhật lần cuối" dưới khu Chu kỳ Tony Buzan (sidebar trái) —
@@ -355,7 +356,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 
 /* Bảng xếp hạng thu nhỏ ở cuối sidebar trái — TJ yêu cầu để dễ thấy hơn
    là phải bấm sâu vào menu ⋯. Theo đúng Notebook đang mở, Top 3. */
-.sidebar-lb-mini{margin-top:.65rem;padding:.8rem .15rem;border-top:1px solid var(--border-soft);cursor:pointer;}
+/* Cùng lý do như .sidebar-foot ở trên: nay là anh em cố định của
+   .sidebar-scroll chứ không phải con bên trong nó nữa -> tự thêm padding
+   ngang + flex-shrink:0. */
+.sidebar-lb-mini{flex-shrink:0;padding:.8rem .5rem .3rem;border-top:1px solid var(--border-soft);cursor:pointer;}
 .sidebar-lb-mini:hover .legend-title{color:var(--text-2);}
 .sb-lb-row{display:flex;align-items:center;gap:.5rem;font-size:.76rem;color:var(--text-2);padding:.3rem 0;}
 .sb-lb-row .sb-lb-rank{width:2rem;flex-shrink:0;text-align:center;}

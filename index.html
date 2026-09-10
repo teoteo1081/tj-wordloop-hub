@@ -159,28 +159,32 @@
     <div class="sidebar-scroll">
       <button class="btn-dashed pin-top" id="btn-add-notebook">+ Notebook mới</button>
       <div id="notebook-list" class="nav-list mt-s"><!-- JS --></div>
+    </div>
 
-      <!-- Bảng xếp hạng thu nhỏ — TJ yêu cầu ("cho cái bảng nhỏ nhỏ ở
-           đây đi", rồi "đảo lên trên" — đặt TRƯỚC khu Chu kỳ Tony Buzan).
-           Luôn theo đúng Notebook đang mở (S.notebookId), Top 3, bấm vào
-           mở thẳng trang đầy đủ — xem App.renderSidebarLbMini trong app.js. -->
-      <div class="sidebar-lb-mini" id="sidebar-lb-mini" hidden>
-        <div class="legend-title">🏆 Xếp hạng</div>
-        <div id="sidebar-lb-mini-body"><!-- JS --></div>
-      </div>
+    <!-- Bảng xếp hạng + Chu kỳ Tony Buzan — TJ yêu cầu GHIM CỐ ĐỊNH ở đáy
+         sidebar, LUÔN thấy được, không trôi theo lúc cây Notebook (ở trên,
+         .sidebar-scroll) dài ra và tự cuộn. Trước đây 2 khối này nằm CHUNG
+         trong .sidebar-scroll nên bị cuộn/đẩy trôi cùng cây Notebook — nay
+         tách hẳn ra ngoài làm anh em của .sidebar-scroll (xem .sidebar{
+         display:flex;flex-direction:column} trong app.css — .sidebar-scroll
+         flex:1 chiếm hết chỗ còn lại rồi tự cuộn RIÊNG, 2 khối dưới đây
+         đứng NGOÀI luồng cuộn đó, luôn cố định ngay dưới cùng). -->
+    <div class="sidebar-lb-mini" id="sidebar-lb-mini" hidden>
+      <div class="legend-title">🏆 Xếp hạng</div>
+      <div id="sidebar-lb-mini-body"><!-- JS --></div>
+    </div>
 
-      <div class="sidebar-foot">
-        <div class="legend-title">Chu kỳ Tony Buzan</div>
-        <div class="legend-row"><i class="dot c1"></i> Lần 1–2 · 10 phút / 24 giờ</div>
-        <div class="legend-row"><i class="dot c2"></i> Lần 3 · 1 tuần</div>
-        <div class="legend-row"><i class="dot c3"></i> Lần 4 · 1 tháng</div>
-        <div class="legend-row"><i class="dot c4"></i> Lần 5–6 · 3–6 tháng</div>
-        <!-- "Data cập nhật lần cuối" — LUÔN hiện ở sidebar (không riêng
-             màn Journey nữa) để nhìn 1 phát biết ngay có sửa từ vựng/bài
-             đọc mới chưa. Tự ẩn nếu local mode / chưa chạy SQL thêm cột
-             updated_at. Xem App.renderDataUpdated trong app.js. -->
-        <div class="legend-updated" id="sidebar-data-updated" hidden></div>
-      </div>
+    <div class="sidebar-foot">
+      <div class="legend-title">Chu kỳ Tony Buzan</div>
+      <div class="legend-row"><i class="dot c1"></i> Lần 1–2 · 10 phút / 24 giờ</div>
+      <div class="legend-row"><i class="dot c2"></i> Lần 3 · 1 tuần</div>
+      <div class="legend-row"><i class="dot c3"></i> Lần 4 · 1 tháng</div>
+      <div class="legend-row"><i class="dot c4"></i> Lần 5–6 · 3–6 tháng</div>
+      <!-- "Data cập nhật lần cuối" — LUÔN hiện ở sidebar (không riêng
+           màn Journey nữa) để nhìn 1 phát biết ngay có sửa từ vựng/bài
+           đọc mới chưa. Tự ẩn nếu local mode / chưa chạy SQL thêm cột
+           updated_at. Xem App.renderDataUpdated trong app.js. -->
+      <div class="legend-updated" id="sidebar-data-updated" hidden></div>
     </div>
   </aside>
 
