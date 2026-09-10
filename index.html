@@ -414,11 +414,13 @@
 
       <!-- TAB: NGHĨA (10 từ đảo nghĩa, trắc nghiệm 4 đáp án — riêng, không tính SRS) -->
       <div class="tab-pane" id="pane-meaning">
-        <!-- Chọn kiểm tra theo nghĩa Tiếng Việt (mặc định) hay Meaning EN
-             (dành cho người học không phải người Việt) — xem D.setMeaningLang -->
+        <!-- Chọn kiểm tra theo Meaning EN (mặc định) hay nghĩa Tiếng Việt —
+             xem D.setMeaningLang. class "active" ở đây chỉ là fallback lúc
+             tải trang, D.bindMeaningLangTabs() luôn vẽ lại đúng theo
+             D.meaningLang() ngay khi mở tab. -->
         <div class="meaning-lang-tabs" id="meaning-lang-tabs">
-          <button class="mn-lang-tab active" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
-          <button class="mn-lang-tab" data-mnlang="en">🇬🇧 Meaning EN</button>
+          <button class="mn-lang-tab" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
+          <button class="mn-lang-tab active" data-mnlang="en">🇬🇧 Meaning EN</button>
         </div>
         <div class="card final-wrap" id="meaning-card"></div>
       </div>

@@ -869,17 +869,21 @@
   /* ---------- Đề chọn nghĩa (tab Nghĩa, riêng, không ảnh hưởng SRS) ----------
      2 kiểu kiểm tra CHỌN ĐƯỢC bằng nút "🇻🇳 Nghĩa VN" / "🇬🇧 Meaning EN" ngay
      trong tab (KHÔNG tự động theo Auth.effectiveLang() — đây là lựa chọn
-     RIÊNG của người đang làm bài, mặc định "vi" cho MỌI người kể cả tài
-     khoản tiếng Anh, theo đúng yêu cầu TJ "mặc định là tiếng Việt trước").
-     "vi" dùng meaning_vi (như cũ) — "en" dùng def_en (định nghĩa Anh có
-     sẵn, không dịch AI gì thêm), dành cho người học không phải người
-     Việt. Nhớ lựa chọn qua localStorage, riêng theo máy/trình duyệt. */
+     RIÊNG của người đang làm bài, có thể khác giao diện đang dùng). Mặc
+     định khi CHƯA từng chọn gì là "en" (2026-09-10 — toàn app đã đổi
+     default sang tiếng Anh, theo yêu cầu TJ "ai cũng sẽ nhảy vô phần
+     meaning EN"), ai cần "vi" thì tự bấm đổi, nhớ lại qua localStorage.
+     "vi" dùng meaning_vi — "en" dùng def_en (định nghĩa Anh có sẵn, không
+     dịch AI gì thêm). */
   var LS_MEANING_LANG = "tjwl_meaning_lang_v1";
   D.meaningLang = function () {
-    try { return localStorage.getItem(LS_MEANING_LANG) === "en" ? "en" : "vi"; } catch (e) { return "vi"; }
+    try {
+      var v = localStorage.getItem(LS_MEANING_LANG);
+      return v === "vi" ? "vi" : "en";   /* chưa từng lưu gì (null) -> mặc định "en" */
+    } catch (e) { return "en"; }
   };
   D.setMeaningLang = function (lang) {
-    try { localStorage.setItem(LS_MEANING_LANG, lang === "en" ? "en" : "vi"); } catch (e) {}
+    try { localStorage.setItem(LS_MEANING_LANG, lang === "vi" ? "vi" : "en"); } catch (e) {}
   };
   D.buildMeaningQuiz = function () {
     var ws = words();
