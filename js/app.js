@@ -606,17 +606,28 @@
     var batch = S.batches.find(function (b) { return b.id === S.batchId; });
     var list = S.batchId ? App.blocksOf(S.batchId) : [];
 
-    /* Đường dẫn thư mục (Notebook › Section › Page › Batch) — GIỐNG hệt
-       #crumb ở đầu trang, nhưng lặp lại NGAY TRÊN từng Block card để vẫn
-       biết đang ở đâu khi đã cuộn xuống xa, khỏi phải cuộn lên lại (theo
-       yêu cầu TJ, xem renderCrumb() phía trên cho bản đầy đủ ở đầu trang). */
-    var pathParts = [S.notebooks, S.sections, S.pages].map(function (list2, i) {
-      var id = [S.notebookId, S.sectionId, S.pageId][i];
-      var x = list2.find(function (r) { return r.id === id; });
-      return x ? x.name : "—";
-    });
-    if (batch) pathParts.push(batch.name);
-    var blockPathHtml = '<div class="block-path">' + w.esc(pathParts.join(" › ")) + "</div>";
+    /* Đường dẫn thư mục (Notebook[/Notebook con...] › Section › Page ›
+       Batch › Block) — GIỐNG hệt #crumb ở đầu trang (kể cả đi hết chuỗi
+       Notebook cha-con lồng nhau, xem renderCrumb), nhưng lặp lại NGAY
+       TRÊN từng Block card để vẫn biết đang ở đâu khi đã cuộn xuống xa,
+       khỏi phải cuộn lên lại. Nối thêm TÊN BLOCK ở cuối (theo yêu cầu TJ
+       — "đường dẫn phải full rõ ràng tới block luôn") dù ngay dưới đã có
+       tiêu đề Block riêng, để không "giấu bớt thông tin" khi lướt nhanh. */
+    var nbChain = [];
+    var curNb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
+    var nbGuard = 0;
+    while (curNb && nbGuard++ < 50) {
+      nbChain.unshift(curNb.name);
+      curNb = curNb.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === curNb.parent_notebook_id; }) : null;
+    }
+    if (!nbChain.length) nbChain.push("—");
+    var sec = S.sections.find(function (r) { return r.id === S.sectionId; });
+    var pg = S.pages.find(function (r) { return r.id === S.pageId; });
+    var basePathParts = nbChain.concat([sec ? sec.name : "—", pg ? pg.name : "—"]);
+    if (batch) basePathParts.push(batch.name);
+    function blockPathHtml(b) {
+      return '<div class="block-path">' + w.esc(basePathParts.concat([b.name]).join(" › ")) + "</div>";
+    }
 
     w.$("#batch-title").textContent = batch ? batch.name : "Chưa chọn Batch";
 
@@ -677,7 +688,7 @@
          keydown handler cùng cặp với "#blocks-list".onclick bên dưới). */
       return '<div class="block-card' + (st.due ? " due" : "") + '" data-block="' + b.id +
         '" data-bidx="' + (idx % 8) + '" tabindex="0" role="button" aria-label="Mở Block ' + w.esc(b.name) + '">' +
-        blockPathHtml +
+        blockPathHtml(b) +
         '<div class="block-top">' +
           '<div class="block-left">' +
             '<span class="block-title">' + w.esc(b.name) + "</span>" + tags +
