@@ -259,6 +259,17 @@ alter table notebooks add column if not exists visibility text not null default 
 -- Notebook hiện có sang 'restricted' luôn (không chỉ Notebook tạo sau này).
 alter table notebooks alter column visibility set default 'restricted';
 update notebooks set visibility = 'restricted' where visibility <> 'restricted';
+-- 2026-09-10 (theo yêu cầu TJ): Notebook CON (có parent_notebook_id) thì
+-- TỰ THỪA HƯỞNG quyền share của Notebook CHA thay vì phải share lại riêng
+-- từng cái — "share cha thì con (kể cả con mới thêm sau này) tự thấy
+-- theo, không apply cho cha thì mới chọn từng con riêng". Chỉ Notebook
+-- GỐC (không cha) mới mặc định 'restricted'; Notebook con mặc định
+-- 'everyone' để App.notebookAllowedForUser (app.js) đi tiếp lên kiểm tra
+-- Notebook cha thay vì chặn ngay tại chính nó — TJ vẫn có thể tự đổi 1
+-- Notebook con cụ thể về 'restricted' qua "🔗 Chia sẻ" của riêng nó nếu
+-- muốn ghi đè (share khác với cha). Xem DB.addNotebook/DB.duplicateNotebook
+-- (js/db.js) cho logic tạo mới tương ứng.
+update notebooks set visibility = 'everyone' where parent_notebook_id is not null and visibility <> 'everyone';
 
 create table if not exists notebook_access (
   notebook_id text not null references notebooks(id) on delete cascade,

@@ -310,16 +310,21 @@
     var grantsForNb = {};
     notebookAccessAll.forEach(function (r) { if (r.notebook_id === notebookId) grantsForNb[r.user_id] = r.role; });
 
+    /* 1 select duy nhất/user thay vì tick + chọn role riêng (theo yêu cầu
+       TJ: thêm hẳn 1 lựa chọn rõ ràng "Không chia sẻ" ngay trong dropdown
+       thay vì phải bỏ tick checkbox) — 3 mức: "" (Không chia sẻ, mặc định
+       khi chưa cấp quyền) | "view" (Chỉ xem) | "edit" (Toàn quyền). */
     box.innerHTML = others.length
       ? others.map(function (p) {
           var role = grantsForNb[p.id] || "";
           return '<div class="share-user-row" data-user="' + p.id + '">' +
-            '<label class="share-user-label"><input type="checkbox" data-share-check' + (role ? " checked" : "") + '> ' +
+            '<span class="share-user-label">' +
               w.esc(p.avatar_emoji || "🐣") + " " + w.esc(p.display_name || "(chưa đặt tên)") +
-            "</label>" +
+            "</span>" +
             '<select data-share-role class="mini-select">' +
-              '<option value="view"' + (role !== "edit" ? " selected" : "") + '>Chỉ xem</option>' +
-              '<option value="edit"' + (role === "edit" ? " selected" : "") + '>Toàn quyền</option>' +
+              '<option value=""' + (role === "" ? " selected" : "") + '>🚫 Không chia sẻ</option>' +
+              '<option value="view"' + (role === "view" ? " selected" : "") + '>👁️ Chỉ xem</option>' +
+              '<option value="edit"' + (role === "edit" ? " selected" : "") + '>✏️ Toàn quyền</option>' +
             "</select>" +
           "</div>";
         }).join("")
@@ -1711,6 +1716,11 @@
     if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
     if (table === "batches" && S.pages.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Page khác" });
     if (table === "pages") items.push({ act: "duplicate", icon: "📋", text: "Nhân bản Page" });
+    /* Nhân bản Notebook — CHỈ nội dung trực tiếp (không mang theo Notebook
+       con lồng bên trong), có thể dán vào BẤT KỲ Notebook nào khác kể cả
+       khác hẳn Hub/cây thư mục với bản gốc, hoặc để đứng độc lập — xem
+       DB.duplicateNotebook + doAction bên dưới. */
+    if (table === "notebooks") items.push({ act: "duplicate", icon: "📋", text: "Nhân bản Notebook…" });
     /* Gộp hàng loạt: đứng ở 1 Hub, gom hết Notebook từ MỌI Hub khác về đây */
     if (table === "hubs" && S.hubs.length > 1) items.push({ act: "consolidate", icon: "📦", text: "Gộp tất cả Notebook về đây" });
     items.push({ act: "sep" });
@@ -1924,13 +1934,62 @@
         w.toast('Đã gộp ' + toMove.length + ' Notebook về "' + row.name + '"', "ok");
       }
 
-      else if (act === "duplicate") {
+      else if (act === "duplicate" && table === "pages") {
         w.toast("Đang nhân bản Page…");
         var newPage = await w.DB.duplicatePage(id);
         S.pageId = newPage.id;   /* loadNotebook() bên trong reloadCurrent() sẽ nạp lại S.pages đầy đủ, chỉ cần chốt trước pageId muốn đứng lại */
         saveSel();
         await App.reloadCurrent();
         w.toast('Đã tạo "' + newPage.name + '" — bản sao đầy đủ Batch/Block/Từ vựng', "ok");
+      }
+
+      /* Nhân bản Notebook — theo yêu cầu TJ: "khác cây thư mục thì vẫn
+         copy và dán được" (chọn đích từ TOÀN BỘ Hub, không chỉ Hub hiện
+         tại), "nếu có tên trùng rồi thì bắt đổi tên" (validate trùng tên
+         với các Notebook CÙNG CẤP ở đúng nơi vừa chọn, bắt gõ lại tên
+         khác cho tới khi không trùng nữa). KHÔNG mang theo Notebook con
+         lồng bên trong bản gốc — xem DB.duplicateNotebook. */
+      else if (act === "duplicate" && table === "notebooks") {
+        var fullTree = await w.DB.getFullTree(w.Auth.effectiveUserId ? w.Auth.effectiveUserId() : (w.Auth.user && w.Auth.user.id));
+        var allNbs = (fullTree.notebooks || []).filter(function (n) {
+          return n.id !== id && !notebookIsDescendant(n.id, id) && notebookAllowedForUser(n.id, fullTree.notebooks);
+        });
+        var pickOpts = [{ id: "__standalone__", name: "— Đứng độc lập (không đặt vào Notebook nào, giữ nguyên Hub gốc) —" }]
+          .concat(allNbs.map(function (n) { return { id: n.id, name: n.name }; }));
+        var pickTarget = await askPick({
+          title: '📋 Dán bản sao "' + row.name + '" vào đâu?',
+          options: pickOpts
+        });
+        if (!pickTarget) return;
+        var targetParentId = pickTarget === "__standalone__" ? null : pickTarget;
+
+        /* Tên phải KHÁC mọi Notebook cùng cấp ở đúng nơi vừa chọn (cùng
+           cha nếu dán làm con, hoặc cùng gốc-của-1-Hub nếu đứng độc lập)
+           — trùng thì bắt gõ lại, không tự ý thêm hậu tố cho qua chuyện. */
+        var siblingNames = (targetParentId
+          ? fullTree.notebooks.filter(function (n) { return n.parent_notebook_id === targetParentId; })
+          : fullTree.notebooks.filter(function (n) { return !n.parent_notebook_id && n.hub_id === row.hub_id; })
+        ).map(function (n) { return n.name.trim().toLowerCase(); });
+
+        var suggested = row.name + " (Copy)";
+        var newName = null;
+        while (true) {
+          var rName = await askText({ title: "✏️ Đặt tên cho bản sao", value: suggested, placeholder: "Tên Notebook" });
+          if (!rName) return;
+          var candidate = rName.text.trim();
+          if (siblingNames.indexOf(candidate.toLowerCase()) >= 0) {
+            w.toast('Tên "' + candidate + '" đã có ở đó rồi — đặt tên khác nhé', "err");
+            suggested = candidate;
+            continue;
+          }
+          newName = candidate;
+          break;
+        }
+
+        w.toast("Đang nhân bản Notebook…");
+        var newNb = await w.DB.duplicateNotebook(id, newName, targetParentId);
+        await App.reloadCurrent();
+        w.toast('Đã tạo "' + newNb.name + '" — bản sao Section/Page/Batch/Block/Từ vựng', "ok");
       }
 
       else if (act === "leaderboard") {
@@ -3227,9 +3286,8 @@
         for (var i = 0; i < rows.length; i++) {
           var r2 = rows[i];
           var userId = r2.dataset.user;
-          var checked = r2.querySelector("[data-share-check]").checked;
           var role = r2.querySelector("[data-share-role]").value;
-          if (checked) await w.DB.grantNotebookAccess(notebookId, userId, role);
+          if (role) await w.DB.grantNotebookAccess(notebookId, userId, role);
           else await w.DB.revokeNotebookAccess(notebookId, userId);
         }
         var nbRow = S.notebooks.find(function (n) { return n.id === notebookId; });

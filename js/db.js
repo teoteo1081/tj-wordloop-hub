@@ -486,11 +486,20 @@
      Notebook mới tạo LUÔN riêng tư, phải tự share (ma trận "🔐 Quản lý
      chia sẻ") mới ai đó khác thấy được, kể cả ở local mode (không dựa
      vào default của cột SQL — local mode ghi thẳng object, không qua
-     Postgres nên không tự có default nào cả). */
+     Postgres nên không tự có default nào cả).
+     TRỪ khi tạo làm NOTEBOOK CON (có parentNotebookId) — lúc đó để
+     "everyone" thay vì "restricted", để nó TỰ THỪA HƯỞNG đúng quyền
+     share của Notebook cha thay vì lại phải share riêng lần nữa (theo
+     yêu cầu TJ: share "DAVID CLASS" thì thêm gì mới vào trong đó cũng
+     tự động được share theo luôn). Xem notebookAllowedForUser (app.js) —
+     1 Notebook "everyone" luôn đi tiếp lên kiểm tra tổ tiên, nên cha đã
+     "restricted" + đã cấp quyền cho ai thì con "everyone" mới tạo bên
+     trong họ vẫn thấy được ngay, không cần thêm thao tác gì. */
   DB.addNotebook = function (hubId, name, icon, parentNotebookId) {
     return insertOne("notebooks", {
       hub_id: hubId, name: name, icon: icon || "📓", sort: Date.now() % 100000,
-      parent_notebook_id: parentNotebookId || null, visibility: "restricted"
+      parent_notebook_id: parentNotebookId || null,
+      visibility: parentNotebookId ? "everyone" : "restricted"
     });
   };
   DB.addSection = function (notebookId, name) {
@@ -573,6 +582,106 @@
     await insertMany("words", newWords);
 
     return newPage;
+  };
+
+  /* Nhân bản 1 Notebook — CHỈ nội dung trực tiếp của nó (Section/Page/
+     Batch/Block/Từ vựng), KHÔNG kéo theo Notebook con lồng bên trong (vd
+     nhân bản "TOEIC 700+" để dán vào "DAVID CLASS" thì KHÔNG mang theo
+     "Toeic Reading"/"Toeic Listening"... — những cái đó vẫn là Notebook
+     con riêng, tách biệt, TJ tự nhân bản thêm nếu cần).
+     targetParentId (tuỳ chọn): đặt bản sao làm Notebook CON của Notebook
+     này luôn (vd thả vào "DAVID CLASS") — không truyền thì bản sao đứng
+     ĐỘC LẬP, cùng Hub với bản gốc.
+     visibility bản sao: nếu có targetParentId -> "everyone" (KHÔNG tự
+     "restricted") để nó THỪA HƯỞNG đúng quyền share của Notebook cha —
+     xem notebookAllowedForUser (app.js): 1 Notebook con "everyone" luôn
+     đi tiếp lên kiểm tra tổ tiên, nên cha đã share cho ai thì con mới
+     (kể cả bản sao này) tự động họ thấy luôn, không cần share riêng lại.
+     Không có targetParentId (đứng độc lập, không cha) -> "restricted"
+     như quy tắc mặc định chung mọi Notebook mới (DB.addNotebook). */
+  DB.duplicateNotebook = async function (notebookId, newName, targetParentId) {
+    var d = local();
+    var srcNb = DB.mode === "local"
+      ? d.notebooks.find(function (n) { return n.id === notebookId; })
+      : (await sbList("notebooks", function (q) { return q.eq("id", notebookId); }))[0];
+    if (!srcNb) throw new Error("Không tìm thấy Notebook gốc");
+
+    var srcSections, srcPages, srcBatches, srcBlocks, srcWords;
+    if (DB.mode === "local") {
+      srcSections = where(d.sections, "notebook_id", notebookId).sort(bySort);
+      srcPages = whereIn(d.pages, "section_id", srcSections.map(function (s) { return s.id; })).sort(bySort);
+      srcBatches = whereIn(d.batches, "page_id", srcPages.map(function (p) { return p.id; })).sort(bySort);
+      srcBlocks = whereIn(d.blocks, "batch_id", srcBatches.map(function (b) { return b.id; })).sort(bySort);
+      srcWords = whereIn(d.words, "block_id", srcBlocks.map(function (b) { return b.id; })).sort(bySort);
+    } else {
+      srcSections = await sbList("sections", function (q) { return q.eq("notebook_id", notebookId).order("sort"); });
+      var secIds0 = srcSections.map(function (s) { return s.id; });
+      srcPages = secIds0.length ? await sbList("pages", function (q) { return q.in("section_id", secIds0).order("sort"); }) : [];
+      var pageIds0 = srcPages.map(function (p) { return p.id; });
+      srcBatches = pageIds0.length ? await sbList("batches", function (q) { return q.in("page_id", pageIds0).order("sort"); }) : [];
+      var batchIds0 = srcBatches.map(function (b) { return b.id; });
+      srcBlocks = batchIds0.length ? await sbList("blocks", function (q) { return q.in("batch_id", batchIds0).order("sort"); }) : [];
+      var blockIds0 = srcBlocks.map(function (b) { return b.id; });
+      srcWords = blockIds0.length ? await sbList("words", function (q) { return q.in("block_id", blockIds0).order("sort"); }) : [];
+    }
+
+    /* hub_id: nếu dán vào LÀM CON của 1 Notebook khác thì PHẢI theo đúng
+       Hub của Notebook cha đó (kể cả khác hẳn cây/Hub với bản gốc — TJ
+       yêu cầu "khác cây thư mục thì vẫn copy và dán được") — Notebook
+       con luôn phải cùng Hub với cha, không thể lồng khác Hub. Không có
+       targetParentId (đứng độc lập) -> giữ nguyên Hub của bản gốc. */
+    var destHubId = srcNb.hub_id;
+    if (targetParentId) {
+      var targetNb = DB.mode === "local"
+        ? d.notebooks.find(function (n) { return n.id === targetParentId; })
+        : (await sbList("notebooks", function (q) { return q.eq("id", targetParentId); }))[0];
+      if (!targetNb) throw new Error("Không tìm thấy Notebook đích");
+      destHubId = targetNb.hub_id;
+    }
+
+    var newNotebook = await insertOne("notebooks", {
+      hub_id: destHubId, name: newName || (srcNb.name + " (Copy)"), icon: srcNb.icon || "📓",
+      sort: Date.now() % 100000,
+      parent_notebook_id: targetParentId || null,
+      visibility: targetParentId ? "everyone" : "restricted"
+    });
+
+    var secIdMap = {}, newSections = srcSections.map(function (s) {
+      var ns = Object.assign({}, s); delete ns.id;
+      ns.notebook_id = newNotebook.id; ns.id = w.uid("sec");
+      secIdMap[s.id] = ns.id; return ns;
+    });
+    if (newSections.length) await insertMany("sections", newSections);
+
+    var pageIdMap = {}, newPages = srcPages.map(function (p) {
+      var np = Object.assign({}, p); delete np.id;
+      np.section_id = secIdMap[p.section_id]; np.id = w.uid("pg");
+      pageIdMap[p.id] = np.id; return np;
+    });
+    if (newPages.length) await insertMany("pages", newPages);
+
+    var batchIdMap = {}, newBatches = srcBatches.map(function (b) {
+      var nb = Object.assign({}, b); delete nb.id;
+      nb.page_id = pageIdMap[b.page_id]; nb.id = w.uid("bt");
+      batchIdMap[b.id] = nb.id; return nb;
+    });
+    if (newBatches.length) await insertMany("batches", newBatches);
+
+    var blockIdMap = {}, newBlocks = srcBlocks.map(function (b) {
+      var nb = Object.assign({}, b); delete nb.id;
+      nb.batch_id = batchIdMap[b.batch_id]; nb.id = w.uid("bl");
+      blockIdMap[b.id] = nb.id; return nb;
+    });
+    if (newBlocks.length) await insertMany("blocks", newBlocks);
+
+    var newWords = srcWords.map(function (x) {
+      var nx = Object.assign({}, x); delete nx.id;
+      nx.block_id = blockIdMap[x.block_id]; nx.id = w.uid("wd");
+      return nx;
+    });
+    if (newWords.length) await insertMany("words", newWords);
+
+    return newNotebook;
   };
 
   /* Tạo 1 Batch mới + tự cắt danh sách từ thành các Block 10 từ */
