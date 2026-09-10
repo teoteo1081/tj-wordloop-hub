@@ -284,13 +284,11 @@ button{font-family:inherit;}
 .resizer:hover::after,.resizer.dragging::after{background:var(--blue);}
 body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .sidebar-scroll{padding:.5rem .25rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.3rem;}
-/* Riêng sidebar TRÁI: .sidebar-scroll (cây Notebook) không còn flex:1
-   (chiếm hết chỗ) nữa — chỉ cao vừa đủ nội dung của nó (tự cuộn riêng nếu
-   dài quá), NHƯỜNG khoảng trống còn lại cho "🏆 RANKING" bên dưới (khối
-   đó mới là flex:1, xem .sidebar-lb-mini) thay vì để Ranking chỉ cao vừa
-   đủ vài dòng "nhỏ xíu" như TJ báo. Cap 55dvh để cây Notebook không nuốt
-   hết sidebar khi có rất nhiều Notebook, vẫn còn chỗ cho Ranking. */
-.sidebar-left>.sidebar-scroll{flex:0 1 auto;max-height:55vh;max-height:55dvh;}
+/* Riêng sidebar TRÁI: cây Notebook (.sidebar-scroll) và "🏆 RANKING"
+   (.sidebar-lb-mini) CHIA ĐÔI khoảng trống còn lại (cả 2 đều flex:1) —
+   trước đó Ranking 1 mình flex:1 ăn hết phần dư, TJ báo "quá lố"/to quá,
+   nên hạ xuống còn phân nửa, nhường lại cho cây Notebook. */
+.sidebar-left>.sidebar-scroll{flex:1;max-height:55vh;max-height:55dvh;}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.15rem;}
 .sidebar-title{
   font-size:.68rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;
