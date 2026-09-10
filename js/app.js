@@ -1746,7 +1746,31 @@
     w.$$(".dragging").forEach(function (x) { x.classList.remove("dragging"); });
     w.$$(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
     w.$$(".drag-over-nest").forEach(function (x) { x.classList.remove("drag-over-nest"); });
+    hideDragTip();
   }
+
+  /* Nhãn nhỏ đi theo con trỏ chuột lúc đang kéo — nói RÕ sắp thả vào đâu
+     làm gì (lồng vào làm con / đổi thứ tự / chuyển chỗ), để biết CHẮC
+     trước khi nhả chuột thay vì chỉ đoán qua màu viền (theo yêu cầu TJ).
+     Tạo 1 lần, dùng lại (không tạo mới mỗi lần dragover, đỡ tốn). */
+  var dragTipEl = null;
+  function dragTip() {
+    if (!dragTipEl) {
+      dragTipEl = document.createElement("div");
+      dragTipEl.className = "drag-tip";
+      dragTipEl.hidden = true;
+      document.body.appendChild(dragTipEl);
+    }
+    return dragTipEl;
+  }
+  function showDragTip(text, x, y) {
+    var el = dragTip();
+    el.textContent = text;
+    el.style.left = (x + 16) + "px";
+    el.style.top = (y + 16) + "px";
+    el.hidden = false;
+  }
+  function hideDragTip() { if (dragTipEl) dragTipEl.hidden = true; }
 
   App.bindDrag = function () {
     document.addEventListener("dragstart", function (e) {
@@ -1765,12 +1789,21 @@
 
     document.addEventListener("dragover", function (e) {
       var t = dropInfo(e);
-      if (!t) return;
+      if (!t) { hideDragTip(); return; }
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
       w.$$(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
       w.$$(".drag-over-nest").forEach(function (x) { x.classList.remove("drag-over-nest"); });
       t.el.classList.add(t.kind === "nest" ? "drag-over-nest" : "drag-over");
+
+      /* Nhãn theo con trỏ — nói rõ TÊN nơi sắp thả vào + hành động cụ thể,
+         biết chắc trước khi nhả chuột (xem showDragTip ở trên). */
+      var destRow = rowOf(t.table, t.id);
+      var destName = destRow ? destRow.name : "";
+      var tipText = t.kind === "nest" ? "📂 Đặt vào trong \"" + destName + "\""
+        : t.kind === "reorder" ? "↕ Đổi vị trí — cạnh \"" + destName + "\""
+        : "📦 Chuyển sang \"" + destName + "\"";
+      showDragTip(tipText, e.clientX, e.clientY);
     });
 
     document.addEventListener("drop", function (e) {

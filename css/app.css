@@ -439,6 +439,15 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   outline:2px solid var(--amber);outline-offset:-2px;border-radius:8px;
   background:var(--amber-sub) !important;
 }
+/* Nhãn đi theo con trỏ lúc kéo (xem showDragTip trong app.js) — nói rõ
+   sắp thả vào đâu làm gì TRƯỚC khi nhả chuột. pointer-events:none để
+   không chặn mất sự kiện dragover/drop của chính con trỏ đang đè lên nó. */
+.drag-tip{
+  position:fixed;z-index:3000;pointer-events:none;
+  background:var(--bg-card);color:var(--text);border:1px solid var(--border);
+  border-radius:6px;padding:.3rem .6rem;font-size:.76rem;font-weight:600;
+  box-shadow:var(--shadow-md);white-space:nowrap;
+}
 .hub-add{padding:.35rem .7rem;font-size:.85rem;border-radius:7px;margin-left:.2rem;}
 .hub-tab{
   display:inline-flex;align-items:center;gap:.35rem;position:relative;
