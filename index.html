@@ -160,6 +160,15 @@
       <button class="btn-dashed pin-top" id="btn-add-notebook">+ Notebook mới</button>
       <div id="notebook-list" class="nav-list mt-s"><!-- JS --></div>
 
+      <!-- Bảng xếp hạng thu nhỏ — TJ yêu cầu ("cho cái bảng nhỏ nhỏ ở
+           đây đi", rồi "đảo lên trên" — đặt TRƯỚC khu Chu kỳ Tony Buzan).
+           Luôn theo đúng Notebook đang mở (S.notebookId), Top 3, bấm vào
+           mở thẳng trang đầy đủ — xem App.renderSidebarLbMini trong app.js. -->
+      <div class="sidebar-lb-mini" id="sidebar-lb-mini" hidden>
+        <div class="legend-title">🏆 Xếp hạng</div>
+        <div id="sidebar-lb-mini-body"><!-- JS --></div>
+      </div>
+
       <div class="sidebar-foot">
         <div class="legend-title">Chu kỳ Tony Buzan</div>
         <div class="legend-row"><i class="dot c1"></i> Lần 1–2 · 10 phút / 24 giờ</div>
@@ -171,15 +180,6 @@
              đọc mới chưa. Tự ẩn nếu local mode / chưa chạy SQL thêm cột
              updated_at. Xem App.renderDataUpdated trong app.js. -->
         <div class="legend-updated" id="sidebar-data-updated" hidden></div>
-      </div>
-
-      <!-- Bảng xếp hạng thu nhỏ — TJ yêu cầu ("cho cái bảng nhỏ nhỏ ở
-           đây đi") vì trước đó phải bấm sâu vào menu ⋯ mới thấy. Luôn
-           theo đúng Notebook đang mở (S.notebookId), Top 3, bấm vào mở
-           thẳng trang đầy đủ — xem App.renderSidebarLbMini trong app.js. -->
-      <div class="sidebar-lb-mini" id="sidebar-lb-mini" hidden>
-        <div class="legend-title">🏆 Xếp hạng</div>
-        <div id="sidebar-lb-mini-body"><!-- JS --></div>
       </div>
     </div>
   </aside>
