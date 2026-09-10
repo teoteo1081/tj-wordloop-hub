@@ -241,15 +241,24 @@ create index if not exists idx_blocks_updated_at on blocks(updated_at);
 -- cũ, ai gọi thẳng Supabase API vẫn đọc được hết. Muốn chặn THẬT ở tầng
 -- database (Mức B) thì phải làm lại toàn bộ tầng xác thực + RLS, xem
 -- memory "project_tjhub_wordloop" — không làm trong đợt này).
---   · notebooks.visibility = 'everyone' (mặc định, y hệt trước giờ) |
---     'restricted' (chỉ Admin + user có mặt trong notebook_access mới
---     THẤY Notebook đó, kể cả Notebook con lồng bên trong — xem
---     App.notebookVisibleTo trong app.js đi ngược parent_notebook_id).
+--   · notebooks.visibility = 'restricted' (MẶC ĐỊNH, đổi 2026-09-11 theo
+--     yêu cầu TJ — trước đó mặc định 'everyone', giờ đảo ngược: Notebook
+--     mới tạo LUÔN riêng tư, phải tự tick share mới ai đó thấy được) |
+--     'everyone' (ai cũng thấy, không cần share riêng — TJ tự đổi tay
+--     qua chip 🌍/🔒 trong ma trận nếu muốn 1 Notebook nào đó công khai).
+--     Chỉ Admin + user có mặt trong notebook_access mới THẤY Notebook
+--     'restricted', kể cả Notebook con lồng bên trong — xem
+--     App.notebookAllowedForUser trong app.js đi ngược parent_notebook_id.
 --   · notebook_access: 1 dòng = 1 user được share 1 Notebook, kèm role
 --     ('view' = chỉ xem/học, không paste/sửa/xoá gì trong Notebook đó;
 --     'edit' = toàn quyền y hệt mặc định trước giờ).
 -- ══════════════════════════════════════════════════════════════════
-alter table notebooks add column if not exists visibility text not null default 'everyone';
+alter table notebooks add column if not exists visibility text not null default 'restricted';
+-- Project cũ đã tạo cột này với default 'everyone' (bản đầu của tính năng
+-- Share) -> đổi lại default cho khớp quyết định mới, và cập nhật HẾT
+-- Notebook hiện có sang 'restricted' luôn (không chỉ Notebook tạo sau này).
+alter table notebooks alter column visibility set default 'restricted';
+update notebooks set visibility = 'restricted' where visibility <> 'restricted';
 
 create table if not exists notebook_access (
   notebook_id text not null references notebooks(id) on delete cascade,

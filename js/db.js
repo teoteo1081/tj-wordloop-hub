@@ -482,10 +482,15 @@
   /* parentNotebookId (tuỳ chọn) — tạo Notebook mới làm CON của Notebook
      đó (cùng cấp với Notebook đang đứng, xem #btn-add-notebook trong
      app.js) thay vì luôn luôn rơi ra cấp gốc. */
+  /* visibility: "restricted" (mặc định, 2026-09-11 theo yêu cầu TJ) —
+     Notebook mới tạo LUÔN riêng tư, phải tự share (ma trận "🔐 Quản lý
+     chia sẻ") mới ai đó khác thấy được, kể cả ở local mode (không dựa
+     vào default của cột SQL — local mode ghi thẳng object, không qua
+     Postgres nên không tự có default nào cả). */
   DB.addNotebook = function (hubId, name, icon, parentNotebookId) {
     return insertOne("notebooks", {
       hub_id: hubId, name: name, icon: icon || "📓", sort: Date.now() % 100000,
-      parent_notebook_id: parentNotebookId || null
+      parent_notebook_id: parentNotebookId || null, visibility: "restricted"
     });
   };
   DB.addSection = function (notebookId, name) {
