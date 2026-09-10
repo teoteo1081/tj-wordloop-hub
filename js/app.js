@@ -422,7 +422,13 @@
       var pid = n.parent_notebook_id || "_root";
       (byParent[pid] = byParent[pid] || []).push(n);
     });
+    /* Gọn kiểu VS Code (theo yêu cầu TJ) — thay padding-left rộng bằng
+       các đường guide dọc mảnh (1 đường/cấp cha, y hệt Explorer của VS
+       Code), icon nhỏ lại, hàng thấp hơn (xem .nav-item/.nb-indent trong
+       app.css). */
     function renderLevel(list, depth) {
+      var indent = "";
+      for (var g = 0; g < depth; g++) indent += '<span class="nb-indent"></span>';
       return list.slice().sort(bySort).map(function (n) {
         var children = byParent[n.id] || [];
         var collapsed = children.length && collapsedSet.has(n.id);
@@ -430,9 +436,8 @@
           ? '<button class="nb-caret" data-caret="' + n.id + '" title="' + (collapsed ? "Bung nhánh" : "Thu nhánh") + '" aria-label="' + (collapsed ? "Bung" : "Thu") + ' nhánh ' + w.esc(n.name) + '">' + (collapsed ? "▸" : "▾") + "</button>"
           : '<span class="nb-caret-sp"></span>';
         return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") +
-                 '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button"' +
-                 (depth ? ' style="padding-left:' + (0.15 + depth * 1.1) + 'rem"' : "") + '>' +
-                 caret +
+                 '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
+                 indent + caret +
                  "<span>" + w.esc(n.icon || (children.length ? "🗂️" : "📓")) + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
                  '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
                "</div>" +

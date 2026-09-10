@@ -297,16 +297,26 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .mini-btn:hover{color:var(--text);border-color:var(--border-hi);}
 
 .nav-list{display:flex;flex-direction:column;gap:.2rem;}
+/* Gọn kiểu VS Code Explorer (theo yêu cầu TJ) — hàng thấp, đệm sát trái,
+   chữ nhỏ vừa đủ đọc, không còn khoảng trắng thừa như trước. */
 .nav-item{
-  padding:.5rem .65rem;border-radius:6px;font-size:.8rem;font-weight:500;color:var(--text-2);
-  cursor:pointer;display:flex;align-items:center;gap:.45rem;border-left:2px solid transparent;
+  padding:.3rem .4rem;border-radius:4px;font-size:.78rem;font-weight:500;color:var(--text-2);
+  cursor:pointer;display:flex;align-items:center;gap:.3rem;border-left:2px solid transparent;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .nav-item:hover{background:var(--bg-hover);color:var(--text);}
 .nav-item.active{background:var(--bg-card);color:var(--text);border-left-color:var(--blue);}
 .sidebar-right .nav-item.active{border-left-color:var(--green);}
-.nav-item .count{margin-left:auto;font-size:.68rem;color:var(--text-3);white-space:nowrap;flex-shrink:0;}
+.nav-item .count{margin-left:auto;font-size:.66rem;color:var(--text-3);white-space:nowrap;flex-shrink:0;}
 .nav-empty{font-size:.75rem;color:var(--text-3);padding:.4rem .2rem;font-style:italic;}
+
+/* Đường dẫn dọc (indent guide) — 1 đường mảnh/1 cấp cha, y hệt VS Code
+   Explorer, thay cho khoảng trắng rỗng trước đây. Nhân đúng "depth" span
+   này ra cho mỗi hàng (xem renderLevel trong app.js) — đơn giản hơn cách
+   VS Code thật (đường chỉ chạy tới sibling cuối cùng) nhưng đủ rõ, không
+   cần theo dõi "có phải con cuối không" cho từng nhánh. */
+.nb-indent{width:.8rem;flex-shrink:0;align-self:stretch;position:relative;}
+.nb-indent::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);}
 
 /* Mũi tên bung/thu 1 nhánh Notebook (renderNotebooks trong app.js) — nút
    con nằm TRONG .nav-item, phải chặn click nổi lên .nav-item (đã chặn ở
@@ -314,11 +324,11 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    đó luôn. .nb-caret-sp là khoảng trống thế chỗ cho Notebook lá (không
    con) để tên vẫn thẳng hàng với Notebook có mũi tên. */
 .nb-caret{
-  flex-shrink:0;width:1.1rem;height:1.1rem;display:flex;align-items:center;justify-content:center;
-  background:transparent;border:none;color:var(--text-3);font-size:.7rem;cursor:pointer;border-radius:4px;padding:0;
+  flex-shrink:0;width:.9rem;height:.9rem;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:var(--text-3);font-size:.62rem;cursor:pointer;border-radius:3px;padding:0;
 }
 .nb-caret:hover{background:var(--bg-hover);color:var(--text);}
-.nb-caret-sp{flex-shrink:0;width:1.1rem;}
+.nb-caret-sp{flex-shrink:0;width:.9rem;}
 
 .sidebar-foot{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border-soft);}
 .legend-title{font-size:.66rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;}
