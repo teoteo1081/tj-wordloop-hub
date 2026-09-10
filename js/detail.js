@@ -91,6 +91,7 @@
     D.renderProgress();
     D.renderBatchNav();
     if (w.App && w.App.renderBatches) w.App.renderBatches();   /* chip Batch đổi sang hiện tên Block này */
+    if (w.App && w.App.renderCrumb) w.App.renderCrumb();        /* đường dẫn đầu trang nối thêm tên Block */
   };
 
   /* ══════════════ CHUYỂN BLOCK TRƯỚC / SAU (trong tab Bài học) ══════════════
@@ -175,6 +176,7 @@
     D.blockId = null;
     clearLastBlock();
     if (w.App && w.App.renderBatches) w.App.renderBatches();   /* chip Batch trở lại hiện tên Batch bình thường */
+    if (w.App && w.App.renderCrumb) w.App.renderCrumb();        /* đường dẫn đầu trang bỏ tên Block ra */
     /* Rời Block là lúc hợp lý nhất để làm mới bộ đếm tổng số từ ở góc
        phải trên cùng — không cần gắn vào từng chỗ chấm điểm/lưu tiến
        trình riêng lẻ (nhiều chỗ, dễ sót). */
@@ -479,7 +481,12 @@
     var newPassage;
     try {
       var topicHint = (w.App && w.App.currentTopicHint) ? w.App.currentTopicHint() : "";
-      newPassage = await w.Context.generateAI(ws, cfg2, null, promptOverride, topicHint);
+      /* quotaCtx: gemini-proxy tự chấm quota 3 Block AI/ngày cho user thường
+         dựa vào đúng 2 field này (userId/blockId) — xem Context._callGemini.
+         Thiếu userId (chưa đăng nhập Cloud, chỉ hồ sơ máy) -> proxy bỏ qua
+         hẳn việc chấm quota. */
+      var quotaCtx = { userId: (w.Auth.user && w.Auth.user.id) || null, blockId: myBlockId };
+      newPassage = await w.Context.generateAI(ws, cfg2, null, promptOverride, topicHint, quotaCtx);
     } catch (e) {
       console.warn("Sinh bài đọc bằng AI thất bại:", e);
       if (w.App && w.App.showAiError) w.App.showAiError(e);
@@ -537,21 +544,26 @@
   D._srcTab = "paste";     /* "paste" (khung soạn) | "<nhóm>:<idx>" vd "openai:0" */
   D._pasteDraft = "";      /* giữ nội dung đang gõ dở khi chuyển qua lại giữa các tab */
 
-  var SRC_GROUPS = ["paste", "claude", "openai", "gemini"];
-  var SRC_LABELS = { paste: "Dán", claude: "Claude", openai: "OpenAI", gemini: "Gemini" };
+  var SRC_GROUPS = ["paste", "claude", "openai", "gemini", "other"];
+  var SRC_LABELS = { paste: "Dán", claude: "Claude", openai: "OpenAI", gemini: "Gemini", other: "Other" };
 
   /* Nhóm context_passage_candidates theo NGUỒN THẬT (đọc meta từng phần
      tử) chứ không theo vị trí trong mảng — mảng chỉ là 1 kho chung chứa
-     tất cả bài của cả 4 nguồn, thứ tự lưu không có ý nghĩa gì cả (chỉ
+     tất cả bài của cả 5 nguồn, thứ tự lưu không có ý nghĩa gì cả (chỉ
      groupCandidates() mới quyết định thứ tự hiện — theo thứ tự lưu trong
      TỪNG nhóm, cũ trước mới sau, đánh số 1/2/3/4... KHÔNG giới hạn số
-     lượng, theo yêu cầu "không giới hạn bao nhiêu đoạn". */
+     lượng, theo yêu cầu "không giới hạn bao nhiêu đoạn".
+     "other" = LƯỚI AN TOÀN cho bài không khớp 4 nguồn quen (vd provider lạ
+     do sau này thêm nhà cung cấp AI mới mà quên cập nhật SRC_GROUPS, hoặc
+     dữ liệu cũ/sửa tay thiếu cờ) — TRƯỚC ĐÂY bị bỏ rơi âm thầm (không hiện
+     ở tab nào, không xoá được), giờ luôn hiện ra ở tab "Other N" để không
+     mất bài, xem lại + xoá được như mọi nguồn khác. */
   function groupCandidates(list) {
-    var g = { paste: [], claude: [], openai: [], gemini: [] };
+    var g = { paste: [], claude: [], openai: [], gemini: [], other: [] };
     (Array.isArray(list) ? list : []).forEach(function (raw) {
       var meta = w.Context.parseMeta(raw);
-      var key = meta.pasted ? "paste" : meta.claude ? "claude" : meta.provider === "openai" ? "openai" : meta.provider === "gemini" ? "gemini" : null;
-      if (key) g[key].push(raw);
+      var key = meta.pasted ? "paste" : meta.claude ? "claude" : meta.provider === "openai" ? "openai" : meta.provider === "gemini" ? "gemini" : "other";
+      g[key].push(raw);
     });
     return g;
   }
@@ -562,7 +574,7 @@
   function addCandidate(list, groupKey, raw) {
     var g = groupCandidates(list);
     g[groupKey] = g[groupKey].concat([raw]);
-    return g.paste.concat(g.claude, g.openai, g.gemini);
+    return g.paste.concat(g.claude, g.openai, g.gemini, g.other);
   }
 
   D.renderSourcePicker = function (b) {
@@ -589,7 +601,7 @@
       return;
     }
 
-    var m = /^(paste|claude|openai|gemini):(\d+)$/.exec(D._srcTab);
+    var m = /^(paste|claude|openai|gemini|other):(\d+)$/.exec(D._srcTab);
     var raw = m ? groups[m[1]][Number(m[2])] : null;
     if (!raw) { bodyEl.innerHTML = ""; D._srcTab = "paste"; return D.renderSourcePicker(b); }
     var meta = w.Context.parseMeta(raw);
@@ -614,7 +626,7 @@
     var b = block();
     if (!b) return;
     if (!canEditPassage()) { w.toast("Bạn không có quyền đổi bài đọc chung", "err"); return; }
-    var m = /^(paste|claude|openai|gemini):(\d+)$/.exec(tabKey);
+    var m = /^(paste|claude|openai|gemini|other):(\d+)$/.exec(tabKey);
     if (!m) return;
     var groups = groupCandidates(b.context_passage_candidates);
     var val = groups[m[1]][Number(m[2])];
@@ -633,12 +645,12 @@
     var b = block();
     if (!b) return;
     if (!canEditPassage()) { w.toast("Bạn không có quyền đổi bài đọc chung", "err"); return; }
-    var m = /^(paste|claude|openai|gemini):(\d+)$/.exec(tabKey);
+    var m = /^(paste|claude|openai|gemini|other):(\d+)$/.exec(tabKey);
     if (!m) return;
     var groups = groupCandidates(b.context_passage_candidates);
     if (!groups[m[1]][Number(m[2])]) return;
     groups[m[1]].splice(Number(m[2]), 1);
-    b.context_passage_candidates = groups.paste.concat(groups.claude, groups.openai, groups.gemini);
+    b.context_passage_candidates = groups.paste.concat(groups.claude, groups.openai, groups.gemini, groups.other);
     try { await w.DB.saveContext(b.id, b.context_passage_candidates, "context_passage_candidates"); } catch (e) {}
     D._srcTab = "paste";
     await D.renderPassage();
@@ -1274,6 +1286,13 @@
     D.renderStats();
     D.renderStudy();
     D.renderProgress();
+    /* BUG đã sửa: trước đây pill "📕 Block N" trên thanh Batch (và Lần ôn/
+       Done hiện trong đó, xem renderBatches trong app.js) KHÔNG tự cập
+       nhật sau khi thi xong — phải bấm "← Quay lại danh sách Block" rồi
+       vào lại mới thấy đúng, vì chỉ App.renderBlocks() (chạy khi bấm nút
+       đó) mới vẽ lại, còn renderBatches() (vẽ pill) thì không ai gọi lại
+       trong lúc vẫn đang ở màn Chi tiết. */
+    if (w.App && w.App.renderBatches) w.App.renderBatches();
     w.$("#workspace").scrollTop = 0;
     w.toast(passed ? "🎉 Đạt " + ex.score + "% — Block hoàn thành!" : "Được " + ex.score + "% — cần ≥ " + PASS_MARK + "%",
             passed ? "ok" : "err");
@@ -1458,6 +1477,7 @@
     D.renderStats();
     D.renderStudy();
     D.renderProgress();
+    if (w.App && w.App.renderBatches) w.App.renderBatches();   /* xem chú thích ở submitFinal phía trên — cùng bug */
     w.toast("Đúng " + correct + "/" + ex.total + " (" + ex.score + "%)", ex.score >= PASS_MARK ? "ok" : "err");
   };
 
@@ -1827,10 +1847,40 @@
         function () { btn.textContent = "🔊 Đọc tất cả từ"; }
       );
     };
+    /* Đọc từng từ KÈM định nghĩa tiếng Anh (yêu cầu TJ, khác "🔊 Đọc tất cả
+       từ" ở trên chỉ đọc mỗi term) — TOÀN BỘ vẫn đọc bằng giọng Anh
+       (en-US), KHÔNG đọc nghĩa tiếng Việt nữa (giọng Việt máy TJ đọc "kỳ
+       quá" — bỏ hẳn, xem lịch sử sửa). Thay vào đó chêm 1 câu ngắn
+       "it means" giữa term và định nghĩa, để nghe biết đang chuyển sang
+       phần giải nghĩa mà không cần đọc tiếng Việt. Mỗi từ tách thành tối
+       đa 2 câu liên tiếp (term -> "it means" + def_en, nếu Block đó đã có
+       def_en), gộp lại 1 nhóm để dòng vẫn chỉ sáng 1 lần (groupIndex, xem
+       Speech.speakList). Bỏ qua nếu Block chưa có def_en. */
+    w.$("#btn-read-all-full").onclick = function () {
+      var ws = words();
+      if (!ws.length) return;
+      var btn = this;
+      btn.textContent = "🔊 Đang đọc…";
+      var items = [];
+      ws.forEach(function (x, idx) {
+        items.push({ text: x.term, lang: "en-US", groupIndex: idx });
+        if (x.def_en) items.push({ text: "it means " + x.def_en, lang: "en-US", groupIndex: idx });
+      });
+      w.Speech.speakList(
+        items,
+        function (i) {
+          w.$$("#vocab-tbody tr").forEach(function (tr, k) {
+            tr.classList.toggle("reading", k === i);
+          });
+        },
+        function () { btn.textContent = "🔊 Đọc + định nghĩa"; }
+      );
+    };
     w.$("#btn-stop-all").onclick = function () {
       w.Speech.stop();
       w.$$("#vocab-tbody tr").forEach(function (tr) { tr.classList.remove("reading"); });
       w.$("#btn-read-all").textContent = "🔊 Đọc tất cả từ";
+      w.$("#btn-read-all-full").textContent = "🔊 Đọc + định nghĩa";
     };
 
   };

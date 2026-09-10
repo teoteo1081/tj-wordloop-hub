@@ -261,12 +261,11 @@
   }
 
   /* ══════════════ RENDER: BREADCRUMB ══════════════ */
-  /* Đường dẫn dài (tên Hub/Notebook/Section/Page/Batch cộng lại) mà vẫn
-     nhét đủ cả chuỗi trên 1 hàng thì hoặc tràn màn hình hoặc phải xuống
-     hàng — cả 2 đều xấu. Quá 1 ngưỡng ký tự thì chỉ hiện khúc ĐẦU (Hub)
-     và khúc CUỐI (chỗ đang đứng), giữa thay bằng "…", giữ nguyên 1 hàng
-     (CSS .crumb: nowrap + cuộn ngang phòng khi vẫn còn dài). */
-  var CRUMB_MAX_CHARS = 46;
+  /* ĐẦY ĐỦ, KHÔNG rút gọn/ẩn bớt bằng "…" nữa (theo yêu cầu TJ — "cần biết
+     chính xác đừng hide bớt thông tin") — dài quá thì CSS .crumb tự xuống
+     hàng (flex-wrap: wrap), không cắt bớt thông tin nào cả. Đang mở 1
+     Block để học -> nối thêm luôn TÊN BLOCK vào cuối, để đường dẫn đi
+     "full rõ ràng tới Block luôn" thay vì dừng ở Batch. */
   function renderCrumb() {
     function nameOf(list, id, fb) {
       var x = list.find(function (r) { return r.id === id; });
@@ -277,18 +276,13 @@
       nameOf(S.sections, S.sectionId, "—"), nameOf(S.pages, S.pageId, "—")
     ];
     if (S.batchId) parts.push(nameOf(S.batches, S.batchId, "—"));
+    var openBlock = (w.Detail && w.Detail.blockId)
+      ? S.blocks.find(function (x) { return x.id === w.Detail.blockId; }) : null;
+    if (openBlock) parts.push(openBlock.name);
 
-    var totalLen = parts.reduce(function (n, s) { return n + s.length; }, 0);
-    var html;
-    if (parts.length > 2 && totalLen > CRUMB_MAX_CHARS) {
-      html = "<b>" + w.esc(parts[0]) + "</b>" +
-        '<span class="sep">›</span><span class="crumb-ellipsis" title="' + w.esc(parts.slice(1, -1).join(" › ")) + '">…</span>' +
-        '<span class="sep">›</span>' + w.esc(parts[parts.length - 1]);
-    } else {
-      html = "<b>" + w.esc(parts[0]) + "</b>" + parts.slice(1).map(function (p) {
-        return '<span class="sep">›</span>' + w.esc(p);
-      }).join("");
-    }
+    var html = "<b>" + w.esc(parts[0]) + "</b>" + parts.slice(1).map(function (p) {
+      return '<span class="sep">›</span>' + w.esc(p);
+    }).join("");
     w.$("#crumb").innerHTML = html;
   }
 
@@ -322,9 +316,25 @@
         return bpx && (bpx.passed || bpx.meaning_passed);
       }).length;
       var showBlockName = openBlock && openBlock.batch_id === b.id;
-      var label = showBlockName
-        ? "📕 " + w.esc(openBlock.name)
-        : w.esc(b.name) + '<span class="n">' + done + "/" + n + "</span>";
+      /* Đang học 1 Block -> chêm thêm "Lần mấy" (chu kỳ ôn Tony Buzan,
+         xem SRS.state trong srs.js) + Done/Chưa thi ngay trong pill, để
+         nhìn vào biết ngay đang ở đâu mà KHÔNG cần quay lại danh sách
+         Block (theo yêu cầu TJ — trước đây phải bấm "← Quay lại danh
+         sách Block" mới thấy). Gọi renderBatches() lại ngay sau khi thi
+         xong (xem submitFinal/renderMeaning cuối trong detail.js) để badge
+         này cập nhật NGAY, không cần thoát ra vào lại nữa. */
+      var label;
+      if (showBlockName) {
+        var bpOpen = S.bp[openBlock.id];
+        var stOpen = w.SRS.state(bpOpen);
+        var doneOpen = blockDoneBadge(bpOpen);
+        var cycleTxt = stOpen.started ? ("Chu kỳ " + stOpen.cycle + "/" + w.SRS.MAX_CYCLE + " · " + stOpen.label) : stOpen.label;
+        label = "📕 " + w.esc(openBlock.name) +
+          '<span class="n">' + w.esc(cycleTxt) + "</span>" +
+          '<span class="n">' + doneOpen.badge + "</span>";
+      } else {
+        label = w.esc(b.name) + '<span class="n">' + done + "/" + n + "</span>";
+      }
       return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true" tabindex="0" role="button">' +
                label +
                '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác" aria-label="Thao tác với batch ' + w.esc(b.name) + '">⋯</button>' +
@@ -333,9 +343,52 @@
   }
 
   /* ══════════════ RENDER: DANH SÁCH BLOCK ══════════════ */
+  /* Nhãn nguồn bài đọc ngắn gọn cho từng Block card — đọc thẳng
+     b.context_passage đã có sẵn trong S.blocks (không cần tải thêm gì),
+     y hệt cách renderSourcePicker trong detail.js phân loại. */
+  var BLOCK_SRC_ICON = { paste: "📝 Dán", claude: "🧑‍🏫 Claude", openai: "🤖 OpenAI", gemini: "✨ Gemini", other: "❔ Other", none: "— Chưa có bài đọc" };
+  /* Chêm thêm "· Free" (Gemini/Dán/Claude — không tốn tiền thật) hoặc
+     "· ~$0.00xx" (OpenAI, đọc đúng meta.cost_usd đã lưu lúc sinh bài, xem
+     generateAI trong context.js) ngay cạnh tên nguồn, theo yêu cầu TJ. */
+  function blockSourceLabel(b) {
+    if (!b.context_passage || !String(b.context_passage).trim()) return BLOCK_SRC_ICON.none;
+    var meta = w.Context.parseMeta(b.context_passage);
+    var key = meta.pasted ? "paste" : meta.claude ? "claude" : meta.provider === "openai" ? "openai" : meta.provider === "gemini" ? "gemini" : "other";
+    var costTag = (key === "openai" && typeof meta.cost_usd === "number" && meta.cost_usd > 0)
+      ? " · ~$" + meta.cost_usd.toFixed(4)
+      : (key === "gemini" || key === "paste" || key === "claude") ? " · Free" : "";
+    return BLOCK_SRC_ICON[key] + costTag;
+  }
+
+  /* "Done" = 1 trong 3 thẻ bài tập (Phiếu đầy đủ/Từng câu chung 1 kết quả,
+     hoặc Nghĩa riêng) đạt >= 80%, không phải chỉ học lướt qua. Tách hàm
+     riêng để dùng CHUNG cho cả Block card (App.renderBlocks) lẫn pill
+     "📕 Block N" trên thanh Batch (renderBatches) — trước đây chỉ có ở
+     Block card, giờ hiện thêm cả lúc đang học (theo yêu cầu TJ, xem
+     renderBatches bên dưới). */
+  function blockDoneBadge(bp) {
+    bp = bp || {};
+    var bestOfAny = Math.max(bp.best_score || 0, bp.meaning_best || 0);
+    if (bp.passed || bp.meaning_passed) return { badge: "✓ Done · " + bestOfAny + "%", badgeCls: "" };
+    if (bestOfAny) return { badge: "Chưa đạt · " + bestOfAny + "%", badgeCls: " warn" };
+    return { badge: "Chưa thi", badgeCls: " pending" };
+  }
+
   App.renderBlocks = function () {
     var batch = S.batches.find(function (b) { return b.id === S.batchId; });
     var list = S.batchId ? App.blocksOf(S.batchId) : [];
+
+    /* Đường dẫn thư mục (Notebook › Section › Page › Batch) — GIỐNG hệt
+       #crumb ở đầu trang, nhưng lặp lại NGAY TRÊN từng Block card để vẫn
+       biết đang ở đâu khi đã cuộn xuống xa, khỏi phải cuộn lên lại (theo
+       yêu cầu TJ, xem renderCrumb() phía trên cho bản đầy đủ ở đầu trang). */
+    var pathParts = [S.notebooks, S.sections, S.pages].map(function (list2, i) {
+      var id = [S.notebookId, S.sectionId, S.pageId][i];
+      var x = list2.find(function (r) { return r.id === id; });
+      return x ? x.name : "—";
+    });
+    if (batch) pathParts.push(batch.name);
+    var blockPathHtml = '<div class="block-path">' + w.esc(pathParts.join(" › ")) + "</div>";
 
     w.$("#batch-title").textContent = batch ? batch.name : "Chưa chọn Batch";
 
@@ -378,17 +431,8 @@
       var st = w.SRS.state(S.bp[b.id]);
       var mastered = ws.filter(function (x) { return S.wp[x.id] && S.wp[x.id].mastered; }).length;
 
-      /* "Done" = 1 trong 3 thẻ bài tập (Phiếu đầy đủ/Từng câu chung 1 kết
-         quả, hoặc Nghĩa riêng) đạt >= 80%, không phải chỉ học lướt qua. */
-      var bestOfAny = Math.max(bp.best_score || 0, bp.meaning_best || 0);
-      var badge, badgeCls;
-      if (bp.passed || bp.meaning_passed) {
-        badge = "✓ Done · " + bestOfAny + "%"; badgeCls = "";
-      } else if (bestOfAny) {
-        badge = "Chưa đạt · " + bestOfAny + "%"; badgeCls = " warn";
-      } else {
-        badge = "Chưa thi"; badgeCls = " pending";
-      }
+      var doneInfo = blockDoneBadge(bp);
+      var badge = doneInfo.badge, badgeCls = doneInfo.badgeCls;
       var levels = {};
       ws.forEach(function (x) { if (x.level) levels[x.level] = (levels[x.level] || 0) + 1; });
       var tags = Object.keys(levels).sort().map(function (k) {
@@ -405,12 +449,14 @@
          keydown handler cùng cặp với "#blocks-list".onclick bên dưới). */
       return '<div class="block-card' + (st.due ? " due" : "") + '" data-block="' + b.id +
         '" data-bidx="' + (idx % 8) + '" tabindex="0" role="button" aria-label="Mở Block ' + w.esc(b.name) + '">' +
+        blockPathHtml +
         '<div class="block-top">' +
           '<div class="block-left">' +
             '<span class="block-title">' + w.esc(b.name) + "</span>" + tags +
             '<button class="dots" data-menu="blocks" data-id="' + b.id + '" title="Thao tác" aria-label="Thao tác với ' + w.esc(b.name) + '">⋯</button>' +
             '<span class="tag-time' + (st.due ? " due" : "") + '">' +
               (st.due ? "🔴 " : "🟢 ") + w.esc(st.label) + "</span>" +
+            '<span class="tag-src">' + blockSourceLabel(b) + "</span>" +
           "</div>" +
           /* Bỏ hẳn nút "Học / Ôn lại" (theo yêu cầu Thao) - bấm BẤT KỲ ĐÂU
              trên card đã mở Block rồi (xem "card" fallback trong
@@ -669,6 +715,7 @@
   }
   App.renderAll = renderAll;
   App.renderBatches = renderBatches;
+  App.renderCrumb = renderCrumb;
 
   /* ══════════════ BANNER LỖI GỌI AI (in rõ lên giao diện) ══════════════
      Dùng chung cho mọi nơi gọi Context.generateAI/extractVocab/enrichWords
@@ -891,6 +938,52 @@
     await renderAdminList();
   }
 
+  /* ══════════════ BÁO CÁO NGUỒN BÀI ĐỌC AI (📊, menu #mi-ai-report) ══════════════
+     Ai cũng bấm xem được (chỉ đọc) — liệt kê MỌI Block trong app, gom theo
+     Batch, kèm nguồn bài đọc đang dùng + cảnh báo Block còn thiếu từ vựng
+     hoặc chưa có bài đọc. Dùng DB.getAiSourceReport (xem db.js). */
+  var SRC_ICON = { paste: "📝 Dán", claude: "🧑‍🏫 Claude", openai: "🤖 OpenAI", gemini: "✨ Gemini", none: "— Chưa có", unknown: "❔ Không rõ" };
+  async function openAiReportModal() {
+    var body = w.$("#ai-report-body"), sum = w.$("#ai-report-summary");
+    w.$("#modal-ai-report").hidden = false;
+    body.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>'; sum.innerHTML = "";
+    var rows;
+    try { rows = await w.DB.getAiSourceReport(); }
+    catch (e) { body.innerHTML = '<p style="color:var(--danger, #d33)">Lỗi tải báo cáo: ' + w.esc(e.message || String(e)) + '</p>'; return; }
+
+    var counts = { paste: 0, claude: 0, openai: 0, gemini: 0, none: 0, unknown: 0 };
+    var noVocab = 0, totalCost = 0;
+    rows.forEach(function (r) {
+      counts[r.source] = (counts[r.source] || 0) + 1;
+      if (!r.wordCount) noVocab++;
+      if (typeof r.costUsd === "number") totalCost += r.costUsd;
+    });
+    sum.innerHTML = Object.keys(SRC_ICON).map(function (k) {
+      return '<span class="ai-report-chip">' + SRC_ICON[k] + ": " + (counts[k] || 0) + "</span>";
+    }).join("") +
+      (totalCost > 0 ? '<span class="ai-report-chip">💵 Tổng ~$' + totalCost.toFixed(4) + '</span>' : "") +
+      (noVocab ? '<span class="ai-report-chip" style="color:#d33">⚠️ ' + noVocab + ' Block chưa có từ vựng</span>' : "");
+
+    var byBatch = {};
+    rows.forEach(function (r) { (byBatch[r.batchName] = byBatch[r.batchName] || []).push(r); });
+    var batchNames = Object.keys(byBatch).sort();
+    if (!batchNames.length) { body.innerHTML = '<p style="color:var(--text-3)">Chưa có Block nào.</p>'; return; }
+
+    body.innerHTML = batchNames.map(function (bn) {
+      var rowsHtml = byBatch[bn].map(function (r) {
+        var warn = !r.wordCount ? '<span style="color:#d33">⚠️ chưa có bảng từ vựng</span>'
+          : !r.hasPassage ? '<span style="color:#e08a00">⚠️ chưa có đoạn văn</span>' : "";
+        return '<tr><td>' + w.esc(r.blockName) + '</td><td>' + r.wordCount + '</td>' +
+          '<td>' + SRC_ICON[r.source] + '</td>' +
+          '<td>' + (typeof r.costUsd === "number" && r.costUsd > 0 ? "~$" + r.costUsd.toFixed(4) : "") + '</td>' +
+          '<td>' + warn + '</td></tr>';
+      }).join("");
+      return '<div class="ai-report-batch"><h4>' + w.esc(bn) + '</h4>' +
+        '<table class="ai-report-table"><thead><tr><th>Block</th><th>Số từ</th><th>Nguồn bài đọc</th><th>Chi phí</th><th></th></tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody></table></div>';
+    }).join("");
+  }
+
   /* ══════════════ PASTE TỪ MỚI ══════════════ */
   function nextGlobalIndex() {
     var mx = 0;
@@ -919,7 +1012,7 @@
          (SUPABASE_URL) — không còn cần cfg2.GEMINI_API_KEY client-side. */
       if (cfg2.OPENAI_API_KEY || (cfg2.SUPABASE_URL && cfg2.SUPABASE_ANON_KEY)) {
         var needy = parsed.filter(function (x) {
-          return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi;
+          return !x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi || !x.freq;
         });
         if (needy.length) {
           btn.textContent = "⏳ Đang tra từ điển AI...";
@@ -1006,7 +1099,7 @@
       var cleanText = w.Context.stripPasteNoise(rawInput);
 
       var parsedWords = extracted.map(function (x) {
-        return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "" };
+        return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "", freq: x.freq || "" };
       });
       var name = w.$("#extract-name").value.trim() || ("Batch " + (batchesOfPage(S.pageId).length + 1));
       var res = await w.DB.addBatchFromWords(S.pageId, parsedWords, name, nextGlobalIndex());
@@ -1053,14 +1146,19 @@
     }
   }
 
-  /* ══════════════ "THỬ TẢI TỪ LINK" — best effort, không đảm bảo ══════════════
-     Đa số trang báo CHẶN fetch() từ web khác (CORS) — cái này chỉ thành
-     công với số ít trang tình cờ mở cổng đọc công khai. Thất bại thì báo
-     rõ ràng, không âm thầm im lặng, và luôn có đường lùi: dán tay. */
-  async function tryFetchArticle(url) {
-    var res = await fetch(url);
-    if (!res.ok) throw new Error("Trang trả về lỗi HTTP " + res.status);
-    var html = await res.text();
+  /* ══════════════ "THỬ TẢI TỪ LINK" ══════════════
+     2 lớp, thử lần lượt:
+       1. fetch() THẲNG từ trình duyệt — free, nhanh, nhưng đa số trang báo
+          CHẶN (CORS) nên chỉ thành công với số ít trang tình cờ mở cổng
+          đọc công khai.
+       2. Lớp 1 lỗi (CORS/network — TypeError "Failed to fetch") -> nhờ
+          Edge Function fetch-article (supabase/functions/fetch-article)
+          tải HỘ (server-to-server không bị CORS chặn) rồi trả HTML thô về
+          cho ĐÚNG hàm lọc bên dưới xử lý tiếp, y hệt lớp 1 — chỉ khác chỗ
+          LẤY html từ đâu. Cả 2 lớp đều thất bại (trang 403 bot-block, trả
+          phí, SPA render bằng JS không có HTML thật...) thì báo rõ ràng,
+          không âm thầm im lặng, luôn có đường lùi: dán tay. */
+  function htmlToMainText(html) {
     var doc = new DOMParser().parseFromString(html, "text/html");
 
     ["script", "style", "nav", "header", "footer", "aside", "form", "noscript", "iframe", "svg"]
@@ -1089,6 +1187,34 @@
     if (!best) throw new Error("Không tách được nội dung chính trên trang này");
 
     return best.ps.map(function (p) { return p.textContent.trim(); }).filter(Boolean).join("\n\n");
+  }
+
+  async function tryFetchArticle(url) {
+    try {
+      var res = await fetch(url);
+      if (!res.ok) throw new Error("Trang trả về lỗi HTTP " + res.status);
+      return htmlToMainText(await res.text());
+    } catch (eDirect) {
+      /* CORS/network mới rơi qua proxy — lỗi KHÁC (vd trang này chặn bot
+         403, hay đã tải được nhưng không tách được nội dung) thì báo
+         thẳng, thử qua proxy cũng vô ích vì y hệt Edge Function cũng bị
+         chặn/không tách được. */
+      var cfg2 = w.APP_CONFIG || {};
+      if (!(cfg2.SUPABASE_URL && cfg2.SUPABASE_ANON_KEY)) throw eDirect;
+      var isNetworkErr = eDirect instanceof TypeError || /Failed to fetch|NetworkError|CORS/i.test(eDirect.message || "");
+      if (!isNetworkErr) throw eDirect;
+
+      var proxyUrl = cfg2.SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/fetch-article";
+      var r = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg2.SUPABASE_ANON_KEY, "apikey": cfg2.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ url: url })
+      });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(data.error || ("fetch-article: lỗi máy chủ (mã " + r.status + ")"));
+      if (!data.html) throw new Error("fetch-article: không nhận được nội dung trang");
+      return htmlToMainText(data.html);
+    }
   }
 
   /* ══════════════ DỌN TỪ VỰNG RÁC (DÒNG TIÊU ĐỀ LẪN VÀO) ══════════════
@@ -1664,13 +1790,32 @@
      Ghim  = cột nằm cố định trong bố cục.
      Bỏ ghim = cột thu lại; bấm vào tên cột thì nó trượt ra đè lên nội dung,
                bấm ra ngoài là cất đi. Giống "Pin Notebook Pane to side".   */
-  var LS_PIN = "tjwl_pins_v1";
+  /* Key RIÊNG theo từng user (userId) — trước đây dùng chung 1 key
+     "tjwl_pins_v1" cho MỌI người dùng CHUNG 1 trình duyệt/máy (vd nhà có
+     2 người học đổi qua lại bằng "👥 Đổi/Thêm người học"), nên ẩn/hiện
+     cột Page của người này lỡ đổi luôn cho người kia — SAI theo yêu cầu
+     TJ ("mỗi user chỉnh format ... người khác không bị ảnh hưởng"). Giờ
+     ghép thêm userId vào key -> mỗi profile (kể cả chung máy) nhớ riêng.
+     Chưa xác định được user (lúc mới tải trang, trước khi Auth.init()
+     xong) thì tạm dùng "_anon" — refreshPinsForUser() gọi lại ngay sau
+     Auth.init() xong (và mỗi lần đổi user qua Auth.onChange) để nạp đúng
+     key của user thật, không giữ mãi "_anon". */
+  var LS_PIN_BASE = "tjwl_pins_v1";
+  function pinKey() { return LS_PIN_BASE + "_" + ((w.Auth.user && w.Auth.user.id) || "anon"); }
 
   function readPins() {
-    try { return JSON.parse(localStorage.getItem(LS_PIN)) || { left: true, right: true }; }
+    try { return JSON.parse(localStorage.getItem(pinKey())) || { left: true, right: true }; }
     catch (e) { return { left: true, right: true }; }
   }
   var pins = readPins();
+
+  /* Gọi lại sau khi biết ĐÚNG user (Auth.init() xong lần đầu, hoặc mỗi
+     lần đổi user qua "👥 Đổi/Thêm người học") — nạp lại đúng cài đặt
+     ẩn/hiện cột của CHÍNH người đó, không lẫn với người vừa đổi khỏi. */
+  function refreshPinsForUser() {
+    pins = readPins();
+    applyPins();
+  }
 
   function applyPins() {
     [["left", "#sidebar-left", "#pin-left"], ["right", "#sidebar-right", "#pin-right"]]
@@ -1691,7 +1836,7 @@
 
   function togglePin(side) {
     pins[side] = pins[side] === false;
-    try { localStorage.setItem(LS_PIN, JSON.stringify(pins)); } catch (e) {}
+    try { localStorage.setItem(pinKey(), JSON.stringify(pins)); } catch (e) {}
     applyPins();
   }
 
@@ -1846,6 +1991,11 @@
 
     updateHubTabsScroll = setupTabScroller("#hub-tabs", "#hub-tabs-prev", "#hub-tabs-next");
     updateSectionTabsScroll = setupTabScroller("#section-list", "#section-tabs-prev", "#section-tabs-next");
+    /* Dải tab Block (Bài học/Nghĩa/Quiz/Dictation...) — y hệt Hub/Section ở
+       trên, có mũi tên ‹ › khi không đủ chỗ thay vì chỉ cuộn ngang "chay"
+       không thấy đường (scrollbar-width:none) — TJ từng tưởng tab Nghĩa
+       "mất" vì không biết cuộn qua được. */
+    setupTabScroller(".dtabs-scroll", "#dtabs-prev", "#dtabs-next");
 
     /* .batches-bar (nút "Quay lại"/Block trước-sau/tab Batch) giờ cũng
        sticky top:0 (xem app.css) — đo chiều cao thật của nó (đổi tuỳ lúc
@@ -1860,6 +2010,20 @@
       setBbarH();
       if (w.ResizeObserver) new ResizeObserver(setBbarH).observe(bbar);
       w.addEventListener("resize", setBbarH);
+    }
+
+    /* #crumb giờ CŨNG sticky top:0 (theo yêu cầu TJ — "kéo xuống đường
+       dẫn cũng cố định") — đo chiều cao thật (đổi tuỳ đường dẫn xuống mấy
+       hàng, xem CSS .crumb: flex-wrap) rồi gán --crumb-h để .batches-bar/
+       .detail-tabs dính LIỀN ngay dưới nó, không đè lên nhau. */
+    var crumbEl = w.$("#crumb");
+    if (crumbEl) {
+      var setCrumbH = function () {
+        document.documentElement.style.setProperty("--crumb-h", crumbEl.offsetHeight + "px");
+      };
+      setCrumbH();
+      if (w.ResizeObserver) new ResizeObserver(setCrumbH).observe(crumbEl);
+      w.addEventListener("resize", setCrumbH);
     }
 
     /* --- hub --- */
@@ -2140,6 +2304,10 @@
     w.$("#mi-admin").onclick = function () {
       menu.hidden = true;
       openAdminModal();
+    };
+    w.$("#mi-ai-report").onclick = function () {
+      menu.hidden = true;
+      openAiReportModal();
     };
     w.$("#mi-view-toggle").onclick = function () {
       menu.hidden = true;
@@ -2446,11 +2614,13 @@
     w.Speech.init();
     var mode = await w.DB.init();
     await w.Auth.init();
+    refreshPinsForUser();   /* nạp đúng cài đặt ẩn/hiện cột của user vừa xác định (xem khai báo ở trên) */
 
     w.Auth.onChange(async function () {
       await loadProgress();
       renderAll();
       App.refreshWordCounter();
+      refreshPinsForUser();   /* đổi user (👥 Đổi/Thêm người học) -> nạp lại đúng cài đặt của người MỚI */
     });
 
     S.hubs = await w.DB.getHubs();

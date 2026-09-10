@@ -591,7 +591,8 @@
       var rows = groups[i].map(function (x, j) {
         return {
           block_id: blk.id, sort: j, term: x.term, level: x.level || "",
-          pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || ""
+          pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "",
+          freq: x.freq || ""
         };
       });
 
@@ -669,7 +670,8 @@
     var word = await insertOne("words", {
       block_id: target.id, sort: count,
       term: item.term, level: item.level || "", pos: item.pos || "",
-      ipa: item.ipa || "", def_en: item.def_en || "", meaning_vi: item.meaning_vi || ""
+      ipa: item.ipa || "", def_en: item.def_en || "", meaning_vi: item.meaning_vi || "",
+      freq: item.freq || ""
     });
 
     return { batch: batch, block: target, word: word, isNewBlock: count === 0 };
@@ -1058,6 +1060,49 @@
     } catch (e) {
       return null;
     }
+  };
+
+  /* ══════════════ BÁO CÁO NGUỒN BÀI ĐỌC AI (menu "📊 Báo cáo AI") ══════════════
+     Quét TOÀN BỘ Block trong app (không riêng 1 Batch nào) — trả về mỗi
+     Block: tên Batch, tên Block, số từ vựng đã có, và bài đọc ĐANG DÙNG
+     hiện sinh từ nguồn nào (Dán/Claude/OpenAI/Gemini) — đọc từ đúng
+     Context.parseMeta(context_passage), y hệt cách renderSourcePicker
+     trong detail.js phân loại. Không tải context_passage_candidates (kho
+     các bài dự phòng) vì báo cáo chỉ cần biết bài ĐANG DÙNG, tải thêm cột
+     đó không cần thiết mà nặng hơn (JSONB có thể dài). */
+  DB.getAiSourceReport = async function () {
+    var blocks, batches;
+    if (DB.mode === "local") {
+      var d = local();
+      blocks = d.blocks.slice();
+      batches = d.batches.slice();
+    } else {
+      blocks = await sbListAll("blocks", function (q) { return q.select("id,batch_id,name,context_passage"); });
+      batches = await sbListAll("batches", function (q) { return q.select("id,name"); });
+    }
+    var wordCounts = {};
+    if (DB.mode === "local") {
+      local().words.forEach(function (wRow) { wordCounts[wRow.block_id] = (wordCounts[wRow.block_id] || 0) + 1; });
+    } else {
+      var wordRows = await sbListAll("words", function (q) { return q.select("block_id"); }, "block_id");
+      wordRows.forEach(function (wRow) { wordCounts[wRow.block_id] = (wordCounts[wRow.block_id] || 0) + 1; });
+    }
+    var batchNameById = {};
+    batches.forEach(function (b) { batchNameById[b.id] = b.name; });
+
+    return blocks.map(function (b) {
+      var wordCount = wordCounts[b.id] || 0;
+      var hasPassage = !!(b.context_passage && String(b.context_passage).trim());
+      var meta = hasPassage ? w.Context.parseMeta(b.context_passage) : null;
+      var srcKey = !hasPassage ? "none"
+        : meta.pasted ? "paste" : meta.claude ? "claude"
+        : meta.provider === "openai" ? "openai" : meta.provider === "gemini" ? "gemini" : "unknown";
+      return {
+        blockId: b.id, blockName: b.name, batchName: batchNameById[b.batch_id] || "(?)",
+        wordCount: wordCount, hasPassage: hasPassage, source: srcKey,
+        costUsd: meta ? meta.cost_usd : null
+      };
+    });
   };
 
   /* ══════════════ SAO LƯU / PHỤC HỒI (chỉ chế độ local) ══════════════ */

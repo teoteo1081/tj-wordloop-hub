@@ -77,8 +77,12 @@ create table if not exists words (
   pos text default '',
   ipa text default '',
   def_en text default '',
-  meaning_vi text default ''
+  meaning_vi text default '',
+  freq text default ''   -- "common" (thông dụng) | "uncommon" (ít thông dụng) | "" (chưa chấm) — AI tự điền, xem Context.extractVocab/enrichWords
 );
+-- Project cũ đã tạo bảng words từ trước (chưa có cột freq) -> thêm cột này
+-- vào, KHÔNG phá dữ liệu đã có (mọi dòng cũ tự nhận default '').
+alter table words add column if not exists freq text default '';
 
 -- ---------- TIẾN TRÌNH HỌC (RIÊNG TỪNG NGƯỜI) ----------
 create table if not exists word_progress (
@@ -205,6 +209,25 @@ create trigger trg_blocks_updated_at before insert or update on blocks
 
 create index if not exists idx_words_updated_at  on words(updated_at);
 create index if not exists idx_blocks_updated_at on blocks(updated_at);
+
+-- ══════════════════════════════════════════════════════════════════
+-- GIỚI HẠN AI — user THƯỜNG chỉ được nhờ Gemini viết bài đọc cho tối đa
+-- 3 Block KHÁC NHAU mỗi ngày (Admin không giới hạn) — chấm ở
+-- supabase/functions/gemini-proxy/index.ts (checkQuota/recordUsage), CHỈ
+-- function đó (service role, tự bơm sẵn, không cần đặt secret) đọc/ghi
+-- được bảng này — cố tình KHÔNG cấp policy nào cho anon/authenticated, để
+-- không ai tự xoá lịch sử dùng của mình qua console trình duyệt để lách.
+-- ══════════════════════════════════════════════════════════════════
+create table if not exists ai_usage_daily (
+  user_id text not null,
+  block_id text not null references blocks(id) on delete cascade,
+  date_key text not null,          -- "YYYY-MM-DD" theo giờ UTC của server
+  provider text,
+  created_at timestamptz not null default now(),
+  primary key (user_id, block_id, date_key)
+);
+alter table ai_usage_daily enable row level security;
+create index if not exists idx_ai_usage_daily_lookup on ai_usage_daily(user_id, date_key);
 
 -- ══════════════════════════════════════════════════════════════════
 -- CHỈ MỤC — cho nhanh khi bảng words/blocks lớn (9000+ dòng)

@@ -166,6 +166,12 @@
     var tags = [];
     if (hit && hit.pos) tags.push(w.esc(hit.pos));
     if (hit && hit.level) tags.push(w.esc(hit.level));
+    /* "freq" (common/uncommon) — AI tự chấm lúc trích/điền từ vựng (xem
+       extractVocab/enrichWords trong context.js), KHÔNG suy từ cấp độ
+       CEFR. Chưa có (Block cũ sinh trước khi có field này) -> ẩn hẳn,
+       không đoán bừa. */
+    if (hit && hit.freq === "common") tags.push("🔵 Thông dụng");
+    else if (hit && hit.freq === "uncommon") tags.push("⚪ Ít thông dụng");
 
     w.$("#wp-term").textContent = R.term;
     w.$("#wp-ipa").textContent = hit && hit.ipa ? hit.ipa : "";

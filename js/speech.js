@@ -101,14 +101,32 @@
 
   S.voiceName = function () { return S.voice ? (S.voice.name + " · " + S.voice.lang) : "mặc định"; };
 
+  /* Giọng tiếng Việt (cho "Đọc từ + Anh + Việt" — đọc luôn nghĩa tiếng
+     Việt) — tìm đúng lang "vi"/"vi-VN" trong danh sách giọng máy đang có,
+     KHÔNG lưu lựa chọn riêng như S.voice (tiếng Anh) vì hiếm khi cần đổi
+     tay. Máy không có giọng Việt nào (hay gặp trên Windows/Chrome) thì trả
+     về null -> trình duyệt tự đọc bằng giọng mặc định, phát âm sai dấu
+     nhưng không vỡ tính năng (im lặng chấp nhận, không báo lỗi gì). */
+  function pickVoiceFor(lang) {
+    if (!synth || !lang) return null;
+    var voices = synth.getVoices() || [];
+    return voices.find(function (v) { return v.lang === lang; })
+        || voices.find(function (v) { return v.lang && v.lang.slice(0, 2).toLowerCase() === lang.slice(0, 2).toLowerCase(); })
+        || null;
+  }
+
   /* rate không truyền -> lấy S.rate (tốc độ bài đọc) — bảng từ vựng
-     dùng S.vocabRate riêng, ĐỘC LẬP với bài đọc, không đồng bộ nữa. */
-  function makeUtterance(text, rate) {
+     dùng S.vocabRate riêng, ĐỘC LẬP với bài đọc, không đồng bộ nữa.
+     lang không truyền -> mặc định "en-US" như trước giờ (S.voice đã chọn
+     sẵn theo PREFERRED phía trên) — truyền "vi-VN" khi cần đọc nghĩa tiếng
+     Việt (xem D.readAllWithMeaning trong detail.js). */
+  function makeUtterance(text, rate, lang) {
     var u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US";
+    u.lang = lang || "en-US";
     u.rate = rate != null ? rate : S.rate;
     u.pitch = 1;
-    if (S.voice) u.voice = S.voice;
+    if (!lang || lang === "en-US") { if (S.voice) u.voice = S.voice; }
+    else { var vv = pickVoiceFor(lang); if (vv) u.voice = vv; }
     return u;
   }
 
@@ -121,7 +139,13 @@
   };
 
   /* ---------- đọc lần lượt cả danh sách từ ----------
-     items: [{text, id}]  ·  onEach(i) được gọi trước mỗi từ để tô sáng dòng */
+     items: [{text, id, lang, groupIndex}] — "lang" không truyền thì mặc
+     định tiếng Anh (giữ nguyên hành vi cũ). "groupIndex" dùng khi 1 dòng
+     (vd 1 từ vựng) tách thành NHIỀU utterance liên tiếp (term/định nghĩa/
+     nghĩa Việt, xem D.readAllWithMeaning trong detail.js) — để callback
+     onEach tô sáng ĐÚNG 1 dòng suốt cả nhóm thay vì nhảy lung tung theo
+     từng utterance con; không truyền thì coi groupIndex = i như cũ.
+     onEach(i) được gọi trước mỗi từ/nhóm để tô sáng dòng. */
   S.speakList = function (items, onEach, onDone) {
     if (!synth) { w.toast("Trình duyệt này không hỗ trợ đọc tự động", "err"); return; }
     S.stop();
@@ -135,8 +159,9 @@
         if (onDone) onDone();
         return;
       }
-      if (onEach) onEach(i);
-      var u = makeUtterance(items[i].text, S.vocabRate);
+      var it = items[i];
+      if (onEach) onEach(it.groupIndex != null ? it.groupIndex : i);
+      var u = makeUtterance(it.text, S.vocabRate, it.lang);
       u.onend = function () { i++; setTimeout(step, 220); };
       u.onerror = function () { i++; setTimeout(step, 220); };
       synth.speak(u);

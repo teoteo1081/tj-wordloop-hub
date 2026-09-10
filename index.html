@@ -109,6 +109,7 @@
            false mỗi lần tải lại trang. -->
       <button class="menu-item" id="mi-view-toggle" style="display:none">🔄 <span id="mi-view-toggle-text">Xem như User</span></button>
       <div class="user-menu-sep"></div>
+      <button class="menu-item" id="mi-ai-report">📊 <span>Báo cáo AI (nguồn bài đọc)</span></button>
       <button class="menu-item" id="mi-print">🖨️ <span>Xuất PDF (Block/Batch/Page…)</span></button>
       <button class="menu-item" id="mi-cleanup">🧹 <span>Dọn từ vựng rác (dòng tiêu đề lẫn vào)</span></button>
       <button class="menu-item" id="mi-export">💾 <span>Xuất dữ liệu (.json)</span></button>
@@ -241,15 +242,17 @@
            luôn hiện trọn vẹn; chỉ riêng dải nút tab (.dtabs-scroll) mới
            cuộn ngang khi không đủ chỗ. -->
       <div class="detail-tabs" id="detail-tabs">
+        <button class="tab-scroll-btn" id="dtabs-prev" title="Xem tab trước" aria-label="Xem tab trước" hidden>‹</button>
         <div class="dtabs-scroll">
           <button class="dtab active" data-tab="study">📘 Bài học<span class="dt-long"> &amp; Đọc</span></button>
+          <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
           <button class="dtab" data-tab="quiz">📝 <span class="dt-long">Active Recall </span>Quiz</button>
           <button class="dtab" data-tab="dictation">🎧 Dictation</button>
-          <button class="dtab" data-tab="meaning">🔀 Nghĩa</button>
           <button class="dtab" data-tab="sheet">📋 Phiếu<span class="dt-long"> đầy đủ</span></button>
           <button class="dtab" data-tab="single">🔤 Từng câu</button>
           <button class="dtab" data-tab="progress">📊 Tiến trình<span class="dt-long"> trí nhớ</span></button>
         </div>
+        <button class="tab-scroll-btn" id="dtabs-next" title="Xem tab sau" aria-label="Xem tab sau" hidden>›</button>
         <span class="bn-pos" id="bn-pos" hidden></span>
         <button class="dtab-top" id="btn-scroll-top" title="Về đầu trang" aria-label="Về đầu trang">⤒</button>
       </div>
@@ -275,6 +278,7 @@
               <button class="btn-soft" id="btn-copy-vocab" title="Copy bảng từ vựng">📋 Copy</button>
               <button class="btn-soft" id="btn-stop-all">⏹ Dừng</button>
               <button class="btn-primary" id="btn-read-all">🔊 Đọc tất cả từ</button>
+              <button class="btn-primary" id="btn-read-all-full" title="Đọc từng từ kèm định nghĩa tiếng Anh (chêm &quot;it means&quot;), không đọc nghĩa tiếng Việt">🔊 Đọc + định nghĩa</button>
             </div>
           </div>
           <div class="table-wrap" id="vocab-wrap">
@@ -679,6 +683,20 @@ mitigate | giảm nhẹ"></textarea>
     <div id="admin-list" class="admin-list"></div>
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-admin">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Báo cáo nguồn bài đọc AI — ai cũng xem được (chỉ đọc, không sửa gì),
+     xem #mi-ai-report + App.openAiReport trong app.js. -->
+<div class="modal-overlay" id="modal-ai-report" hidden>
+  <div class="modal-box wide">
+    <h3>📊 Báo cáo AI — nguồn bài đọc từng Block</h3>
+    <p class="modal-desc">Mỗi Block đang dùng bài đọc từ nguồn nào (Dán / Claude viết sẵn / OpenAI / Gemini), và Block nào còn thiếu từ vựng hoặc bài đọc.</p>
+    <div id="ai-report-summary" class="ai-report-summary"></div>
+    <div id="ai-report-body" class="ai-report-body"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-ai-report">Đóng</button>
     </div>
   </div>
 </div>

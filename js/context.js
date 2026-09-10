@@ -245,7 +245,13 @@
        hay gặp với model "flash" free tier giờ cao điểm, KHÔNG phải lỗi
        key/code) — đợi 1.5s/3s/6s giữa các lần, chỉ thật sự báo lỗi cho
        người dùng nếu thử hết cả 3 lần vẫn không được. */
-    _callGemini: async function (cfg, sys, user) {
+    /* quotaCtx: { userId, blockId } — CHỈ để proxy chấm "giới hạn 3 Block
+       AI/ngày cho user thường" (xem gemini-proxy/index.ts) — Admin (kiểm
+       tra lại THẬT trên server qua bảng profiles, không tin cờ admin gửi
+       từ client) không bị giới hạn. Thiếu userId (chưa đăng nhập Cloud,
+       chỉ hồ sơ máy) -> proxy bỏ qua hẳn việc chấm quota, coi như free
+       (không định danh được để giới hạn). */
+    _callGemini: async function (cfg, sys, user, quotaCtx) {
       if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
         var noProxy = new Error("gemini: cần chạy Cloud mode (có SUPABASE_URL/SUPABASE_ANON_KEY) để gọi qua proxy");
         noProxy.kind = "api"; noProxy.provider = "gemini";
@@ -259,7 +265,11 @@
          định sang model này (đã verify qua proxy thật, không bị 429). */
       var model = cfg.GEMINI_MODEL || "gemini-3.5-flash-lite";
       var url = cfg.SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/gemini-proxy";
-      var body = JSON.stringify({ model: model, sys: sys, user: user });
+      var body = JSON.stringify({
+        model: model, sys: sys, user: user,
+        user_id: (quotaCtx && quotaCtx.userId) || null,
+        block_id: (quotaCtx && quotaCtx.blockId) || null
+      });
       var headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + cfg.SUPABASE_ANON_KEY,
@@ -283,6 +293,18 @@
           break;   /* rỗng không phải lỗi quá tải -> thử lại vô ích, dừng ngay */
         }
         var errText = await res.text().catch(function () { return ""; });
+        /* Proxy tự chặn ở 403 kèm {kind:"quota_user"} khi user thường đã
+           dùng đủ 3 Block AI hôm nay (xem gemini-proxy/index.ts) — dừng
+           ngay, KHÔNG thử lại, và KHÔNG rơi về OpenAI (xem _callProvider)
+           để giới hạn có ý nghĩa thật, không bị lách qua nhà cung cấp khác. */
+        try {
+          var errJson = JSON.parse(errText);
+          if (errJson && errJson.kind === "quota_user") {
+            lastErr = new Error(errJson.error || "Đã dùng hết lượt AI hôm nay");
+            lastErr.kind = "quota_user"; lastErr.provider = "gemini";
+            break;
+          }
+        } catch (e) { /* không phải JSON -> lỗi thường, xử lý như cũ bên dưới */ }
         lastErr = w.Context._apiError("gemini", res.status, errText);
         if (res.status !== 503 && res.status !== 429) break;   /* lỗi khác (key sai, quota hết...) -> dừng ngay, thử lại vô ích */
       }
@@ -335,20 +357,36 @@
       throw lastErr;
     },
 
-    /* Chọn nhà cung cấp: có OPENAI_API_KEY (chỉ có trên máy local, xem
-       keys.local.js) thì DÙNG TRƯỚC — Gemini (qua proxy, xem _callGemini)
-       chỉ còn là DỰ PHÒNG tự động nếu OpenAI lỗi, hoặc là nhà cung cấp
-       DUY NHẤT trên web live/máy không có OPENAI_API_KEY. Gemini giờ CHỈ
-       cần cfg.SUPABASE_URL/SUPABASE_ANON_KEY (luôn có sẵn ở Cloud mode) —
-       KHÔNG còn cần cfg.GEMINI_API_KEY client-side nữa (key đã chuyển hẳn
-       vào Supabase secret phía server, xem gemini-proxy). Không có cả
-       OPENAI_API_KEY lẫn SUPABASE_URL thì báo rõ "chưa cấu hình" (kind:
-       "no_key") thay vì lỗi mơ hồ.
-       Ghi lại _lastProvider ("openai"/"gemini") NGAY KHI THÀNH CÔNG — để
+    /* "web" (hostname thật, vd GitHub Pages) hay "local" (file:// hoặc
+       localhost/127.0.0.1 — kể cả không có "location" như chạy qua Node
+       script) — dùng để CHỌN THỨ TỰ nhà cung cấp bên dưới VÀ để ghi
+       meta.origin trong generateAI(). */
+    _isWebOrigin: function () {
+      try {
+        return !!(typeof location !== "undefined" && location.hostname &&
+          location.hostname !== "localhost" && location.hostname !== "127.0.0.1");
+      } catch (e) { return false; }
+    },
+
+    /* Chọn nhà cung cấp (2026-09-11, theo yêu cầu TJ) — KHÁC NHAU theo máy:
+       · Máy LOCAL (TJ đang cấu hình OPENAI_API_KEY trong js/keys.local.js):
+         DÙNG OPENAI TRƯỚC như trước giờ — Gemini (qua proxy) chỉ còn là
+         DỰ PHÒNG khi OpenAI lỗi.
+       · Trên WEB LIVE (người học khác vào, không có OPENAI_API_KEY vì file
+         key đó gitignore, không lên git): GEMINI (free, qua proxy) LUÔN
+         được thử TRƯỚC — chỉ cần cfg.SUPABASE_URL/SUPABASE_ANON_KEY (luôn
+         có ở Cloud mode), không cần GEMINI_API_KEY client-side. OpenAI chỉ
+         còn là dự phòng NẾU lỡ máy đó cũng có key riêng.
+       Trừ đúng 1 trường hợp bất kể máy nào: Gemini từ chối vì "quota_user"
+       (user thường đã dùng đủ 3 Block AI hôm nay, xem _callGemini/
+       gemini-proxy) thì KHÔNG rơi về OpenAI — nếu không, giới hạn đó vô
+       nghĩa với máy có sẵn OPENAI_API_KEY.
+       Không có cả 2 thì báo rõ "chưa cấu hình" (kind: "no_key").
+       Ghi lại _lastProvider ("gemini"/"openai") NGAY KHI THÀNH CÔNG — để
        generateAI() lưu vào meta.provider, giúp TJ biết bài nào tốn tiền
        OpenAI thật, bài nào chỉ chạy Gemini free (kiểm soát chi phí). */
     _lastProvider: null,
-    _callProvider: async function (cfg, sys, user) {
+    _callProvider: async function (cfg, sys, user, quotaCtx) {
       var hasOpenAI = !!(cfg && cfg.OPENAI_API_KEY);
       var hasGeminiProxy = !!(cfg && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
       if (!hasOpenAI && !hasGeminiProxy) {
@@ -356,27 +394,50 @@
         noKey.kind = "no_key";
         throw noKey;
       }
-      if (hasOpenAI) {
+      /* Máy local có OPENAI_API_KEY -> ưu tiên OpenAI như cũ (kể cả nếu
+         Cloud mode cũng bật). Chỉ khi KHÔNG có OpenAI (web live, hoặc máy
+         local chưa cấu hình key) mới ưu tiên Gemini trước. */
+      var preferOpenAI = hasOpenAI && !w.Context._isWebOrigin();
+
+      if (preferOpenAI) {
         try {
-          var r1 = await w.Context._callOpenAI(cfg, sys, user);
+          var rO1 = await w.Context._callOpenAI(cfg, sys, user);
           w.Context._lastProvider = "openai";
-          return r1;
-        } catch (eOpenAI) {
-          if (!hasGeminiProxy) throw eOpenAI;
+          return rO1;
+        } catch (eOpenAI1) {
+          if (!hasGeminiProxy) throw eOpenAI1;
           try {
-            var r2 = await w.Context._callGemini(cfg, sys, user);
+            var rG1 = await w.Context._callGemini(cfg, sys, user, quotaCtx);
             w.Context._lastProvider = "gemini";
-            return r2;
-          } catch (eGemini) {
-            /* Cả 2 đều lỗi -> báo lỗi của OpenAI (nhà cung cấp CHÍNH theo
-               yêu cầu), nhưng ghi chú thêm để không mất thông tin Gemini. */
-            eOpenAI.message += " (Gemini dự phòng cũng lỗi: " + eGemini.message + ")";
-            throw eOpenAI;
+            return rG1;
+          } catch (eGemini1) {
+            eOpenAI1.message += " (Gemini dự phòng cũng lỗi: " + eGemini1.message + ")";
+            throw eOpenAI1;
           }
         }
       }
-      var r3 = await w.Context._callGemini(cfg, sys, user);
-      w.Context._lastProvider = "gemini";
+      if (hasGeminiProxy) {
+        try {
+          var r1 = await w.Context._callGemini(cfg, sys, user, quotaCtx);
+          w.Context._lastProvider = "gemini";
+          return r1;
+        } catch (eGemini) {
+          if (eGemini.kind === "quota_user") throw eGemini;   /* hết lượt hôm nay -> báo thẳng, không lách qua OpenAI */
+          if (!hasOpenAI) throw eGemini;
+          try {
+            var r2 = await w.Context._callOpenAI(cfg, sys, user);
+            w.Context._lastProvider = "openai";
+            return r2;
+          } catch (eOpenAI) {
+            /* Cả 2 đều lỗi -> báo lỗi của Gemini (nhà cung cấp CHÍNH), kèm
+               ghi chú để không mất thông tin OpenAI. */
+            eGemini.message += " (OpenAI dự phòng cũng lỗi: " + eOpenAI.message + ")";
+            throw eGemini;
+          }
+        }
+      }
+      var r3 = await w.Context._callOpenAI(cfg, sys, user);
+      w.Context._lastProvider = "openai";
       return r3;
     },
 
@@ -388,6 +449,7 @@
       var provider = (e && e.provider) ? e.provider.toUpperCase() : "AI";
       switch (e && e.kind) {
         case "no_key": return { title: "Chưa cấu hình API key", detail: e.message };
+        case "quota_user": return { title: "Đã hết lượt AI hôm nay", detail: e.message || "Tài khoản thường chỉ được nhờ AI viết bài cho tối đa 3 Block khác nhau mỗi ngày — thử lại vào ngày mai, hoặc nhờ Admin." };
         case "network": return { title: provider + ": không kết nối được", detail: "Kiểm tra lại mạng internet của máy này rồi thử lại." };
         case "timeout": return { title: provider + ": quá thời gian chờ", detail: "Máy chủ đã nhận yêu cầu nhưng không trả lời kịp trong 25 giây — thường do mạng chậm hoặc máy chủ AI đang quá tải, thử lại sau." };
         case "empty": return { title: provider + ": trả về rỗng", detail: "Có thể bị bộ lọc nội dung chặn — thử lại hoặc đổi bối cảnh." };
@@ -527,7 +589,7 @@
        Section — "Digital Marketing", "TOEIC Reading"...) — có thì bài đọc
        sẽ nghiêng nội dung về đúng lĩnh vực đó thay vì hoàn toàn random
        theo SETTINGS; để trống/undefined thì bỏ qua, chỉ dùng SETTINGS. */
-    generateAI: async function (words, cfg, difficulty, promptOverride, topicHint) {
+    generateAI: async function (words, cfg, difficulty, promptOverride, topicHint, quotaCtx) {
       var terms = (words || []).map(function (x) { return x.term; }).filter(Boolean);
       if (!terms.length) throw new Error("Block chưa có từ vựng");
       /* KHÔNG tự check "chưa có key" ở đây — để _callProvider() làm việc đó,
@@ -583,7 +645,7 @@
         '"translations":[{"term":"...","vi":"..."}]}';
 
       w.Context._lastCostUsd = null;   /* reset để không lỡ giữ số cũ nếu lần này ném lỗi trước khi gọi xong */
-      var raw = await w.Context._callProvider(cfg, sys, user);
+      var raw = await w.Context._callProvider(cfg, sys, user, quotaCtx);
       var parsed = JSON.parse(raw);
       if (!parsed.passage_en) throw new Error("Thiếu 'passage_en' trong JSON trả về");
 
@@ -605,11 +667,7 @@
          cost_usd: ước tính USD lần gọi OpenAI vừa rồi tốn (null nếu chạy
          qua Gemini free) — đọc từ _lastCostUsd ngay sau _callProvider ở
          trên, xem OPENAI_PRICING/_callOpenAI. */
-      var origin = "local";
-      try {
-        if (typeof location !== "undefined" && location.hostname &&
-            location.hostname !== "localhost" && location.hostname !== "127.0.0.1") origin = "web";
-      } catch (e) {}
+      var origin = w.Context._isWebOrigin() ? "web" : "local";
       var meta = {
         ai: true,
         vi: viMap,
@@ -674,9 +732,15 @@
         "term trong bài đang chia động từ/số nhiều\n" +
         "- def_en: định nghĩa tiếng Anh ngắn gọn\n" +
         "- meaning_vi: nghĩa tiếng Việt\n" +
-        "- sentence_vi: bản dịch tiếng Việt của ĐÚNG câu chứa từ đó trong đoạn văn\n\n" +
+        "- sentence_vi: bản dịch tiếng Việt của ĐÚNG câu chứa từ đó trong đoạn văn\n" +
+        "- freq: từ này THÔNG DỤNG hay ÍT THÔNG DỤNG — đánh giá theo TẦN SUẤT SỬ DỤNG NGOÀI ĐỜI " +
+        "THẬT trong tiếng Anh (giao tiếp/báo chí/công việc hàng ngày nói chung), KHÔNG PHẢI tần " +
+        "suất xuất hiện trong riêng đoạn văn này. Chỉ trả về ĐÚNG 1 trong 2 giá trị \"common\" " +
+        "(thông dụng, người bản ngữ dùng/gặp thường xuyên trong đời sống) hoặc \"uncommon\" (ít " +
+        "thông dụng, hiếm gặp hơn trong đời sống thật dù có thể đoạn văn này lặp lại nhiều lần), " +
+        "không suy từ cấp độ CEFR (từ B2/C1 vẫn có thể rất thông dụng ngoài đời)\n\n" +
         "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
-        '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","sentence_vi":"..."}]}';
+        '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","sentence_vi":"...","freq":"common|uncommon"}]}';
 
       var raw2 = await w.Context._callProvider(cfg, sys, user);
       var parsed = JSON.parse(raw2);
@@ -704,7 +768,7 @@
     enrichWords: async function (words, cfg) {
       /* Không tự check "chưa có key" ở đây — xem lý do ở generateAI() phía trên. */
       var needy = (words || []).filter(function (x) {
-        return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi);
+        return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi || !x.freq);
       });
       if (!needy.length) return { words: words, filled: 0, cost_usd: 0, providers: {} };
 
@@ -726,6 +790,7 @@
           if (x.def_en) known.push("định nghĩa EN đã biết: " + x.def_en);
           if (x.level) known.push("cấp độ đã biết: " + x.level);
           if (x.pos) known.push("loại từ đã biết: " + x.pos);
+          if (x.freq) known.push("độ thông dụng đã biết: " + x.freq);
           return (j + 1) + '. "' + x.term + '"' + (known.length ? " (" + known.join("; ") + ")" : "");
         }).join("\n");
 
@@ -734,11 +799,14 @@
         var user =
           "Với ĐÚNG " + chunk.length + " từ/cụm từ tiếng Anh sau (đã đánh số thứ tự), cho biết đầy " +
           "đủ: cấp độ CEFR (A1/A2/B1/B2/C1/C2), loại từ (Verb/Noun/Adjective/Adverb/Phrase…), phiên " +
-          "âm IPA kiểu từ điển (có dấu / /), định nghĩa tiếng Anh ngắn gọn, và nghĩa tiếng Việt. " +
+          "âm IPA kiểu từ điển (có dấu / /), định nghĩa tiếng Anh ngắn gọn, nghĩa tiếng Việt, và độ " +
+          "THÔNG DỤNG NGOÀI ĐỜI THẬT của từ đó (freq: chỉ \"common\" [thông dụng — người bản ngữ " +
+          "dùng/gặp thường xuyên trong đời sống thật] hoặc \"uncommon\" [ít thông dụng — hiếm gặp " +
+          "hơn trong đời sống thật], KHÔNG suy từ cấp độ CEFR — từ khó vẫn có thể thông dụng ngoài đời). " +
           "Trả về ĐÚNG THEO THỨ TỰ đã đánh số, đủ " + chunk.length + " mục, không bỏ mục nào, không " +
           "gộp/tách mục:\n\n" + listText + "\n\n" +
           "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
-          '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"..."}]}';
+          '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","freq":"common|uncommon"}]}';
 
         w.Context._lastCostUsd = null;
         var raw = await w.Context._callProvider(cfg, sys, user);
@@ -757,6 +825,7 @@
           if (!orig.ipa && suggestion.ipa) { orig.ipa = suggestion.ipa; filled++; }
           if (!orig.def_en && suggestion.def_en) { orig.def_en = suggestion.def_en; filled++; }
           if (!orig.meaning_vi && suggestion.meaning_vi) { orig.meaning_vi = suggestion.meaning_vi; filled++; }
+          if (!orig.freq && suggestion.freq) { orig.freq = suggestion.freq; filled++; }
         }
       }
       /* providers: đếm số LƯỢT GỌI qua từng nhà cung cấp (vd {openai:2} nếu

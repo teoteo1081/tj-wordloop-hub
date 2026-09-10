@@ -469,14 +469,24 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .sidebar-left.unpinned.flyout{left:0;width:var(--sidebar-w-left);}
 .sidebar-right.unpinned.flyout{right:0;width:var(--sidebar-w-right);}
 
+/* Đường dẫn ĐẦY ĐỦ, KHÔNG rút gọn/ẩn bớt bằng "…" nữa (theo yêu cầu TJ —
+   "cần biết chính xác đừng hide bớt thông tin") — dài quá thì tự XUỐNG
+   HÀNG (flex-wrap: wrap) thay vì cuộn ngang/ẩn khúc giữa như trước. Xem
+   renderCrumb() trong app.js (đã bỏ hẳn nhánh CRUMB_MAX_CHARS). */
+/* Dính lại (sticky) khi cuộn xuống (theo yêu cầu TJ — "kéo xuống đường
+   dẫn cũng cố định để nhìn nhanh") — CÙNG kiểu dính chồng lớp như
+   .batches-bar/.detail-tabs bên dưới (xem giải thích ở đó): --crumb-h do
+   ResizeObserver đo + set trong app.js (setupStickyOffsets), TỰ ĐỘNG tăng
+   khi đường dẫn dài phải xuống 2-3 hàng (flex-wrap: wrap, không rút gọn
+   "…" nữa) — .batches-bar/.detail-tabs dựa vào biến này để dính LIỀN ngay
+   dưới, không đè lên đường dẫn dù nó cao bao nhiêu hàng. */
 .crumb{
   font-size:.72rem;color:var(--text-3);margin-bottom:.35rem;display:flex;gap:.3rem;align-items:center;
-  flex-wrap:nowrap;white-space:nowrap;overflow-x:auto;scrollbar-width:none;
+  flex-wrap:wrap;row-gap:.15rem;
+  position:sticky;top:0;z-index:8;background:var(--bg-main);padding-top:.4rem;
 }
-.crumb::-webkit-scrollbar{display:none;}
 .crumb b{color:var(--text-2);font-weight:600;}
 .crumb .sep{opacity:.4;flex-shrink:0;}
-.crumb-ellipsis{cursor:help;flex-shrink:0;}
 
 /* Sticky luôn — trước đây chỉ .detail-tabs dính, còn hàng này (nút "Quay
    lại"/Block trước-sau/tab Batch) cuộn thường -> lúc cuộn qua đúng khoảng
@@ -487,7 +497,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    ResizeObserver đo + set trong app.js (setupStickyOffsets). */
 .batches-bar{
   display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;
-  position:sticky;top:0;z-index:7;background:var(--bg-main);
+  position:sticky;top:var(--crumb-h,0px);z-index:7;background:var(--bg-main);
   padding-top:.5rem;   /* thay cho .workspace{padding-top} đã bỏ — đặt Ở ĐÂY (trong phần tử sticky, luôn phủ kín) thay vì ở container cuộn, để không tạo dải hở phía trên vị trí dính */
 }
 .batch-tabs{display:flex;gap:.45rem;overflow-x:auto;flex:1;padding-bottom:.2rem;scrollbar-width:none;}
@@ -602,6 +612,16 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   border-radius:12px;border:1px solid rgba(16,185,129,.3);font-weight:600;
 }
 .tag-time.due{background:rgba(239,68,68,.14);color:var(--red-l);border-color:rgba(239,68,68,.35);}
+/* Đường dẫn thư mục lặp lại trên mỗi Block card (Notebook › Section › Page
+   › Batch) — xem App.renderBlocks trong app.js. Nhỏ/mờ, KHÔNG được to hơn
+   .block-title bên dưới nó — chỉ để định vị, không phải nội dung chính. */
+.block-path{font-size:.66rem;color:var(--text-3);margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Nhãn nguồn bài đọc ("📝 Dán"/"🤖 OpenAI"/"✨ Gemini"...) trên mỗi Block
+   card — xem blockSourceLabel() trong app.js. */
+.tag-src{
+  background:var(--bg-soft);color:var(--text-2);font-size:.66rem;padding:.14rem .55rem;
+  border-radius:12px;border:1px solid var(--border);font-weight:600;
+}
 .done-badge{color:var(--green-l);font-weight:700;font-size:.78rem;white-space:nowrap;}
 .done-badge.pending{color:var(--text-3);font-weight:600;}
 .done-badge.warn{color:var(--amber-l);}
@@ -656,7 +676,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    không lộ viền lúc dính. */
 .detail-tabs{
   display:flex;align-items:center;gap:.35rem;border-bottom:1px solid var(--border);padding:.5rem 0 .4rem;
-  position:sticky;top:var(--bbar-h,0px);z-index:6;background:var(--bg-main);
+  position:sticky;top:calc(var(--crumb-h,0px) + var(--bbar-h,0px));z-index:6;background:var(--bg-main);
 }
 /* CHỈ dải nút tab mới cuộn ngang khi chật chỗ — #bn-pos + nút "⤒" đứng
    ngoài, KHÔNG bao giờ bị cuộn khuất (gộp 1 hàng để tiết kiệm chỗ, không
@@ -1272,6 +1292,21 @@ textarea:focus{border-color:var(--blue);}
   display:block;word-break:break-all;font-size:.72rem;color:var(--text);background:var(--bg-deep);
   border-radius:6px;padding:.4rem .5rem;margin:.3rem 0;
 }
+
+/* Modal Báo cáo AI — xem #modal-ai-report trong index.html */
+.ai-report-summary{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0 .9rem;}
+.ai-report-chip{
+  font-size:.76rem;font-weight:600;color:var(--text-2);background:var(--bg-soft);
+  border:1px solid var(--border);border-radius:999px;padding:.3rem .65rem;
+}
+.ai-report-body{max-height:60vh;overflow-y:auto;}
+.ai-report-batch{margin-bottom:1rem;}
+.ai-report-batch h4{margin:0 0 .35rem;font-size:.85rem;font-weight:700;color:var(--text-2);}
+.ai-report-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+.ai-report-table th,.ai-report-table td{
+  text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--border);
+}
+.ai-report-table th{color:var(--text-3);font-weight:600;}
 
 /* Toast */
 .toast-wrap{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:.4rem;align-items:center;pointer-events:none;}
