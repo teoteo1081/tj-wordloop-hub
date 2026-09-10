@@ -160,16 +160,27 @@ begin
   end loop;
 end $$;
 
--- Tiến trình học: chỉ đúng chủ mới đọc/ghi được của mình.
+-- Tiến trình học: chỉ đúng chủ mới GHI được của mình (policy "own_progress"
+-- bên dưới, giữ nguyên như cũ) — NHƯNG ĐỌC thì mở cho MỌI người (policy
+-- "read_all_progress" mới, 2026-09-10) để làm được Bảng xếp hạng (🏆, xem
+-- DB.getLeaderboard trong db.js) — thấy được cycle/điểm số của người khác,
+-- KHÔNG thấy được nội dung từ vựng nhạy cảm gì (bảng này chỉ có số liệu
+-- tiến trình, không có chữ). 2 policy cộng lại (OR) cho SELECT: đọc thì
+-- luôn được (using true), còn ghi (insert/update/delete) vẫn CHỈ đúng chủ
+-- mới làm được (own_progress vẫn còn nguyên, không đụng gì).
 drop policy if exists "own_progress" on word_progress;
 create policy "own_progress" on word_progress
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "read_all_progress" on word_progress;
+create policy "read_all_progress" on word_progress for select to anon, authenticated using (true);
 
 drop policy if exists "own_progress" on block_progress;
 create policy "own_progress" on block_progress
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "read_all_progress" on block_progress;
+create policy "read_all_progress" on block_progress for select to anon, authenticated using (true);
 
 drop policy if exists "own_progress" on daily_log;
 create policy "own_progress" on daily_log

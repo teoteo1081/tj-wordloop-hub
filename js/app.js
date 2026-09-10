@@ -1629,6 +1629,11 @@
     /* Gộp hàng loạt: đứng ở 1 Hub, gom hết Notebook từ MỌI Hub khác về đây */
     if (table === "hubs" && S.hubs.length > 1) items.push({ act: "consolidate", icon: "📦", text: "Gộp tất cả Notebook về đây" });
     items.push({ act: "sep" });
+    /* Bảng xếp hạng (🏆) — chỉ Cloud mode (cần thấy tiến trình người KHÁC,
+       local mode mỗi hồ sơ tách biệt theo máy, không có ai để so). Phạm
+       vi = đúng những gì đang bấm vào (Notebook/Section/Page/Batch/Block),
+       dùng App.scopeIds có sẵn — xem App.openLeaderboard bên dưới. */
+    if (w.DB.mode === "cloud") items.push({ act: "leaderboard", icon: "🏆", text: "Xem xếp hạng" });
     items.push({ act: "reset", icon: "🔄", text: "Xoá tiến trình học" });
     items.push({ act: "sep" });
     items.push({ act: "del", icon: "🗑", text: "Xoá " + meta.label, danger: true });
@@ -1812,6 +1817,11 @@
         w.toast('Đã tạo "' + newPage.name + '" — bản sao đầy đủ Batch/Block/Từ vựng', "ok");
       }
 
+      else if (act === "leaderboard") {
+        await App.openLeaderboard(table, id, row.name);
+        return;   /* modal tự vẽ xong, không cần reloadCurrent() ở cuối hàm này */
+      }
+
       else if (act === "reset") {
         var ids = App.scopeIds(table, id);
         var okR = await askConfirm({
@@ -1868,6 +1878,91 @@
     var wIds = S.words.filter(function (x) { return bIds.indexOf(x.block_id) >= 0; })
                       .map(function (x) { return x.id; });
     return { blocks: bIds, words: wIds };
+  };
+
+  /* ══════════════ BẢNG XẾP HẠNG (🏆) — đã chốt với TJ (2026-09-10) ══════════
+     Điểm 1 Block = (tổng trọng số độ khó của TỪNG TỪ trong Block) × (hệ số
+     loại bài đã Done qua) — CHỈ tính nếu Block đã Done (passed HOẶC
+     meaning_passed — "bất kỳ bài nào qua 80% là được", KHÔNG bắt buộc qua
+     đủ cả 2 loại), Block chưa thi không tính gì. KHÔNG phạt trễ hẹn ôn
+     (đã hỏi, chốt "không phạt gì cả"). Bản đầu có thêm hệ số chu kỳ Tony
+     Buzan (càng ôn lâu dài điểm càng cao) nhưng TJ yêu cầu BỎ — vướng chỗ
+     "làm bài nhiều lần trước hạn không tính thêm điểm" gây khó hiểu, ưu
+     tiên đơn giản/phản hồi ngay hơn. Chu kỳ Tony Buzan vẫn chạy bình
+     thường ở mọi nơi khác của app, chỉ riêng công thức điểm này không
+     dùng tới nữa.
+
+     Hệ số loại bài: "Nghĩa" (trắc nghiệm 4 đáp án) DỄ hơn "Phiếu đầy đủ/
+     Từng câu" (tự gõ điền từ, cùng 1 kết quả "passed") — "Nghĩa" là loại
+     MẶC ĐỊNH/dễ (hệ số nền ×1), Done qua Phiếu đầy đủ/Từng câu thưởng
+     thêm (hệ số ×1.5). Done qua CẢ 2 -> lấy hệ số loại CAO NHẤT đã đạt
+     (không cộng dồn 2 lần cho cùng 1 Block). */
+  var LEVEL_WEIGHT = { A1: 1, A2: 1, B1: 2, B2: 3, C1: 5, C2: 8 };
+  function levelWeight(level) { return LEVEL_WEIGHT[String(level || "").toUpperCase()] || 1; }
+  function passTypeMultiplier(r) {
+    return r.passed ? 1.5 : 1;     // đã qua Phiếu đầy đủ/Từng câu (khó hơn) -> 1.5; chỉ qua Nghĩa (dễ, mặc định) -> 1
+  }
+
+  App.openLeaderboard = async function (table, id, scopeName) {
+    var box = w.$("#leaderboard-body");
+    w.$("#leaderboard-title").textContent = "🏆 Xếp hạng — " + scopeName;
+    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
+    w.$("#modal-leaderboard").hidden = false;
+
+    try {
+      var scope = App.scopeIds(table, id);
+      if (!scope.blocks.length) {
+        box.innerHTML = '<div class="nav-empty">Chưa có Block nào trong phạm vi này.</div>';
+        return;
+      }
+      /* Trọng số của TỪNG Block = tổng độ khó các từ trong nó — tính 1
+         lần, dùng lại cho mọi user (không đổi theo ai học). */
+      var blockWeight = {};
+      scope.blocks.forEach(function (bid) { blockWeight[bid] = 0; });
+      S.words.forEach(function (x) {
+        if (blockWeight.hasOwnProperty(x.block_id)) blockWeight[x.block_id] += levelWeight(x.level);
+      });
+
+      var bpRows = await w.DB.getLeaderboardProgress(scope.blocks);
+      var profiles = await w.DB.listProfiles();
+      var profileById = {};
+      profiles.forEach(function (p) { profileById[p.id] = p; });
+
+      var scoreByUser = {}, doneByUser = {};
+      bpRows.forEach(function (r) {
+        if (!(r.passed || r.meaning_passed)) return;   /* chưa Done -> không tính điểm */
+        var w2 = (blockWeight[r.block_id] || 0) * passTypeMultiplier(r);
+        scoreByUser[r.user_id] = (scoreByUser[r.user_id] || 0) + w2;
+        doneByUser[r.user_id] = (doneByUser[r.user_id] || 0) + 1;
+      });
+
+      var ranking = Object.keys(scoreByUser).map(function (uid) {
+        var p = profileById[uid];
+        return {
+          uid: uid, score: scoreByUser[uid], done: doneByUser[uid],
+          name: p ? (p.display_name || "(chưa đặt tên)") : "(user đã xoá)",
+          emoji: p ? (p.avatar_emoji || "🐣") : "❔"
+        };
+      }).sort(function (a, b) { return b.score - a.score; });
+
+      if (!ranking.length) {
+        box.innerHTML = '<div class="nav-empty">Chưa ai học xong Block nào trong phạm vi này cả.</div>';
+        return;
+      }
+      var medal = ["🥇", "🥈", "🥉"];
+      box.innerHTML = '<table class="ai-report-table"><thead><tr><th></th><th>Người học</th><th>Điểm</th><th>Block Done</th></tr></thead><tbody>' +
+        ranking.map(function (r, i) {
+          var me = w.Auth.user && w.Auth.user.id === r.uid;
+          return '<tr' + (me ? ' style="font-weight:700;color:var(--blue-l)"' : "") + '>' +
+            "<td>" + (medal[i] || (i + 1)) + "</td>" +
+            "<td>" + w.esc(r.emoji) + " " + w.esc(r.name) + (me ? " (bạn)" : "") + "</td>" +
+            "<td>" + Math.round(r.score) + "</td>" +
+            "<td>" + r.done + "</td>" +
+          "</tr>";
+        }).join("") + "</tbody></table>";
+    } catch (e) {
+      box.innerHTML = "Lỗi tải xếp hạng: " + w.esc(e.message || String(e));
+    }
   };
 
   /* dọn khỏi bộ nhớ cả nhánh con, khỏi phải chờ tải lại */

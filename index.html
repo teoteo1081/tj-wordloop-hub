@@ -729,6 +729,26 @@ mitigate | giảm nhẹ"></textarea>
   </div>
 </div>
 
+<!-- Bảng xếp hạng (🏆) — mở từ menu "⋯ > 🏆 Xem xếp hạng" của bất kỳ
+     Notebook/Section/Page/Batch/Block nào, xem App.openLeaderboard trong
+     app.js. Điểm = độ khó từ vựng × hệ số loại bài đã Done qua (Nghĩa dễ
+     hơn Phiếu đầy đủ/Từng câu) — CHỈ Cloud mode (cần thấy tiến trình
+     người khác). -->
+<div class="modal-overlay" id="modal-leaderboard" hidden>
+  <div class="modal-box wide">
+    <h3 id="leaderboard-title">🏆 Xếp hạng</h3>
+    <p class="modal-desc">
+      Điểm = độ khó từ vựng trong Block (A1/A2=1 · B1=2 · B2=3 · C1=5 · C2=8) ×
+      hệ số loại bài đã Done qua (🔀 Nghĩa = ×1 · 📋 Phiếu đầy đủ/🔤 Từng câu = ×1.5).
+      Chỉ tính Block đã Done (đạt ≥ 80% ở bất kỳ 1 trong các bài kiểm tra).
+    </p>
+    <div id="leaderboard-body"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-leaderboard">Đóng</button>
+    </div>
+  </div>
+</div>
+
 <!-- Báo cáo nguồn bài đọc AI — ai cũng xem được (chỉ đọc, không sửa gì),
      xem #mi-ai-report + App.openAiReport trong app.js. -->
 <div class="modal-overlay" id="modal-ai-report" hidden>

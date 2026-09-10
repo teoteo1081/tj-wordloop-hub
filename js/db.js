@@ -807,6 +807,26 @@
     return true;
   };
 
+  /* ══════════════ BẢNG XẾP HẠNG (🏆) ══════════════
+     Trả về block_progress của MỌI USER (không riêng người đang đăng nhập)
+     cho đúng danh sách blockIds — cần policy "read_all_progress" mới (xem
+     tools/supabase_schema.sql phần "Tiến trình học"), CHỈ đọc, không đụng
+     gì quyền ghi. App.openLeaderboard (app.js) tự tính điểm từ đây (kết
+     hợp độ khó từ + hệ số chu kỳ Tony Buzan, xem CYCLE_MULT/LEVEL_WEIGHT).
+     Chia nhỏ 200 id/lượt — phòng khi 1 Notebook lớn có hàng nghìn Block,
+     .in() với danh sách quá dài có thể vượt giới hạn 1 request. */
+  DB.getLeaderboardProgress = async function (blockIds) {
+    if (DB.mode !== "cloud" || !DB.sb || !blockIds.length) return [];
+    var CHUNK = 200, out = [];
+    for (var i = 0; i < blockIds.length; i += CHUNK) {
+      var chunk = blockIds.slice(i, i + CHUNK);
+      var r = await DB.sb.from("block_progress").select("*").in("block_id", chunk);
+      if (r.error) throw r.error;
+      out = out.concat(r.data || []);
+    }
+    return out;
+  };
+
   /* Cây con của từng bảng — dùng để xoá dây chuyền ở chế độ local.
      Trên cloud thì Postgres tự lo nhờ ON DELETE CASCADE. */
   var CHILD = {
