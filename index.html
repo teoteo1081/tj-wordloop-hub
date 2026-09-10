@@ -740,11 +740,20 @@ mitigate | giảm nhẹ"></textarea>
 <!-- Quản lý chia sẻ (tổng quan) — menu "👑 Quản lý tài khoản" hoặc menu
      riêng, liệt kê MỌI Notebook đang "restricted" + ai được share gì, để
      Admin không phải mở từng Notebook 1 mới biết đang share những gì. -->
+<!-- Quản lý chia sẻ — MA TRẬN quyền: hàng = tài khoản (giống "👑 Quản lý
+     tài khoản"), cột = Notebook (lọc bớt theo Hub bằng tab phía trên).
+     Tick 1 ô = chia sẻ ngay (tự lưu, không cần bấm "Lưu" riêng), xem
+     App.renderShareMatrix trong app.js. -->
 <div class="modal-overlay" id="modal-share-overview" hidden>
-  <div class="modal-box wide">
+  <div class="modal-box xwide">
     <h3>🔐 Quản lý chia sẻ</h3>
-    <p class="modal-desc">Mọi Notebook đang đặt "Riêng tư" (chỉ người được share mới thấy) và danh sách người được share.</p>
-    <div id="share-overview-body"></div>
+    <p class="modal-desc">
+      Hàng = tài khoản, cột = Notebook. Tick 1 ô = chia sẻ ngay (vai trò "Chỉ xem" mặc định — muốn
+      "Toàn quyền" thì vào "⋯ &gt; 🔗 Chia sẻ" của đúng Notebook đó). Cột nào 🌍 "Công khai" thì mọi
+      ô bên dưới tự bật sẵn, không tắt lẻ từng người được — phải đổi cột đó sang 🔒 "Riêng tư" trước.
+    </p>
+    <div id="share-hub-filter" class="share-hub-filter"></div>
+    <div id="share-overview-body" class="share-matrix-wrap"></div>
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-share-overview">Đóng</button>
     </div>

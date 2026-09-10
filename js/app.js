@@ -322,45 +322,88 @@
       : '<div class="nav-empty">Chưa có tài khoản nào khác — tạo ở "👑 Quản lý tài khoản" trước đã.</div>';
   };
 
-  /* Trang tổng quan Admin: MỌI Notebook đang "Riêng tư" (mọi Hub, không
-     chỉ Hub đang mở) + ai được share gì — dùng DB.getFullTree() để lấy
-     đủ notebooks xuyên suốt mọi Hub (S.notebooks chỉ scope 1 Hub). */
+  /* ══════════════ MA TRẬN CHIA SẺ (🔐 Quản lý chia sẻ) ══════════════
+     Theo yêu cầu TJ — "kiểu quản lý tài khoản, mỗi tk 1 dòng, cột theo
+     Hub/từng loại nhỏ, có Share ALL hoặc chọn từng cái nhỏ, đổi view để
+     chia sẻ": hàng = tài khoản (giống #modal-admin), cột = Notebook
+     (đang là đơn vị chia sẻ NHỎ NHẤT hệ thống hỗ trợ — chưa xuống tới
+     Section/Page/Batch/Block, xem ghi chú Mức A ở notebookAllowedForUser
+     phía trên), tab Hub phía trên lọc bớt cột cho gọn ("đổi view").
+     Tick 1 ô = chia sẻ NGAY (role mặc định "view", tự lưu, không cần nút
+     Lưu riêng — ai cần "edit" thì vẫn vào đúng modal #modal-share của
+     Notebook đó). Cột "🌍 Công khai" thì mọi ô tự bật sẵn (disabled) vì
+     ai cũng thấy rồi — bấm chip đó để đổi "🔒 Riêng tư" mới tick lẻ được. */
+  var SHARE_MX = { t: null, profiles: null, hubFilter: "all" };
+
   App.openShareOverview = async function () {
     var box = w.$("#share-overview-body");
     box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
+    w.$("#share-hub-filter").innerHTML = "";
     w.$("#modal-share-overview").hidden = false;
     try {
       var t = await w.DB.getFullTree(w.Auth.user && w.Auth.user.id);
-      var profiles = await w.DB.listProfiles();
+      var profiles = (await w.DB.listProfiles()).filter(function (p) { return !p.is_admin; });
       await loadNotebookAccess();   /* nạp lại cho chắc mới nhất */
-      var profileById = {};
-      profiles.forEach(function (p) { profileById[p.id] = p; });
-      var hubNameById = {};
-      (t.hubs || []).forEach(function (h) { hubNameById[h.id] = h.name; });
-      var restricted = (t.notebooks || []).filter(function (n) { return n.visibility === "restricted"; });
-
-      if (!restricted.length) {
-        box.innerHTML = '<div class="nav-empty">Chưa có Notebook nào đặt "Riêng tư" — mọi Notebook đang mở cho tất cả mọi người xem.</div>';
-        return;
-      }
-      box.innerHTML = restricted.map(function (n) {
-        var grants = notebookAccessAll.filter(function (r) { return r.notebook_id === n.id; });
-        var who = grants.length
-          ? grants.map(function (g) {
-              var p = profileById[g.user_id];
-              return (p ? w.esc(p.avatar_emoji || "🐣") + " " + w.esc(p.display_name || "?") : "(user đã xoá)") +
-                ' <span class="share-role-tag">' + (g.role === "edit" ? "Toàn quyền" : "Chỉ xem") + "</span>";
-            }).join(", ")
-          : '<i style="color:var(--text-3)">Chưa share cho ai — chỉ Admin thấy</i>';
-        return '<div class="share-overview-row">' +
-          '<div class="share-overview-nb">🗂️ ' + w.esc(hubNameById[n.hub_id] || "?") + ' › ' + w.esc(n.name) + "</div>" +
-          '<div class="share-overview-who">' + who + "</div>" +
-        "</div>";
-      }).join("");
+      SHARE_MX = { t: t, profiles: profiles, hubFilter: "all" };
+      renderShareHubFilter();
+      renderShareMatrix();
     } catch (e) {
       box.innerHTML = "Lỗi tải: " + w.esc(e.message || String(e));
     }
   };
+
+  function renderShareHubFilter() {
+    var hubs = (SHARE_MX.t.hubs || []).slice().sort(bySort);
+    w.$("#share-hub-filter").innerHTML =
+      '<button class="lb-tab' + (SHARE_MX.hubFilter === "all" ? " active" : "") + '" data-hubfilter="all">Tất cả Hub</button>' +
+      hubs.map(function (h) {
+        return '<button class="lb-tab' + (SHARE_MX.hubFilter === h.id ? " active" : "") + '" data-hubfilter="' + h.id + '">' + w.esc(h.name) + "</button>";
+      }).join("");
+  }
+
+  function renderShareMatrix() {
+    var box = w.$("#share-overview-body");
+    if (!SHARE_MX.profiles.length) {
+      box.innerHTML = '<div class="nav-empty">Chưa có tài khoản nào khác — tạo ở "👑 Quản lý tài khoản" trước đã.</div>';
+      return;
+    }
+    var nbs = (SHARE_MX.t.notebooks || [])
+      .filter(function (n) { return SHARE_MX.hubFilter === "all" || n.hub_id === SHARE_MX.hubFilter; })
+      .sort(bySort);
+    if (!nbs.length) {
+      box.innerHTML = '<div class="nav-empty">Hub này chưa có Notebook nào.</div>';
+      return;
+    }
+
+    var grantsByNb = {};   /* nbId -> Set(userId) */
+    notebookAccessAll.forEach(function (r) { (grantsByNb[r.notebook_id] = grantsByNb[r.notebook_id] || new Set()).add(r.user_id); });
+
+    var headerHtml = '<th class="share-mx-corner"></th>' + nbs.map(function (n) {
+      var pub = n.visibility !== "restricted";
+      return '<th class="share-mx-col">' +
+        '<div class="share-mx-nbname" title="' + w.esc(n.name) + '">' + w.esc(n.name) + '</div>' +
+        '<button class="share-mx-vis' + (pub ? " pub" : "") + '" data-vis-nb="' + n.id + '" title="Bấm để đổi ' + (pub ? "Riêng tư" : "Công khai") + '">' +
+          (pub ? "🌍 Công khai" : "🔒 Riêng tư") +
+        "</button>" +
+        (pub ? "" : '<button class="share-mx-all" data-col-all="' + n.id + '" title="Share Notebook này cho TẤT CẢ tài khoản">ALL</button>') +
+      "</th>";
+    }).join("");
+
+    var bodyHtml = SHARE_MX.profiles.map(function (p) {
+      return "<tr>" +
+        '<td class="share-mx-user"><span>' + w.esc(p.avatar_emoji || "🐣") + " " + w.esc(p.display_name || "(chưa đặt tên)") + "</span>" +
+          '<button class="share-mx-all" data-row-all="' + p.id + '" title="Share TẤT CẢ Notebook đang lọc cho tài khoản này">ALL</button></td>' +
+        nbs.map(function (n) {
+          var pub = n.visibility !== "restricted";
+          var checked = pub || (grantsByNb[n.id] && grantsByNb[n.id].has(p.id));
+          return '<td class="share-mx-cell"><input type="checkbox" data-cell-nb="' + n.id + '" data-cell-user="' + p.id + '"' +
+            (checked ? " checked" : "") + (pub ? " disabled" : "") + "></td>";
+        }).join("") +
+      "</tr>";
+    }).join("");
+
+    box.innerHTML = '<table class="share-matrix"><thead><tr>' + headerHtml + "</tr></thead><tbody>" + bodyHtml + "</tbody></table>";
+  }
 
   /* true nếu "nodeId" CHÍNH LÀ "ancestorId" hoặc nằm lồng bên trong nó (đi
      ngược lên theo parent_notebook_id) — dùng để chặn kéo/đặt 1 Notebook
@@ -2972,6 +3015,71 @@
       menu.hidden = true;
       App.openShareOverview();
     };
+    /* Tab lọc Hub — "đổi view để chia sẻ" (TJ) */
+    w.$("#share-hub-filter").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-hubfilter]");
+      if (!btn) return;
+      SHARE_MX.hubFilter = btn.dataset.hubfilter;
+      renderShareHubFilter();
+      renderShareMatrix();
+    });
+    /* Ma trận chia sẻ — event delegation vì bảng tự vẽ lại liên tục
+       (đổi Hub/tick ô), gắn 1 lần lên #share-overview-body là đủ. */
+    w.$("#share-overview-body").addEventListener("click", async function (e) {
+      var visBtn = e.target.closest("[data-vis-nb]");
+      if (visBtn) {
+        var nbId = visBtn.dataset.visNb;
+        var nb = SHARE_MX.t.notebooks.find(function (n) { return n.id === nbId; });
+        if (!nb) return;
+        var newVis = nb.visibility === "restricted" ? "everyone" : "restricted";
+        visBtn.disabled = true;
+        try {
+          await w.DB.setNotebookVisibility(nbId, newVis);
+          nb.visibility = newVis;
+          renderShareMatrix();
+          w.toast(newVis === "restricted" ? "Đã đặt Riêng tư" : "Đã đặt Công khai", "ok");
+        } catch (e2) { w.toast("Lỗi: " + (e2.message || e2), "err"); }
+        return;
+      }
+      var colAllBtn = e.target.closest("[data-col-all]");
+      if (colAllBtn) {
+        var nbId2 = colAllBtn.dataset.colAll;
+        colAllBtn.disabled = true;
+        try {
+          for (var i = 0; i < SHARE_MX.profiles.length; i++) await w.DB.grantNotebookAccess(nbId2, SHARE_MX.profiles[i].id, "view");
+          await loadNotebookAccess();
+          renderShareMatrix();
+          w.toast("Đã share Notebook này cho tất cả", "ok");
+        } catch (e3) { w.toast("Lỗi: " + (e3.message || e3), "err"); colAllBtn.disabled = false; }
+        return;
+      }
+      var rowAllBtn = e.target.closest("[data-row-all]");
+      if (rowAllBtn) {
+        var userId = rowAllBtn.dataset.rowAll;
+        var nbsVisible = (SHARE_MX.t.notebooks || []).filter(function (n) {
+          return (SHARE_MX.hubFilter === "all" || n.hub_id === SHARE_MX.hubFilter) && n.visibility === "restricted";
+        });
+        rowAllBtn.disabled = true;
+        try {
+          for (var j = 0; j < nbsVisible.length; j++) await w.DB.grantNotebookAccess(nbsVisible[j].id, userId, "view");
+          await loadNotebookAccess();
+          renderShareMatrix();
+          w.toast("Đã share hết Notebook đang lọc cho tài khoản này", "ok");
+        } catch (e4) { w.toast("Lỗi: " + (e4.message || e4), "err"); rowAllBtn.disabled = false; }
+        return;
+      }
+      var cell = e.target.closest("[data-cell-nb]");
+      if (cell) {
+        var nbId3 = cell.dataset.cellNb, userId3 = cell.dataset.cellUser;
+        cell.disabled = true;
+        try {
+          if (cell.checked) await w.DB.grantNotebookAccess(nbId3, userId3, "view");
+          else await w.DB.revokeNotebookAccess(nbId3, userId3);
+          await loadNotebookAccess();
+        } catch (e5) { w.toast("Lỗi: " + (e5.message || e5), "err"); cell.checked = !cell.checked; }
+        cell.disabled = false;
+      }
+    });
     /* 2 bộ tab Tuần/Tháng/Từ đầu RIÊNG — modal rút gọn (#modal-leaderboard)
        và trang đầy đủ (#screen-leaderboard) — chỉ đổi active + vẽ lại
        ĐÚNG bộ đang bấm, không đụng bộ kia. */
