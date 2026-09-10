@@ -700,6 +700,29 @@
     return { badge: "Chưa thi", badgeCls: " pending" };
   }
 
+  /* Hàng nút tắt 7 tab (📘 Bài học · 🔀 Nghĩa · 📝 Quiz · 🎧 Dictation ·
+     📋 Phiếu · 🔤 Từng câu · 📊 Tiến trình) chèn ngay dưới thanh tiến độ
+     của MỖI Block card trong danh sách — TJ yêu cầu ("tận dụng không
+     gian" trống dưới chips từ vựng, tham khảo layout icon gọn của app
+     khác) để bấm thẳng vào đúng tab của Block đó, khỏi cần mở Block ra
+     rồi mới bấm tab. Icon-only (không chữ) cho gọn, tooltip có tên đầy
+     đủ. data-open (không phải data-block) để #blocks-list.onclick ưu
+     tiên xử lý riêng — xem data-quicktab truyền kèm cho D.open(id, tab). */
+  var QUICK_TABS = [
+    { tab: "study", icon: "📘", title: "Bài học & Đọc" },
+    { tab: "meaning", icon: "🔀", title: "Nghĩa" },
+    { tab: "quiz", icon: "📝", title: "Active Recall Quiz" },
+    { tab: "dictation", icon: "🎧", title: "Dictation" },
+    { tab: "sheet", icon: "📋", title: "Phiếu đầy đủ" },
+    { tab: "single", icon: "🔤", title: "Từng câu" },
+    { tab: "progress", icon: "📊", title: "Tiến trình trí nhớ" }
+  ];
+  function quickTabsHtml(blockId) {
+    return '<div class="block-quick-tabs">' + QUICK_TABS.map(function (t) {
+      return '<button class="bq-tab" data-open="' + blockId + '" data-quicktab="' + t.tab + '" title="' + w.esc(t.title) + '">' + t.icon + "</button>";
+    }).join("") + "</div>";
+  }
+
   App.renderBlocks = function () {
     var batch = S.batches.find(function (b) { return b.id === S.batchId; });
     var list = S.batchId ? App.blocksOf(S.batchId) : [];
@@ -835,6 +858,7 @@
         }).join("") + "</div>" +
         '<div class="block-bottom">' +
           '<span class="progress-bar"><i style="width:' + w.pct(mastered, ws.length) + '%"></i></span>' +
+          quickTabsHtml(b.id) +
         "</div>" +
       "</div>";
     }).join("");
@@ -3117,7 +3141,7 @@
       var openBtn = e.target.closest("[data-open]");
       var card = e.target.closest("[data-block]");
       var id = openBtn ? openBtn.dataset.open : (card ? card.dataset.block : null);
-      if (id) w.Detail.open(id);
+      if (id) w.Detail.open(id, openBtn ? openBtn.dataset.quicktab : undefined);
     };
 
     /* Block card giờ có tabindex/role="button" (bấm được bằng bàn phím) —

@@ -110,6 +110,11 @@
     "🔊 Đọc tất cả từ": "🔊 Read all words",
     "🔊 Đọc + định nghĩa": "🔊 Read + definition",
     "🔊 Nghe US": "🔊 Listen (US)",
+    "🎧 Nghe US": "🎧 Listen (US)",
+    "Nghe US": "Listen (US)",
+    "✏️ Prompt AI đang dùng cho \"🔄 Tạo lại\" (bấm để xem/sửa)": "✏️ AI prompt used for \"🔄 Regenerate\" (tap to view/edit)",
+    " — chữ sẽ sáng theo giọng đọc (karaoke). Bấm vào bất kỳ từ nào để xem nghĩa và lưu lại.":
+      " — text lights up as it's read (karaoke). Tap any word to see its meaning and save it.",
     "Xoá từ khỏi kho": "Remove word",
 
     /* ---- Bài đọc ---- */
