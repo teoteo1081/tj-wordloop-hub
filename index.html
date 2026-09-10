@@ -172,6 +172,15 @@
              updated_at. Xem App.renderDataUpdated trong app.js. -->
         <div class="legend-updated" id="sidebar-data-updated" hidden></div>
       </div>
+
+      <!-- Bảng xếp hạng thu nhỏ — TJ yêu cầu ("cho cái bảng nhỏ nhỏ ở
+           đây đi") vì trước đó phải bấm sâu vào menu ⋯ mới thấy. Luôn
+           theo đúng Notebook đang mở (S.notebookId), Top 3, bấm vào mở
+           thẳng trang đầy đủ — xem App.renderSidebarLbMini trong app.js. -->
+      <div class="sidebar-lb-mini" id="sidebar-lb-mini" hidden>
+        <div class="legend-title">🏆 Xếp hạng</div>
+        <div id="sidebar-lb-mini-body"><!-- JS --></div>
+      </div>
     </div>
   </aside>
 
@@ -414,13 +423,13 @@
 
       <!-- TAB: NGHĨA (10 từ đảo nghĩa, trắc nghiệm 4 đáp án — riêng, không tính SRS) -->
       <div class="tab-pane" id="pane-meaning">
-        <!-- Chọn kiểm tra theo Meaning EN (mặc định) hay nghĩa Tiếng Việt —
+        <!-- Chọn kiểm tra theo nghĩa Tiếng Việt (mặc định) hay Meaning EN —
              xem D.setMeaningLang. class "active" ở đây chỉ là fallback lúc
              tải trang, D.bindMeaningLangTabs() luôn vẽ lại đúng theo
              D.meaningLang() ngay khi mở tab. -->
         <div class="meaning-lang-tabs" id="meaning-lang-tabs">
-          <button class="mn-lang-tab" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
-          <button class="mn-lang-tab active" data-mnlang="en">🇬🇧 Meaning EN</button>
+          <button class="mn-lang-tab active" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
+          <button class="mn-lang-tab" data-mnlang="en">🇬🇧 Meaning EN</button>
         </div>
         <div class="card final-wrap" id="meaning-card"></div>
       </div>

@@ -288,14 +288,9 @@
     var ws = words();
     var b = block();
 
-    /* User có ngôn ngữ giao diện "en" (Admin gán trong "👑 Quản lý tài
-       khoản", vd share app cho bạn nước ngoài) -> cột "Vietnamese Meaning"
-       không còn ý nghĩa gì (chữ Việt) — ẩn đi, chỉ còn "English
-       Definition" làm cột nghĩa chính, KHÔNG dịch AI gì thêm (theo đúng
-       yêu cầu TJ — dùng luôn cột định nghĩa Anh có sẵn). Không đụng gì
-       tới quiz/chấm điểm — bảng này chỉ để ĐỌC. */
-    var wrapEl = w.$("#vocab-wrap");
-    if (wrapEl) wrapEl.classList.toggle("hide-vi-col", w.Auth.effectiveLang && w.Auth.effectiveLang() === "en");
+    /* Từng thử ẩn cột "Vietnamese Meaning" khi tài khoản ở chế độ tiếng
+       Anh, nhưng TJ muốn giữ LUÔN CẢ 2 cột song song bất kể ngôn ngữ giao
+       diện — bỏ hẳn việc ẩn (2026-09-10). */
 
     /* Nguồn/chi phí AI đã tốn để tự điền cột còn thiếu cho bảng từ vựng
        này — giống badge bài đọc, đọc từ blocks.vocab_fill_meta (ghi lúc
@@ -870,20 +865,17 @@
      2 kiểu kiểm tra CHỌN ĐƯỢC bằng nút "🇻🇳 Nghĩa VN" / "🇬🇧 Meaning EN" ngay
      trong tab (KHÔNG tự động theo Auth.effectiveLang() — đây là lựa chọn
      RIÊNG của người đang làm bài, có thể khác giao diện đang dùng). Mặc
-     định khi CHƯA từng chọn gì là "en" (2026-09-10 — toàn app đã đổi
-     default sang tiếng Anh, theo yêu cầu TJ "ai cũng sẽ nhảy vô phần
-     meaning EN"), ai cần "vi" thì tự bấm đổi, nhớ lại qua localStorage.
+     định khi CHƯA từng chọn gì là "vi" (2026-09-10, TJ chốt lại — dù app
+     đã đổi giao diện sang tiếng Anh, tab Nghĩa vẫn vào thẳng Nghĩa VN
+     trước, ai cần "en" thì tự bấm đổi), nhớ lựa chọn qua localStorage.
      "vi" dùng meaning_vi — "en" dùng def_en (định nghĩa Anh có sẵn, không
      dịch AI gì thêm). */
   var LS_MEANING_LANG = "tjwl_meaning_lang_v1";
   D.meaningLang = function () {
-    try {
-      var v = localStorage.getItem(LS_MEANING_LANG);
-      return v === "vi" ? "vi" : "en";   /* chưa từng lưu gì (null) -> mặc định "en" */
-    } catch (e) { return "en"; }
+    try { return localStorage.getItem(LS_MEANING_LANG) === "en" ? "en" : "vi"; } catch (e) { return "vi"; }
   };
   D.setMeaningLang = function (lang) {
-    try { localStorage.setItem(LS_MEANING_LANG, lang === "vi" ? "vi" : "en"); } catch (e) {}
+    try { localStorage.setItem(LS_MEANING_LANG, lang === "en" ? "en" : "vi"); } catch (e) {}
   };
   D.buildMeaningQuiz = function () {
     var ws = words();

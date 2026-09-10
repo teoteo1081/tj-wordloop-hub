@@ -152,6 +152,7 @@
     S.batchId = pick(bts, sel.batchId);
 
     await loadProgress();
+    if (App.renderSidebarLbMini) App.renderSidebarLbMini();
   }
 
   function pick(list, preferId) {
@@ -265,6 +266,27 @@
     return nbs.filter(function (n) { return notebookAllowedForUser(n.id, nbs); });
   }
   App.notebookAllowedForUser = notebookAllowedForUser;   /* home.js/journey.js dùng lại để lọc t.notebooks */
+
+  /* Bản TỔNG QUÁT của notebookAllowedForUser() — kiểm tra 1 user BẤT KỲ
+     (không chỉ user hiện tại) có được thấy Notebook này không, dựa vào
+     notebookAccessAll đã tải + is_admin thật của họ. Dùng cho Bảng xếp
+     hạng (App.openLeaderboard) — TJ yêu cầu: khi so điểm, CHỈ tính user
+     nào thực sự được share đúng Notebook chứa Block đó, không tính lẫn
+     user không liên quan (dù họ lỡ có progress cũ từ trước khi bị đổi
+     quyền/Notebook đổi sang riêng tư). */
+  function userAllowedForNotebook(userId, notebookId, isUserAdmin) {
+    if (isUserAdmin) return true;
+    var cur = S.notebooks.find(function (n) { return n.id === notebookId; });
+    var guard = 0;
+    while (cur && guard++ < 50) {
+      if (cur.visibility === "restricted") {
+        var granted = notebookAccessAll.some(function (r) { return r.notebook_id === cur.id && r.user_id === userId; });
+        if (!granted) return false;
+      }
+      cur = cur.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === cur.parent_notebook_id; }) : null;
+    }
+    return true;
+  }
 
   /* Vai trò của USER HIỆN TẠI trong 1 Notebook — 'edit' (mặc định, y hệt
      trước giờ) hoặc 'view' (chỉ học/xem, không thêm/sửa được từ vựng).
@@ -1032,6 +1054,48 @@
     } catch (e) {
       el.hidden = true;   /* im lặng ẩn nếu lỗi (vd chưa chạy SQL thêm cột) — không toast phiền */
     }
+  };
+
+  /* Bảng xếp hạng THU NHỎ ở chân sidebar trái — TJ yêu cầu ("cho cái bảng
+     nhỏ nhỏ ở đây đi") vì trước đó phải bấm sâu vào menu ⋯ mới thấy được.
+     Luôn theo ĐÚNG Notebook đang mở (S.notebookId), Top 3, "Từ đầu"
+     (period "all" — đơn giản, khỏi thêm tab con trong khoảng nhỏ này).
+     Bấm vào mở thẳng trang đầy đủ (App.openLeaderboardPage), y hệt dữ
+     liệu/luật lọc share như bảng xếp hạng chính (dùng chung
+     loadLeaderboardData/computeLeaderboardRanking). Cache riêng
+     (SB_LB_CACHE), KHÔNG đụng LB_CACHE của modal/trang chính. */
+  var SB_LB_CACHE = null;
+  var SB_LB_NB_LOADED = null;   /* notebookId đã tải xong lần gần nhất, tránh gọi DB lại nếu chưa đổi Notebook */
+  App.renderSidebarLbMini = async function (force) {
+    var box = w.$("#sidebar-lb-mini");
+    var body = w.$("#sidebar-lb-mini-body");
+    if (!box || !body) return;
+    if (w.DB.mode !== "cloud" || !S.notebookId) { box.hidden = true; return; }
+    var nb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
+    if (!nb) { box.hidden = true; return; }
+    box.hidden = false;
+    box.onclick = function () { App.openLeaderboardPage("notebooks", S.notebookId, nb.name); };
+
+    if (force || SB_LB_NB_LOADED !== S.notebookId) {
+      body.innerHTML = '<div class="sb-lb-empty">⏳ Đang tải…</div>';
+      try {
+        SB_LB_CACHE = await loadLeaderboardData("notebooks", S.notebookId);
+        SB_LB_NB_LOADED = S.notebookId;
+      } catch (e) { SB_LB_CACHE = null; }
+    }
+    if (!SB_LB_CACHE) { body.innerHTML = '<div class="sb-lb-empty">Chưa có ai học Block nào ở đây.</div>'; return; }
+
+    var ranking = computeLeaderboardRanking("all", SB_LB_CACHE).slice(0, 3);
+    if (!ranking.length) { body.innerHTML = '<div class="sb-lb-empty">Chưa ai Done Block nào cả.</div>'; return; }
+    var medal = ["🥇", "🥈", "🥉"];
+    body.innerHTML = ranking.map(function (r, i) {
+      var me = w.Auth.user && w.Auth.user.id === r.uid;
+      return '<div class="sb-lb-row' + (me ? " sb-lb-me" : "") + '">' +
+        '<span class="sb-lb-rank">' + (medal[i] || (i + 1)) + "</span>" +
+        '<span class="sb-lb-name">' + w.esc(r.emoji) + " " + w.esc(r.name) + "</span>" +
+        '<span class="sb-lb-score">' + Math.round(r.score) + "</span>" +
+      "</div>";
+    }).join("") + '<div class="sb-lb-more">Xem đầy đủ →</div>';
   };
 
   function renderAll() {
@@ -2125,6 +2189,31 @@
     var profiles = await w.DB.listProfiles();
     var profileById = {};
     profiles.forEach(function (p) { profileById[p.id] = p; });
+
+    /* Chỉ so điểm giữa những user THỰC SỰ được share đúng Notebook chứa
+       Block đó (TJ yêu cầu — không tính lẫn user không liên quan, dù lỡ
+       có progress cũ từ trước khi Notebook đổi quyền/riêng tư). Cần map
+       Block -> Notebook cho MỌI Block trong phạm vi, kể cả Block thuộc
+       nhánh chưa từng mở qua (S.sections/S.pages/S.batches chỉ giữ đúng
+       nhánh TJ đang xem, không đủ cho phạm vi rộng như cả 1 Hub) — nên
+       phải tải riêng cả cây thay vì dùng S.*. */
+    await loadNotebookAccess();   /* chắc chắn notebookAccessAll mới nhất */
+    var tree = await w.DB.getFullTree();
+    var sectionNb = {}, pageNb = {}, batchNb = {};
+    (tree.sections || []).forEach(function (s) { sectionNb[s.id] = s.notebook_id; });
+    (tree.pages || []).forEach(function (p) { pageNb[p.id] = sectionNb[p.section_id] || null; });
+    (tree.batches || []).forEach(function (b) { batchNb[b.id] = pageNb[b.page_id] || null; });
+    var blockNbId = {};
+    (tree.blocks || []).forEach(function (b) {
+      if (blockWeight.hasOwnProperty(b.id)) blockNbId[b.id] = batchNb[b.batch_id] || null;
+    });
+    bpRows = bpRows.filter(function (r) {
+      var nbId = blockNbId[r.block_id];
+      if (!nbId) return true;   /* không xác định được Notebook (dữ liệu lạ) -> không chặn oan */
+      var p = profileById[r.user_id];
+      return userAllowedForNotebook(r.user_id, nbId, !!(p && p.is_admin));
+    });
+
     return { blockWeight: blockWeight, bpRows: bpRows, profileById: profileById };
   }
 
@@ -2138,26 +2227,30 @@
      — khớp với passTypeMultiplier() đã dùng để tính điểm.
      Trả về mảng ranking ĐẦY ĐỦ (không cắt) đã sắp theo điểm giảm dần —
      nơi gọi (modal/trang) tự quyết định cắt Top 10 hay hiện hết. */
-  function computeLeaderboardRanking(period) {
-    if (!LB_CACHE) return [];
+  /* cache (tuỳ chọn) — mặc định LB_CACHE (modal/trang chính), nhưng
+     App.renderSidebarLbMini dùng 1 cache RIÊNG (SB_LB_CACHE) để khỏi đụng
+     dữ liệu đang mở của modal/trang kia. */
+  function computeLeaderboardRanking(period, cache) {
+    cache = cache || LB_CACHE;
+    if (!cache) return [];
     var now = Date.now();
     var cutoff = period === "week" ? now - 7 * 24 * 3600 * 1000
                : period === "month" ? now - 30 * 24 * 3600 * 1000 : 0;
 
     var scoreByUser = {}, doneByUser = {};
-    LB_CACHE.bpRows.forEach(function (r) {
+    cache.bpRows.forEach(function (r) {
       if (!(r.passed || r.meaning_passed)) return;   /* chưa Done -> không tính điểm */
       if (period !== "all") {
         var at = r.passed ? r.hard_passed_at : r.easy_passed_at;
         if (!at || at < cutoff) return;   /* không rõ ngày (dữ liệu cũ) hoặc ngoài khoảng -> bỏ qua ở Tuần/Tháng */
       }
-      var wgt = (LB_CACHE.blockWeight[r.block_id] || 0) * passTypeMultiplier(r);
+      var wgt = (cache.blockWeight[r.block_id] || 0) * passTypeMultiplier(r);
       scoreByUser[r.user_id] = (scoreByUser[r.user_id] || 0) + wgt;
       doneByUser[r.user_id] = (doneByUser[r.user_id] || 0) + 1;
     });
 
     return Object.keys(scoreByUser).map(function (uid) {
-      var p = LB_CACHE.profileById[uid];
+      var p = cache.profileById[uid];
       return {
         uid: uid, score: scoreByUser[uid], done: doneByUser[uid],
         name: p ? (p.display_name || "(chưa đặt tên)") : "(user đã xoá)",
@@ -3769,6 +3862,7 @@
       refreshPinsForUser();   /* đổi user (👥 Đổi/Thêm người học) -> nạp lại đúng cài đặt của người MỚI */
       refreshCollapsedForUser();
       renderNotebooks();   /* nhánh thu/bung có thể khác hẳn người vừa đổi tới -> vẽ lại ngay */
+      App.renderSidebarLbMini(true);   /* đổi user -> điểm/quyền thấy khác, tải lại chắc chắn */
     });
 
     S.hubs = await w.DB.getHubs();

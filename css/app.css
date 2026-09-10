@@ -337,6 +337,18 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    vàng cam + đậm nếu vừa cập nhật trong 24h, xám nhạt nếu cũ hơn. */
 .legend-updated{font-size:.66rem;color:var(--text-3);margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--border-soft);}
 .legend-updated.fresh{color:var(--amber, #d97706);font-weight:700;}
+
+/* Bảng xếp hạng thu nhỏ ở cuối sidebar trái — TJ yêu cầu để dễ thấy hơn
+   là phải bấm sâu vào menu ⋯. Theo đúng Notebook đang mở, Top 3. */
+.sidebar-lb-mini{margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--border-soft);cursor:pointer;}
+.sidebar-lb-mini:hover .legend-title{color:var(--text-2);}
+.sb-lb-row{display:flex;align-items:center;gap:.35rem;font-size:.7rem;color:var(--text-2);margin-bottom:.2rem;}
+.sb-lb-row .sb-lb-rank{width:1.1rem;flex-shrink:0;text-align:center;}
+.sb-lb-row .sb-lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sb-lb-row .sb-lb-score{font-weight:700;color:var(--text-1);flex-shrink:0;}
+.sb-lb-row.sb-lb-me{color:var(--blue-l);font-weight:700;}
+.sb-lb-empty{font-size:.66rem;color:var(--text-3);}
+.sb-lb-more{font-size:.66rem;color:var(--blue-l);margin-top:.15rem;}
 .dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;}
 .dot.c1{background:var(--red);}
 .dot.c2{background:var(--amber);}
@@ -776,10 +788,6 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   background:linear-gradient(to bottom, transparent, var(--bg-card));pointer-events:none;
 }
 .vocab-table{width:100%;border-collapse:collapse;font-size:.8rem;text-align:left;min-width:520px;}
-/* User ngôn ngữ "en" -> ẩn cột "Vietnamese Meaning" (chữ Việt vô nghĩa với
-   họ, đã có "English Definition" làm cột nghĩa chính) — xem detail.js D.renderStudy. */
-#vocab-wrap.hide-vi-col .vi-cell,
-#vocab-wrap.hide-vi-col th:last-child{display:none;}
 .vocab-table th{background:var(--bg-soft);color:var(--text-2);padding:.5rem .55rem;font-size:.7rem;border-bottom:1px solid var(--border);font-weight:700;text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;z-index:1;}
 .vocab-table td{padding:.5rem .55rem;border-bottom:1px solid var(--border-soft);color:var(--text-1);vertical-align:top;}
 .vocab-table tr:last-child td{border-bottom:none;}
