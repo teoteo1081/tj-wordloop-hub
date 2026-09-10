@@ -438,10 +438,16 @@
         var caret = children.length
           ? '<button class="nb-caret" data-caret="' + n.id + '" title="' + (collapsed ? "Bung nhánh" : "Thu nhánh") + '" aria-label="' + (collapsed ? "Bung" : "Thu") + ' nhánh ' + w.esc(n.name) + '">' + (collapsed ? "▸" : "▾") + "</button>"
           : '<span class="nb-caret-sp"></span>';
+        /* Mặc định KHÔNG hiện icon nữa (theo yêu cầu TJ — "bỏ mấy quyển
+           sách đi") — "📓" là icon MẶC ĐỊNH tự gán lúc tạo (xem
+           DB.addNotebook), không phải do TJ CHỦ Ý chọn, nên coi như
+           "chưa chọn gì" và ẩn đi; icon nào KHÁC 📓 (TJ tự đổi tay qua
+           "✏️ Đổi tên" — có kèm chọn emoji) mới thật sự hiện ra. */
+        var showIcon = n.icon && n.icon !== "📓";
         return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") +
                  '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
                  indent + caret +
-                 "<span>" + w.esc(n.icon || (children.length ? "🗂️" : "📓")) + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
+                 (showIcon ? "<span>" + w.esc(n.icon) + "</span>" : "") + '<span class="nm">' + w.esc(n.name) + "</span>" +
                  '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
                "</div>" +
                (children.length && !collapsed ? renderLevel(children, depth + 1) : "");
