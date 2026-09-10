@@ -33,8 +33,13 @@ create table if not exists notebooks (
   hub_id text not null references hubs(id) on delete cascade,
   name text not null,
   icon text,
-  sort integer default 0
+  sort integer default 0,
+  parent_notebook_id text references notebooks(id) on delete set null   -- Notebook mẹ (thư mục) — NULL = ở cấp gốc. "on delete set null" (KHÔNG cascade): xoá Notebook mẹ chỉ đưa Notebook con ra cấp gốc, không xoá theo.
 );
+-- Project cũ đã tạo bảng notebooks từ trước (chưa có cột này) -> thêm vào,
+-- không phá dữ liệu đã có (mọi Notebook cũ tự nhận NULL = vẫn ở cấp gốc).
+alter table notebooks add column if not exists parent_notebook_id text references notebooks(id) on delete set null;
+create index if not exists idx_notebooks_parent on notebooks(parent_notebook_id);
 
 create table if not exists sections (
   id text primary key default gen_random_uuid()::text,

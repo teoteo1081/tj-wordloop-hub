@@ -210,18 +210,50 @@
   }
 
   /* ══════════════ RENDER: SIDEBAR TRÁI ══════════════ */
+  /* true nếu "nodeId" CHÍNH LÀ "ancestorId" hoặc nằm lồng bên trong nó (đi
+     ngược lên theo parent_notebook_id) — dùng để chặn kéo/đặt 1 Notebook
+     vào trong CHÍNH NÓ hoặc trong 1 Notebook con-cháu của nó (tránh vòng
+     lặp cha-con vô tận). */
+  function notebookIsDescendant(nodeId, ancestorId) {
+    var cur = S.notebooks.find(function (n) { return n.id === nodeId; });
+    var guard = 0;
+    while (cur && guard++ < 50) {
+      if (cur.id === ancestorId) return true;
+      cur = cur.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === cur.parent_notebook_id; }) : null;
+    }
+    return false;
+  }
+
+  /* Notebook giờ lồng được vào nhau (thư mục mẹ/con, vd "TJ" chứa "Toeic
+     Reading"/"Toeic Listening") qua parent_notebook_id — VẪN giữ nguyên
+     100% Section/Page/Batch/Block bên trong từng Notebook con, không đụng
+     gì cả (khác hẳn cách "ép cấp" đã bỏ, xem trao đổi thiết kế). Notebook
+     mẹ được phép VỪA có Notebook con VỪA có Section/Page riêng của chính
+     nó (theo yêu cầu TJ) — render đệ quy, thụt lề theo độ sâu. */
   function renderNotebooks() {
     var box = w.$("#notebook-list");
     if (!S.notebooks.length) {
       box.innerHTML = '<div class="nav-empty">Chưa có notebook nào</div>';
       return;
     }
-    box.innerHTML = S.notebooks.map(function (n) {
-      return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") + '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
-               "<span>" + w.esc(n.icon || "📓") + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
-               '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
-             "</div>";
-    }).join("");
+    var byParent = {};
+    S.notebooks.forEach(function (n) {
+      var pid = n.parent_notebook_id || "_root";
+      (byParent[pid] = byParent[pid] || []).push(n);
+    });
+    function renderLevel(list, depth) {
+      return list.slice().sort(bySort).map(function (n) {
+        var children = byParent[n.id] || [];
+        return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") +
+                 '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button"' +
+                 (depth ? ' style="padding-left:' + (0.6 + depth * 1.1) + 'rem"' : "") + '>' +
+                 "<span>" + w.esc(n.icon || (children.length ? "🗂️" : "📓")) + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
+                 '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
+               "</div>" +
+               (children.length ? renderLevel(children, depth + 1) : "");
+      }).join("");
+    }
+    box.innerHTML = renderLevel(byParent._root || [], 0);
   }
 
   /* Sections = hàng tab ngang trên đầu workspace, đúng kiểu OneNote */
@@ -271,10 +303,20 @@
       var x = list.find(function (r) { return r.id === id; });
       return x ? x.name : fb;
     }
-    var parts = [
-      nameOf(S.hubs, S.hubId, "—"), nameOf(S.notebooks, S.notebookId, "—"),
-      nameOf(S.sections, S.sectionId, "—"), nameOf(S.pages, S.pageId, "—")
-    ];
+    /* Notebook giờ lồng được vào nhau (thư mục mẹ/con, xem renderNotebooks)
+       -> đường dẫn phải đi hết CHUỖI Notebook cha (nếu có), không chỉ 1
+       cái — vd "TOEIC HUB › TJ › Toeic Reading › ...". */
+    var nbChain = [];
+    var curNb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
+    var guard = 0;
+    while (curNb && guard++ < 50) {
+      nbChain.unshift(curNb.name);
+      curNb = curNb.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === curNb.parent_notebook_id; }) : null;
+    }
+    if (!nbChain.length) nbChain.push("—");
+
+    var parts = [nameOf(S.hubs, S.hubId, "—")].concat(nbChain,
+      [nameOf(S.sections, S.sectionId, "—"), nameOf(S.pages, S.pageId, "—")]);
     if (S.batchId) parts.push(nameOf(S.batches, S.batchId, "—"));
     var openBlock = (w.Detail && w.Detail.blockId)
       ? S.blocks.find(function (x) { return x.id === w.Detail.blockId; }) : null;
@@ -1328,6 +1370,15 @@
     ];
     /* Notebook chuyển Hub · Section chuyển Notebook · Page chuyển Section · Batch chuyển Page */
     if (table === "notebooks" && S.hubs.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Hub khác" });
+    /* Notebook lồng Notebook (thư mục mẹ/con) — xem renderNotebooks/
+       notebookIsDescendant ở trên. "Đặt vào trong" chỉ hiện khi có ít
+       nhất 1 Notebook khác hợp lệ (không phải chính nó/con cháu nó);
+       "Đưa ra ngoài" chỉ hiện khi ĐANG là Notebook con của ai đó. */
+    if (table === "notebooks") {
+      var nbCandidates = S.notebooks.filter(function (n) { return n.id !== id && !notebookIsDescendant(n.id, id); });
+      if (nbCandidates.length) items.push({ act: "setparent", icon: "📂", text: "Đặt vào trong Notebook khác" });
+      if (row.parent_notebook_id) items.push({ act: "unparent", icon: "📤", text: "Đưa ra ngoài (bỏ làm Notebook con)" });
+    }
     if (table === "sections" && S.notebooks.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Notebook khác" });
     if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
     if (table === "batches" && S.pages.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Page khác" });
@@ -1437,6 +1488,26 @@
         var destRow = opts.find(function (o) { return o.id === pickTo; });
         w.toast('Đã chuyển "' + row.name + '" sang ' + (destRow ? '"' + destRow.name + '"' : "chỗ mới") +
                 " — bấm qua đó để xem lại nhé", "ok");
+      }
+
+      else if (act === "setparent") {
+        var nbCands = S.notebooks.filter(function (n) { return n.id !== id && !notebookIsDescendant(n.id, id); });
+        if (!nbCands.length) { w.toast("Không có Notebook nào khác để đặt vào", "err"); return; }
+        var pickParent = await askPick({
+          title: '📂 Đặt "' + row.name + '" vào trong Notebook nào?',
+          options: nbCands.map(function (o) { return { id: o.id, name: o.name }; })
+        });
+        if (!pickParent) return;
+        row.parent_notebook_id = pickParent;
+        await w.DB.patch("notebooks", id, { parent_notebook_id: pickParent });
+        var parentRow = nbCands.find(function (o) { return o.id === pickParent; });
+        w.toast('Đã đưa "' + row.name + '" vào trong "' + (parentRow ? parentRow.name : "") + '"', "ok");
+      }
+
+      else if (act === "unparent") {
+        row.parent_notebook_id = null;
+        await w.DB.patch("notebooks", id, { parent_notebook_id: null });
+        w.toast('Đã đưa "' + row.name + '" ra ngoài (không còn là Notebook con)', "ok");
       }
 
       else if (act === "consolidate") {
@@ -1639,7 +1710,8 @@
     "words>blocks": "block_id"    /* kéo 1 chip từ vựng thả qua Block card khác — gộp/dồn từ lẻ */
   };
 
-  function dropInfo(node) {
+  function dropInfo(e) {
+    var node = e.target;
     /* Cố tình KHÔNG có "[data-word]" ở đây — chip từ vựng chỉ là nguồn
        kéo, không phải nơi thả được; thả trúng ngay 1 chip khác (kể cả
        khác Block) vẫn phải trồi lên đúng .block-card[data-block] chứa
@@ -1653,6 +1725,16 @@
     if (!m) return null;
     if (m.table === DRAG.table) {
       if (m.id === DRAG.id) return null;
+      /* RIÊNG Notebook thả LÊN Notebook khác: thả vào KHOẢNG GIỮA (25%-75%
+         chiều cao dòng) = LỒNG vào làm Notebook con (thư mục mẹ/con) — thả
+         sát mép trên/dưới vẫn là đổi thứ tự như mọi bảng khác (giữ hành vi
+         cũ). Không cho lồng vào chính nó hoặc vào 1 Notebook con-cháu của
+         nó (notebookIsDescendant chặn vòng lặp cha-con). */
+      if (m.table === "notebooks" && !notebookIsDescendant(m.id, DRAG.id)) {
+        var r = el.getBoundingClientRect();
+        var frac = (e.clientY - r.top) / r.height;
+        if (frac > 0.25 && frac < 0.75) return { el: el, kind: "nest", table: m.table, id: m.id };
+      }
       return { el: el, kind: "reorder", table: m.table, id: m.id };
     }
     var field = MOVE_PAIRS[DRAG.table + ">" + m.table];
@@ -1663,6 +1745,7 @@
   function clearDragMarks() {
     w.$$(".dragging").forEach(function (x) { x.classList.remove("dragging"); });
     w.$$(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
+    w.$$(".drag-over-nest").forEach(function (x) { x.classList.remove("drag-over-nest"); });
   }
 
   App.bindDrag = function () {
@@ -1681,16 +1764,17 @@
     document.addEventListener("dragend", function () { clearDragMarks(); DRAG = null; });
 
     document.addEventListener("dragover", function (e) {
-      var t = dropInfo(e.target);
+      var t = dropInfo(e);
       if (!t) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
       w.$$(".drag-over").forEach(function (x) { x.classList.remove("drag-over"); });
-      t.el.classList.add("drag-over");
+      w.$$(".drag-over-nest").forEach(function (x) { x.classList.remove("drag-over-nest"); });
+      t.el.classList.add(t.kind === "nest" ? "drag-over-nest" : "drag-over");
     });
 
     document.addEventListener("drop", function (e) {
-      var t = dropInfo(e.target);
+      var t = dropInfo(e);
       if (!t) return;
       e.preventDefault();
       var d = DRAG;
@@ -1708,6 +1792,16 @@
         var arr = reordered(list, drag.id, to);
         if (!arr) return;
         await App.renumber(drag.table, arr);
+      } else if (target.kind === "nest") {
+        /* Notebook lồng vào Notebook khác (thư mục mẹ/con) — CHỈ đổi
+           parent_notebook_id, KHÔNG đụng gì tới Section/Page/Batch/Block
+           bên trong (xem renderNotebooks/notebookIsDescendant ở trên). */
+        var nRow = S.notebooks.find(function (x) { return x.id === drag.id; });
+        var destRow = S.notebooks.find(function (x) { return x.id === target.id; });
+        if (!nRow || !destRow) return;
+        nRow.parent_notebook_id = target.id;
+        await w.DB.patch("notebooks", drag.id, { parent_notebook_id: target.id });
+        w.toast('Đã đưa "' + nRow.name + '" vào trong "' + destRow.name + '"', "ok");
       } else {
         var row = (S[drag.table] || []).find(function (x) { return x.id === drag.id; });
         if (!row) return;

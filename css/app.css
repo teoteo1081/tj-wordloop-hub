@@ -431,6 +431,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
   outline:2px dashed var(--blue);outline-offset:-2px;
   background:var(--blue-sub) !important;
 }
+/* Thả Notebook vào GIỮA 1 Notebook khác = lồng vào làm Notebook con (thư
+   mục mẹ/con) — viền LIỀN + bo tròn khác hẳn .drag-over (viền đứt nét,
+   dùng cho "đổi thứ tự") để phân biệt rõ 2 hành vi lúc kéo, xem dropInfo
+   trong app.js. */
+.drag-over-nest{
+  outline:2px solid var(--amber);outline-offset:-2px;border-radius:8px;
+  background:var(--amber-sub) !important;
+}
 .hub-add{padding:.35rem .7rem;font-size:.85rem;border-radius:7px;margin-left:.2rem;}
 .hub-tab{
   display:inline-flex;align-items:center;gap:.35rem;position:relative;
