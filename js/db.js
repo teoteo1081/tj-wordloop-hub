@@ -479,8 +479,14 @@
     });
   };
 
-  DB.addNotebook = function (hubId, name, icon) {
-    return insertOne("notebooks", { hub_id: hubId, name: name, icon: icon || "📓", sort: Date.now() % 100000 });
+  /* parentNotebookId (tuỳ chọn) — tạo Notebook mới làm CON của Notebook
+     đó (cùng cấp với Notebook đang đứng, xem #btn-add-notebook trong
+     app.js) thay vì luôn luôn rơi ra cấp gốc. */
+  DB.addNotebook = function (hubId, name, icon, parentNotebookId) {
+    return insertOne("notebooks", {
+      hub_id: hubId, name: name, icon: icon || "📓", sort: Date.now() % 100000,
+      parent_notebook_id: parentNotebookId || null
+    });
   };
   DB.addSection = function (notebookId, name) {
     return insertOne("sections", { notebook_id: notebookId, name: name, sort: Date.now() % 100000 });

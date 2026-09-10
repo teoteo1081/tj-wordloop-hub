@@ -224,12 +224,41 @@
     return false;
   }
 
+  /* ══════════════ BUNG/THU NHÁNH NOTEBOOK (thư mục lồng nhau) ══════════════
+     Lưu RIÊNG theo từng user (giống LS_PIN ở dưới) — key localStorage ghép
+     userId, đọc/gán lại ngay lúc đổi user (xem refreshPinsForUser gọi
+     refreshCollapsedForUser cùng lúc). Mặc định MỌI nhánh đều BUNG (Set
+     rỗng = không thu gì) — chỉ thu khi người dùng tự bấm. */
+  var COLLAPSED_BASE = "tjwl_nb_collapsed_v1";
+  function collapsedKey() { return COLLAPSED_BASE + "_" + ((w.Auth.user && w.Auth.user.id) || "anon"); }
+  var collapsedSet = new Set();
+  function readCollapsed() {
+    try { return new Set(JSON.parse(localStorage.getItem(collapsedKey())) || []); }
+    catch (e) { return new Set(); }
+  }
+  function saveCollapsed() {
+    try { localStorage.setItem(collapsedKey(), JSON.stringify(Array.from(collapsedSet))); } catch (e) {}
+  }
+  function refreshCollapsedForUser() { collapsedSet = readCollapsed(); }
+
+  /* Danh sách TOÀN BỘ id con-cháu (mọi cấp, KHÔNG giới hạn sâu bao nhiêu —
+     theo yêu cầu TJ) của 1 Notebook — dùng cho "Bung hết"/"Thu hết". */
+  function notebookDescendantIds(id) {
+    var out = [];
+    var direct = S.notebooks.filter(function (n) { return n.parent_notebook_id === id; });
+    direct.forEach(function (n) { out.push(n.id); out = out.concat(notebookDescendantIds(n.id)); });
+    return out;
+  }
+
   /* Notebook giờ lồng được vào nhau (thư mục mẹ/con, vd "TJ" chứa "Toeic
      Reading"/"Toeic Listening") qua parent_notebook_id — VẪN giữ nguyên
      100% Section/Page/Batch/Block bên trong từng Notebook con, không đụng
      gì cả (khác hẳn cách "ép cấp" đã bỏ, xem trao đổi thiết kế). Notebook
      mẹ được phép VỪA có Notebook con VỪA có Section/Page riêng của chính
-     nó (theo yêu cầu TJ) — render đệ quy, thụt lề theo độ sâu. */
+     nó (theo yêu cầu TJ) — render đệ quy, thụt lề theo độ sâu, KHÔNG giới
+     hạn số cấp lồng. Mỗi Notebook có con thêm 1 mũi tên ▸/▾ bấm 1 phát là
+     bung/thu ĐÚNG nhánh đó (1 cấp) — "Bung hết"/"Thu hết" (mọi cấp cháu
+     chắt) nằm trong menu "⋯" (xem openMenu bên dưới). */
   function renderNotebooks() {
     var box = w.$("#notebook-list");
     if (!S.notebooks.length) {
@@ -244,13 +273,18 @@
     function renderLevel(list, depth) {
       return list.slice().sort(bySort).map(function (n) {
         var children = byParent[n.id] || [];
+        var collapsed = children.length && collapsedSet.has(n.id);
+        var caret = children.length
+          ? '<button class="nb-caret" data-caret="' + n.id + '" title="' + (collapsed ? "Bung nhánh" : "Thu nhánh") + '" aria-label="' + (collapsed ? "Bung" : "Thu") + ' nhánh ' + w.esc(n.name) + '">' + (collapsed ? "▸" : "▾") + "</button>"
+          : '<span class="nb-caret-sp"></span>';
         return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") +
                  '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button"' +
-                 (depth ? ' style="padding-left:' + (0.6 + depth * 1.1) + 'rem"' : "") + '>' +
+                 (depth ? ' style="padding-left:' + (0.15 + depth * 1.1) + 'rem"' : "") + '>' +
+                 caret +
                  "<span>" + w.esc(n.icon || (children.length ? "🗂️" : "📓")) + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
                  '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
                "</div>" +
-               (children.length ? renderLevel(children, depth + 1) : "");
+               (children.length && !collapsed ? renderLevel(children, depth + 1) : "");
       }).join("");
     }
     box.innerHTML = renderLevel(byParent._root || [], 0);
@@ -1378,6 +1412,17 @@
       var nbCandidates = S.notebooks.filter(function (n) { return n.id !== id && !notebookIsDescendant(n.id, id); });
       if (nbCandidates.length) items.push({ act: "setparent", icon: "📂", text: "Đặt vào trong Notebook khác" });
       if (row.parent_notebook_id) items.push({ act: "unparent", icon: "📤", text: "Đưa ra ngoài (bỏ làm Notebook con)" });
+      /* Bung/Thu nhánh — chỉ hiện khi Notebook này CÓ con. "1 nhánh" chỉ
+         đụng đúng cấp con trực tiếp; "hết" đệ quy xuống MỌI cấp cháu chắt
+         (notebookDescendantIds không giới hạn sâu bao nhiêu, theo yêu cầu
+         TJ). Xem renderNotebooks (mũi tên ▸/▾) cho cách bấm nhanh 1 nhánh. */
+      if (S.notebooks.some(function (n) { return n.parent_notebook_id === id; })) {
+        items.push({ act: "sep" });
+        items.push({ act: "expand1", icon: "▸", text: "Bung 1 nhánh" });
+        items.push({ act: "expandAll", icon: "▸▸", text: "Bung hết (mọi cấp con)" });
+        items.push({ act: "collapse1", icon: "▾", text: "Thu 1 nhánh" });
+        items.push({ act: "collapseAll", icon: "▾▾", text: "Thu hết (mọi cấp con)" });
+      }
     }
     if (table === "sections" && S.notebooks.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Notebook khác" });
     if (table === "pages" && S.sections.length > 1) items.push({ act: "move", icon: "📦", text: "Chuyển sang Section khác" });
@@ -1508,6 +1553,29 @@
         row.parent_notebook_id = null;
         await w.DB.patch("notebooks", id, { parent_notebook_id: null });
         w.toast('Đã đưa "' + row.name + '" ra ngoài (không còn là Notebook con)', "ok");
+      }
+
+      /* Bung/Thu nhánh — chỉ đổi collapsedSet (trạng thái hiển thị riêng
+         máy/user, không phải dữ liệu thật) nên KHÔNG gọi DB gì cả, chỉ
+         lưu localStorage (saveCollapsed) rồi để renderAll() ở cuối hàm
+         này vẽ lại đúng theo trạng thái mới. */
+      else if (act === "expand1") {
+        collapsedSet.delete(id);
+        saveCollapsed();
+      }
+      else if (act === "expandAll") {
+        collapsedSet.delete(id);
+        notebookDescendantIds(id).forEach(function (did) { collapsedSet.delete(did); });
+        saveCollapsed();
+      }
+      else if (act === "collapse1") {
+        collapsedSet.add(id);
+        saveCollapsed();
+      }
+      else if (act === "collapseAll") {
+        collapsedSet.add(id);
+        notebookDescendantIds(id).forEach(function (did) { collapsedSet.add(did); });
+        saveCollapsed();
       }
 
       else if (act === "consolidate") {
@@ -1874,6 +1942,12 @@
     else clearContent();
     saveSel();
     renderAll();
+    /* Trang chủ (🏠, xem home.js) là màn RIÊNG, tự tải/vẽ lại bằng
+       DB.getFullTree() của chính nó — KHÔNG nằm trong renderAll() ở trên.
+       Đang mở Trang chủ mà vừa kéo-thả/⋯ đổi gì đó (vd lồng Notebook) thì
+       phải tự tải lại nó ở đây, không thì card cũ đứng yên tới khi bấm
+       tay nút "🔄" mới thấy đúng. */
+    if (w.Home && !w.$("#screen-home").hidden) await w.Home.load();
   };
 
   /* ══════════════ ĐỔI GIAO DIỆN SÁNG / TỐI ══════════════
@@ -2189,8 +2263,20 @@
     });
 
     /* --- notebook / section --- */
+    /* Mũi tên ▸/▾ (xem renderNotebooks) — bấm 1 phát bung/thu ĐÚNG 1 cấp
+       (nhánh trực tiếp), KHÔNG được coi là bấm chọn Notebook (mới chặn ở
+       đây, giống cách chặn "[data-menu]"). */
+    w.$("#notebook-list").addEventListener("click", function (e) {
+      var caret = e.target.closest("[data-caret]");
+      if (!caret) return;
+      e.stopPropagation();
+      var id = caret.dataset.caret;
+      if (collapsedSet.has(id)) collapsedSet.delete(id); else collapsedSet.add(id);
+      saveCollapsed();
+      renderNotebooks();
+    });
     function onNotebookActivate(e) {
-      if (e.target.closest("[data-menu]")) return;
+      if (e.target.closest("[data-menu],[data-caret]")) return;
       var el = e.target.closest("[data-nb]");
       if (!el) return;
       leaveDetail();
@@ -2332,7 +2418,13 @@
     w.$("#btn-add-notebook").onclick = async function () {
       var r = await askText({ title: "📓 Notebook mới", desc: "Ví dụ: TJ BOOK 2, US TAX BOOK…", withEmoji: true, emoji: "📓", placeholder: "Tên notebook" });
       if (!r) return;
-      var nb = await w.DB.addNotebook(S.hubId, r.text, r.emoji || "📓");
+      /* Đang đứng ở Notebook nào (kể cả Notebook con) thì Notebook mới tạo
+         ra làm CÙNG CẤP với nó (cùng parent_notebook_id) — theo yêu cầu
+         TJ, thay vì luôn rơi ra cấp gốc như trước. Không đứng ở Notebook
+         nào (S.notebookId rỗng) thì vẫn tạo ở cấp gốc như cũ. */
+      var curNb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
+      var parentId = curNb ? (curNb.parent_notebook_id || null) : null;
+      var nb = await w.DB.addNotebook(S.hubId, r.text, r.emoji || "📓", parentId);
       S.notebooks.push(nb); S.notebookId = nb.id;
       await loadNotebook(nb.id);
       saveSel(); renderAll();
@@ -2742,12 +2834,15 @@
     var mode = await w.DB.init();
     await w.Auth.init();
     refreshPinsForUser();   /* nạp đúng cài đặt ẩn/hiện cột của user vừa xác định (xem khai báo ở trên) */
+    refreshCollapsedForUser();   /* nạp đúng nhánh Notebook đã thu/bung của user vừa xác định */
 
     w.Auth.onChange(async function () {
       await loadProgress();
       renderAll();
       App.refreshWordCounter();
       refreshPinsForUser();   /* đổi user (👥 Đổi/Thêm người học) -> nạp lại đúng cài đặt của người MỚI */
+      refreshCollapsedForUser();
+      renderNotebooks();   /* nhánh thu/bung có thể khác hẳn người vừa đổi tới -> vẽ lại ngay */
     });
 
     S.hubs = await w.DB.getHubs();

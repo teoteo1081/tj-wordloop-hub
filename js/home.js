@@ -74,6 +74,14 @@
     box.innerHTML = renderHome(t);
   };
 
+  /* Notebook giờ lồng được vào nhau (thư mục mẹ/con, xem renderNotebooks
+     trong app.js) — Trang chủ chỉ hiện Notebook CẤP GỐC (không cha) làm
+     thẻ chính; Notebook con hiện thành thẻ NHỎ HƠN, nhóm ngay bên trong
+     thẻ mẹ (không rải phẳng ngang hàng nữa, kẻo trùng lặp/rối vì con đã
+     có mặt "bên trong" mẹ rồi). % hoàn thành của thẻ mẹ CHỈ tính Section/
+     Page riêng của chính nó (không cộng dồn của Notebook con — 2 con số
+     tách biệt, xem blocksByNotebook: mỗi Notebook chỉ gom Section có đúng
+     notebook_id của nó). */
   function renderHome(t) {
     var hubs = (t.hubs || []).slice().sort(bySort);
     if (!hubs.length) return '<div class="nav-empty">Chưa có Hub nào — bấm "+" ở thanh trên để thêm.</div>';
@@ -83,26 +91,51 @@
     (t.notebooks || []).forEach(function (n) { (notebooksByHub[n.hub_id] = notebooksByHub[n.hub_id] || []).push(n); });
 
     return hubs.map(function (h) {
-      var nbs = (notebooksByHub[h.id] || []).slice().sort(bySort);
-      var cardsHtml = nbs.length
-        ? nbs.map(function (n) { return notebookCardHtml(h, n, byNotebook[n.id] || [], t.bp); }).join("")
+      var allNbs = (notebooksByHub[h.id] || []).slice().sort(bySort);
+      var byParent = {};
+      allNbs.forEach(function (n) { var pid = n.parent_notebook_id || "_root"; (byParent[pid] = byParent[pid] || []).push(n); });
+      var topNbs = byParent._root || [];
+      var cardsHtml = topNbs.length
+        ? topNbs.map(function (n) { return notebookGroupHtml(h, n, byNotebook, t.bp, byParent); }).join("")
         : '<div class="nav-empty">Chưa có Notebook nào trong Hub này</div>';
-      return '<div class="home-hub-block">' +
+      return '<div class="home-hub-block" data-hubid="' + h.id + '">' +
         '<div class="home-hub-title">🗂 ' + w.esc(h.name) + "</div>" +
         '<div class="home-cards">' + cardsHtml + "</div>" +
       "</div>";
     }).join("");
   }
 
-  function notebookCardHtml(hub, nb, blockIds, bp) {
+  function notebookGroupHtml(hub, nb, byNotebook, bp, byParent) {
+    var children = (byParent[nb.id] || []).slice().sort(bySort);
+    return '<div class="home-group">' +
+      notebookCardHtml(hub, nb, byNotebook[nb.id] || [], bp, false, children.length) +
+      (children.length
+        ? '<div class="home-subcards">' + children.map(function (c) {
+            return notebookCardHtml(hub, c, byNotebook[c.id] || [], bp, true, 0);
+          }).join("") + "</div>"
+        : "") +
+    "</div>";
+  }
+
+  /* data-nb (KHÔNG dùng "data-hub" trên chính thẻ này — App.metaOf trong
+     app.js kiểm tra "dataset.hub" TRƯỚC "dataset.nb", có cả 2 trên cùng
+     1 phần tử sẽ bị hiểu nhầm thành Hub thay vì Notebook lúc kéo-thả; hub
+     cha lưu riêng ở "data-jump-hub" chỉ để bấm-mở dùng, không đụng gì
+     tới hệ kéo-thả chung của App.bindDrag/dropInfo) + draggable="true" ->
+     dùng CHUNG được toàn bộ hệ kéo-thả/lồng Notebook đã có sẵn ở sidebar
+     (App.bindDrag đã gắn sự kiện lên "document", không cần bind riêng gì
+     thêm ở màn này). */
+  function notebookCardHtml(hub, nb, blockIds, bp, isSub, childCount) {
     var done = 0;
     blockIds.forEach(function (bid) { var r = bp[bid]; if (r && (r.passed || r.meaning_passed)) done++; });
     var total = blockIds.length;
     var pct = total ? Math.round(done / total * 100) : 0;
-    return '<div class="home-card" data-hub="' + hub.id + '" data-notebook="' + nb.id + '" tabindex="0" role="button">' +
-      '<div class="home-card-ic">📓</div>' +
+    return '<div class="home-card' + (isSub ? " sub" : "") + '" data-jump-hub="' + hub.id + '" data-nb="' + nb.id +
+      '" draggable="true" tabindex="0" role="button" aria-label="Mở Notebook ' + w.esc(nb.name) + '">' +
+      '<div class="home-card-ic">' + (childCount ? "🗂️" : "📓") + '</div>' +
       '<div class="home-card-body">' +
-        '<div class="home-card-name">' + w.esc(nb.name) + "</div>" +
+        '<div class="home-card-name">' + w.esc(nb.name) +
+          (childCount ? ' <span class="home-card-subcount">· ' + childCount + " con</span>" : "") + "</div>" +
         '<div class="home-card-bar"><i style="width:' + pct + '%"></i></div>' +
         '<div class="home-card-meta">' + pct + "% · " + done + "/" + total + " block done</div>" +
       "</div>" +
@@ -118,13 +151,13 @@
   w.$("#home-hubs").addEventListener("click", async function (e) {
     var card = e.target.closest(".home-card");
     if (!card) return;
-    await w.App.jumpTo({ hubId: card.dataset.hub, notebookId: card.dataset.notebook });
+    await w.App.jumpTo({ hubId: card.dataset.jumpHub, notebookId: card.dataset.nb });
   });
   w.$("#home-hubs").addEventListener("keydown", async function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
     var card = e.target.closest(".home-card");
     if (!card) return;
     e.preventDefault();
-    await w.App.jumpTo({ hubId: card.dataset.hub, notebookId: card.dataset.notebook });
+    await w.App.jumpTo({ hubId: card.dataset.jumpHub, notebookId: card.dataset.nb });
   });
 })(window);
