@@ -297,6 +297,11 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .mini-btn:hover{color:var(--text);border-color:var(--border-hi);}
 
 .nav-list{display:flex;flex-direction:column;gap:.2rem;}
+/* Cây Notebook (#notebook-list, sidebar trái) — có riêng thanh trượt +
+   chiều cao giới hạn, để khi có NHIỀU Notebook lồng nhau (dài), nó tự
+   cuộn RIÊNG bên trong thay vì đẩy khối "🏆 RANKING"/"Chu kỳ Tony Buzan"
+   xuống tuốt cuối, phải cuộn hết cây mới thấy (TJ yêu cầu). */
+#notebook-list{max-height:42vh;overflow-y:auto;}
 /* Gọn kiểu VS Code Explorer (theo yêu cầu TJ) — hàng thấp, đệm sát trái,
    chữ nhỏ vừa đủ đọc, không còn khoảng trắng thừa như trước. */
 .nav-item{
@@ -330,7 +335,10 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .nb-caret:hover{background:var(--bg-hover);color:var(--text);}
 .nb-caret-sp{flex-shrink:0;width:.75rem;}
 
-.sidebar-foot{margin-top:auto;padding-top:.65rem;border-top:1px solid var(--border-soft);}
+/* Không còn "margin-top:auto" (đẩy tuốt xuống cuối) — giờ #notebook-list
+   ở trên đã tự cuộn riêng, "🏆 RANKING" + "Chu kỳ Tony Buzan" nên bám
+   NGAY dưới cây Notebook, luôn thấy được ngay, khỏi phải cuộn xa. */
+.sidebar-foot{padding-top:.65rem;border-top:1px solid var(--border-soft);}
 .legend-title{font-size:.62rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;}
 .legend-row{font-size:.66rem;color:var(--text-3);display:flex;align-items:center;gap:.3rem;margin-bottom:.15rem;}
 /* "🕒 Data cập nhật lần cuối" dưới khu Chu kỳ Tony Buzan (sidebar trái) —
@@ -340,15 +348,15 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 
 /* Bảng xếp hạng thu nhỏ ở cuối sidebar trái — TJ yêu cầu để dễ thấy hơn
    là phải bấm sâu vào menu ⋯. Theo đúng Notebook đang mở, Top 3. */
-.sidebar-lb-mini{margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--border-soft);cursor:pointer;}
+.sidebar-lb-mini{margin-top:.65rem;padding:.8rem .15rem;border-top:1px solid var(--border-soft);cursor:pointer;}
 .sidebar-lb-mini:hover .legend-title{color:var(--text-2);}
-.sb-lb-row{display:flex;align-items:center;gap:.35rem;font-size:.7rem;color:var(--text-2);margin-bottom:.2rem;}
-.sb-lb-row .sb-lb-rank{width:1.8rem;flex-shrink:0;text-align:center;}
+.sb-lb-row{display:flex;align-items:center;gap:.5rem;font-size:.76rem;color:var(--text-2);padding:.3rem 0;}
+.sb-lb-row .sb-lb-rank{width:2rem;flex-shrink:0;text-align:center;}
 .sb-lb-row .sb-lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sb-lb-row .sb-lb-score{font-weight:700;color:var(--text-1);flex-shrink:0;}
 .sb-lb-row.sb-lb-me{color:var(--blue-l);font-weight:700;}
-.sb-lb-empty{font-size:.66rem;color:var(--text-3);}
-.sb-lb-more{font-size:.66rem;color:var(--blue-l);margin-top:.15rem;}
+.sb-lb-empty{font-size:.7rem;color:var(--text-3);padding:.3rem 0;}
+.sb-lb-more{font-size:.72rem;color:var(--blue-l);margin-top:.3rem;}
 .dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;}
 .dot.c1{background:var(--red);}
 .dot.c2{background:var(--amber);}
