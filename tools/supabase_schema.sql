@@ -113,8 +113,16 @@ create table if not exists block_progress (
   last_reviewed_at bigint,
   last_exam_at bigint,
   review_history jsonb default '[]'::jsonb,  -- [{step, at}] mỗi lần thật sự đẩy chu kỳ (để tab Tiến trình khoe đúng ngày giờ đã ôn lần 1, lần 2...)
+  easy_passed_at bigint,   -- mốc ĐẦU TIÊN đạt Nghĩa (không đè lại) — Bảng xếp hạng dùng lọc Tuần/Tháng
+  hard_passed_at bigint,   -- mốc ĐẦU TIÊN đạt Phiếu đầy đủ/Từng câu — Bảng xếp hạng dùng lọc Tuần/Tháng
   primary key (user_id, block_id)
 );
+-- Project cũ đã tạo bảng này từ trước (chưa có 2 cột trên) -> thêm vào,
+-- không phá dữ liệu có sẵn (Block đã Done TRƯỚC lúc thêm cột này sẽ có
+-- 2 cột NULL — chỉ tính vào "Từ đầu" của Bảng xếp hạng, không hiện ở
+-- Tuần/Tháng vì không biết chính xác Done ngày nào trong quá khứ).
+alter table block_progress add column if not exists easy_passed_at bigint;
+alter table block_progress add column if not exists hard_passed_at bigint;
 
 -- ---------- NHẬT KÝ HỌC THEO NGÀY (màn Journey) ----------
 create table if not exists daily_log (

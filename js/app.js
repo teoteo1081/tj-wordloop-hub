@@ -1194,6 +1194,7 @@
           "<span>✏️ Sửa đoạn văn</span>" +
         "</label>" +
         '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
+        '<button class="btn-soft" data-email-link="' + p.id + '" title="Mở email có sẵn để gửi link đăng nhập này">📧 Gửi email</button>' +
         '<button class="btn-soft danger" data-del-profile="' + p.id + '"' + (isMe ? " disabled" : "") +
           ' title="' + (isMe ? "Không tự xoá được chính mình" : "Xoá hẳn tài khoản này") + '">🗑</button>' +
       "</div>";
@@ -1903,11 +1904,14 @@
     return r.passed ? 1.5 : 1;     // đã qua Phiếu đầy đủ/Từng câu (khó hơn) -> 1.5; chỉ qua Nghĩa (dễ, mặc định) -> 1
   }
 
+  var LB_CACHE = null;   /* {blockWeight, bpRows, profileById} — nạp 1 lần lúc mở modal, đổi tab Tuần/Tháng/Từ đầu chỉ lọc lại, không gọi DB thêm */
   App.openLeaderboard = async function (table, id, scopeName) {
     var box = w.$("#leaderboard-body");
     w.$("#leaderboard-title").textContent = "🏆 Xếp hạng — " + scopeName;
     box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
     w.$("#modal-leaderboard").hidden = false;
+    w.$$(".lb-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.period === "all"); });
+    LB_CACHE = null;
 
     try {
       var scope = App.scopeIds(table, id);
@@ -1928,42 +1932,71 @@
       var profileById = {};
       profiles.forEach(function (p) { profileById[p.id] = p; });
 
-      var scoreByUser = {}, doneByUser = {};
-      bpRows.forEach(function (r) {
-        if (!(r.passed || r.meaning_passed)) return;   /* chưa Done -> không tính điểm */
-        var w2 = (blockWeight[r.block_id] || 0) * passTypeMultiplier(r);
-        scoreByUser[r.user_id] = (scoreByUser[r.user_id] || 0) + w2;
-        doneByUser[r.user_id] = (doneByUser[r.user_id] || 0) + 1;
-      });
-
-      var ranking = Object.keys(scoreByUser).map(function (uid) {
-        var p = profileById[uid];
-        return {
-          uid: uid, score: scoreByUser[uid], done: doneByUser[uid],
-          name: p ? (p.display_name || "(chưa đặt tên)") : "(user đã xoá)",
-          emoji: p ? (p.avatar_emoji || "🐣") : "❔"
-        };
-      }).sort(function (a, b) { return b.score - a.score; });
-
-      if (!ranking.length) {
-        box.innerHTML = '<div class="nav-empty">Chưa ai học xong Block nào trong phạm vi này cả.</div>';
-        return;
-      }
-      var medal = ["🥇", "🥈", "🥉"];
-      box.innerHTML = '<table class="ai-report-table"><thead><tr><th></th><th>Người học</th><th>Điểm</th><th>Block Done</th></tr></thead><tbody>' +
-        ranking.map(function (r, i) {
-          var me = w.Auth.user && w.Auth.user.id === r.uid;
-          return '<tr' + (me ? ' style="font-weight:700;color:var(--blue-l)"' : "") + '>' +
-            "<td>" + (medal[i] || (i + 1)) + "</td>" +
-            "<td>" + w.esc(r.emoji) + " " + w.esc(r.name) + (me ? " (bạn)" : "") + "</td>" +
-            "<td>" + Math.round(r.score) + "</td>" +
-            "<td>" + r.done + "</td>" +
-          "</tr>";
-        }).join("") + "</tbody></table>";
+      /* Cache lại — bấm đổi tab Tuần/Tháng/Từ đầu chỉ LỌC LẠI trên dữ liệu
+         đã tải, không gọi DB lại (xem renderLeaderboardPeriod + wiring
+         ".lb-tab" trong bind()). */
+      LB_CACHE = { blockWeight: blockWeight, bpRows: bpRows, profileById: profileById };
+      renderLeaderboardPeriod("all");
     } catch (e) {
       box.innerHTML = "Lỗi tải xếp hạng: " + w.esc(e.message || String(e));
     }
   };
+
+  /* period: "week" (7 ngày gần nhất) | "month" (30 ngày) | "all" (từ
+     đầu, không lọc ngày). Tuần/Tháng CHỈ tính Block có mốc Done rõ ràng
+     (easy_passed_at/hard_passed_at, xem submitFinal/renderMeaning trong
+     detail.js) VÀ mốc đó rơi trong khoảng — Block Done TRƯỚC khi 2 cột
+     này tồn tại (mốc NULL) chỉ hiện ở "Từ đầu", không suy ngược được đã
+     Done ngày nào. Lấy đúng mốc theo hệ số CAO NHẤT đang dùng (đã qua
+     Phiếu đầy đủ/Từng câu -> hard_passed_at; chỉ qua Nghĩa -> easy_passed_at)
+     — khớp với passTypeMultiplier() đã dùng để tính điểm. */
+  function renderLeaderboardPeriod(period) {
+    if (!LB_CACHE) return;
+    var box = w.$("#leaderboard-body");
+    var now = Date.now();
+    var cutoff = period === "week" ? now - 7 * 24 * 3600 * 1000
+               : period === "month" ? now - 30 * 24 * 3600 * 1000 : 0;
+
+    var scoreByUser = {}, doneByUser = {};
+    LB_CACHE.bpRows.forEach(function (r) {
+      if (!(r.passed || r.meaning_passed)) return;   /* chưa Done -> không tính điểm */
+      if (period !== "all") {
+        var at = r.passed ? r.hard_passed_at : r.easy_passed_at;
+        if (!at || at < cutoff) return;   /* không rõ ngày (dữ liệu cũ) hoặc ngoài khoảng -> bỏ qua ở Tuần/Tháng */
+      }
+      var wgt = (LB_CACHE.blockWeight[r.block_id] || 0) * passTypeMultiplier(r);
+      scoreByUser[r.user_id] = (scoreByUser[r.user_id] || 0) + wgt;
+      doneByUser[r.user_id] = (doneByUser[r.user_id] || 0) + 1;
+    });
+
+    var ranking = Object.keys(scoreByUser).map(function (uid) {
+      var p = LB_CACHE.profileById[uid];
+      return {
+        uid: uid, score: scoreByUser[uid], done: doneByUser[uid],
+        name: p ? (p.display_name || "(chưa đặt tên)") : "(user đã xoá)",
+        emoji: p ? (p.avatar_emoji || "🐣") : "❔"
+      };
+    }).sort(function (a, b) { return b.score - a.score; });
+
+    if (!ranking.length) {
+      box.innerHTML = '<div class="nav-empty">' +
+        (period === "all" ? "Chưa ai học xong Block nào trong phạm vi này cả."
+          : "Chưa có ai Done Block nào trong khoảng thời gian này (hoặc dữ liệu cũ chưa có mốc ngày, xem 'Từ đầu').") +
+        "</div>";
+      return;
+    }
+    var medal = ["🥇", "🥈", "🥉"];
+    box.innerHTML = '<table class="ai-report-table"><thead><tr><th></th><th>Người học</th><th>Điểm</th><th>Block Done</th></tr></thead><tbody>' +
+      ranking.map(function (r, i) {
+        var me = w.Auth.user && w.Auth.user.id === r.uid;
+        return '<tr' + (me ? ' style="font-weight:700;color:var(--blue-l)"' : "") + '>' +
+          "<td>" + (medal[i] || (i + 1)) + "</td>" +
+          "<td>" + w.esc(r.emoji) + " " + w.esc(r.name) + (me ? " (bạn)" : "") + "</td>" +
+          "<td>" + Math.round(r.score) + "</td>" +
+          "<td>" + r.done + "</td>" +
+        "</tr>";
+      }).join("") + "</tbody></table>";
+  }
 
   /* dọn khỏi bộ nhớ cả nhánh con, khỏi phải chờ tải lại */
   function removeLocal(table, id) {
@@ -2830,6 +2863,13 @@
       menu.hidden = true;
       App.openShareOverview();
     };
+    w.$$(".lb-tab").forEach(function (btn) {
+      btn.onclick = function () {
+        w.$$(".lb-tab").forEach(function (t) { t.classList.remove("active"); });
+        btn.classList.add("active");
+        renderLeaderboardPeriod(btn.dataset.period);
+      };
+    });
     w.$("#btn-share-save").onclick = async function () {
       var notebookId = w.$("#modal-share").dataset.notebook;
       var restricted = w.$("#share-restricted").checked;
@@ -2908,6 +2948,25 @@
       if (copyBtn) {
         var link = adminLink(copyBtn.dataset.copyLink);
         navigator.clipboard.writeText(link).then(function () { w.toast("Đã copy link", "ok"); });
+        return;
+      }
+      /* "Gửi email" — app KHÔNG tự gửi email được (không có dịch vụ email
+         nào cấu hình, và tài khoản kiểu link vốn không lưu email của họ,
+         xem thiết kế "3) TÀI KHOẢN CLOUD QUA LINK" trong auth.js) — chỉ
+         mở sẵn ứng dụng mail MẶC ĐỊNH của máy (mailto:) với link đã điền
+         sẵn trong nội dung, TJ tự gõ email người nhận rồi bấm Gửi bên
+         trong app mail đó. Không cần backend/API key gì cả. */
+      var emailBtn = e.target.closest("[data-email-link]");
+      if (emailBtn) {
+        var row2 = emailBtn.closest("[data-pid]");
+        var pname2 = row2 ? row2.querySelector(".admin-name").textContent.trim() : "";
+        var r3 = await askText({ title: "📧 Gửi email cho " + pname2, desc: "Nhập email người nhận — app sẽ mở sẵn ứng dụng mail trên máy bạn, kèm link đăng nhập trong nội dung.", placeholder: "vd: ban@gmail.com" });
+        if (!r3 || !r3.text) return;
+        var link2 = adminLink(emailBtn.dataset.emailLink);
+        var appName = (w.APP_CONFIG && w.APP_CONFIG.APP_NAME) || "TJ WordLoop Hub";
+        var subject = encodeURIComponent("Link học " + appName + " của bạn");
+        var body = encodeURIComponent("Chào " + pname2 + ",\n\nMở link này để vào thẳng tài khoản học của bạn trên " + appName + " (không cần đăng nhập gì thêm):\n" + link2 + "\n\nLưu link lại — mở là vào ngay lần sau.");
+        location.href = "mailto:" + encodeURIComponent(r3.text) + "?subject=" + subject + "&body=" + body;
         return;
       }
       var delBtn = e.target.closest("[data-del-profile]");

@@ -1251,6 +1251,11 @@
 
     if (passed) {
       Object.assign(patch, srsAdvanceIfDue(bp, ex));
+      /* Mốc thời gian ĐẦU TIÊN đạt Phiếu đầy đủ/Từng câu — ghi ĐÚNG 1 lần
+         (không đè lại ở lần đạt sau), dùng cho Bảng xếp hạng lọc theo
+         Tuần/Tháng (xem App.openLeaderboard trong app.js) — biết CHÍNH
+         XÁC ngày kiếm điểm, không chỉ trạng thái hiện tại. */
+      if (!bp.hard_passed_at) patch.hard_passed_at = Date.now();
     } else {
       patch.passed = !!bp.passed;   /* đã từng đạt thì không bị mất */
     }
@@ -1469,6 +1474,9 @@
           best_score: Math.max(bp0.best_score || 0, ex.score), last_exam_at: Date.now() },
         srsAdvanceIfDue(bp0, ex)
       );
+      /* Mốc thời gian ĐẦU TIÊN đạt Nghĩa — xem chú thích tương ứng ở
+         submitFinal phía trên (cùng lý do, cùng cơ chế "ghi 1 lần"). */
+      if (!bp0.easy_passed_at) bpatch.easy_passed_at = Date.now();
       S().bp[D.blockId] = Object.assign({}, bp0, bpatch, { user_id: w.Auth.user.id, block_id: D.blockId });
       try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, bpatch); } catch (e) {}
     }

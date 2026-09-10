@@ -742,6 +742,14 @@ mitigate | giảm nhẹ"></textarea>
       hệ số loại bài đã Done qua (🔀 Nghĩa = ×1 · 📋 Phiếu đầy đủ/🔤 Từng câu = ×1.5).
       Chỉ tính Block đã Done (đạt ≥ 80% ở bất kỳ 1 trong các bài kiểm tra).
     </p>
+    <!-- Block Done TRƯỚC khi có 2 cột easy_passed_at/hard_passed_at (xem
+         tools/supabase_schema.sql) không biết đúng ngày Done -> chỉ hiện
+         ở "Từ đầu", không hiện ở Tuần/Tháng — xem App.openLeaderboard. -->
+    <div class="lb-tabs">
+      <button class="lb-tab" data-period="week">Tuần</button>
+      <button class="lb-tab" data-period="month">Tháng</button>
+      <button class="lb-tab active" data-period="all">Từ đầu</button>
+    </div>
     <div id="leaderboard-body"></div>
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-leaderboard">Đóng</button>
