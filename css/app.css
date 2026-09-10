@@ -301,7 +301,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    chiều cao giới hạn, để khi có NHIỀU Notebook lồng nhau (dài), nó tự
    cuộn RIÊNG bên trong thay vì đẩy khối "🏆 RANKING"/"Chu kỳ Tony Buzan"
    xuống tuốt cuối, phải cuộn hết cây mới thấy (TJ yêu cầu). */
-#notebook-list{max-height:42vh;overflow-y:auto;}
+/* max-height dùng dvh (không phải vh thường) — trên mobile, vh tính theo
+   viewport GỒM CẢ thanh địa chỉ, nên mỗi lần thanh địa chỉ ẩn/hiện lúc
+   cuộn, vh đổi giá trị -> max-height này co giãn lại -> đẩy giật
+   "🏆 RANKING"/"Chu kỳ Tony Buzan" ngay dưới nó (TJ báo "bị giật lên
+   trên"). dvh (dynamic viewport height) sinh ra đúng để tránh bug này,
+   hỗ trợ rộng khắp Chrome/Safari/Edge mobile hiện tại. Giữ vh làm
+   fallback cho trình duyệt rất cũ (dòng dưới ghi đè nếu dvh được hỗ trợ). */
+#notebook-list{max-height:42vh;max-height:42dvh;overflow-y:auto;}
 /* Gọn kiểu VS Code Explorer (theo yêu cầu TJ) — hàng thấp, đệm sát trái,
    chữ nhỏ vừa đủ đọc, không còn khoảng trắng thừa như trước. */
 .nav-item{
@@ -1483,8 +1490,15 @@ textarea:focus{border-color:var(--blue);}
   .workspace{padding:.8rem .8rem 5rem;}
   .card{padding:.75rem;}   /* thẻ bài tập (Nghĩa/Từng câu...) bớt viền trắng thừa, vừa màn hình hơn */
 
+  /* height thay vì bottom:0: bottom:0 phải TÍNH LẠI mỗi lần thanh địa chỉ
+     mobile ẩn/hiện lúc cuộn (viewport đổi) -> cả sidebar (kéo theo 2 khối
+     "cố định" RANKING/Tony Buzan bên trong) bị giật. 100dvh trừ phần
+     topbar cho chiều cao ỔN ĐỊNH ngay từ đầu, khỏi phụ thuộc bottom. */
   .sidebar{
-    position:fixed;top:calc(var(--topbar-h) + env(safe-area-inset-top));bottom:0;width:78%;max-width:290px;z-index:850;
+    position:fixed;top:calc(var(--topbar-h) + env(safe-area-inset-top));
+    height:calc(100vh - var(--topbar-h) - env(safe-area-inset-top));
+    height:calc(100dvh - var(--topbar-h) - env(safe-area-inset-top));
+    width:78%;max-width:290px;z-index:850;
     transition:transform .22s ease;
   }
   .sidebar-left{left:0;transform:translateX(-102%);}
