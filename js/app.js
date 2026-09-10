@@ -210,6 +210,158 @@
   }
 
   /* ══════════════ RENDER: SIDEBAR TRÁI ══════════════ */
+  /* ══════════════ SHARE NOTEBOOK (Mức A — CHỈ ẩn/hiện giao diện) ══════════════
+     KHÔNG PHẢI bảo mật database thật — RLS bảng notebooks/sections/.../words
+     vẫn đang mở chung cho mọi người như trước giờ (xem "shared_all" trong
+     tools/supabase_schema.sql), ai gọi thẳng Supabase API (vd DevTools)
+     vẫn đọc được hết. Đây chỉ là LỌC HIỂN THỊ phía client — đủ dùng cho
+     app gia đình/nhóm nhỏ tin tưởng nhau, KHÔNG dùng để giấu dữ liệu thật
+     nhạy cảm. Muốn chặn thật ở tầng database (Mức B) cần viết lại RLS +
+     xác thực JWT thật, xem memory "project_tjhub_wordloop" — chưa làm.
+
+     notebookAccessAll: TOÀN BỘ dòng notebook_access (mọi Notebook, mọi
+     user) — tải 1 lần lúc khởi động + refresh khi đổi user, dùng CHUNG
+     cho cả việc lọc hiển thị lẫn trang "🔐 Quản lý chia sẻ".
+     myGrantedIds: Set các notebook_id mà USER HIỆN TẠI có mặt trong
+     notebook_access (bất kể role gì — role chỉ ảnh hưởng được sửa hay
+     chỉ xem, KHÔNG ảnh hưởng có thấy hay không). */
+  var notebookAccessAll = [];
+  var myGrantedIds = new Set();
+
+  async function loadNotebookAccess() {
+    try { notebookAccessAll = await w.DB.listAllNotebookAccess(); } catch (e) { notebookAccessAll = []; }
+    var myId = w.Auth.user && w.Auth.user.id;
+    myGrantedIds = new Set(notebookAccessAll.filter(function (r) { return r.user_id === myId; }).map(function (r) { return r.notebook_id; }));
+  }
+
+  /* true nếu USER HIỆN TẠI được thấy Notebook này — Admin luôn thấy hết.
+     "restricted" cộng dồn qua CẢ chuỗi tổ tiên (share 1 Notebook mẹ ->
+     tự thấy hết Notebook con lồng bên trong, không cần share riêng từng
+     cái) — bất kỳ mắt xích nào trong chuỗi bị "restricted" mà không có
+     mặt trong myGrantedIds thì ẩn, dù các mắt xích khác có share hay
+     không (giống quyền thư mục thật: phải qua được HẾT các lớp mới vào
+     được lớp trong cùng). nbList (tuỳ chọn) — mảng để tra parent chain,
+     dùng khi đang lọc 1 danh sách MỚI TẢI (chưa gán vào S.notebooks). */
+  function notebookAllowedForUser(notebookId, nbList) {
+    if (w.Auth.isAdmin()) return true;
+    var list = nbList || S.notebooks;
+    var cur = list.find(function (n) { return n.id === notebookId; });
+    var guard = 0;
+    while (cur && guard++ < 50) {
+      if (cur.visibility === "restricted" && !myGrantedIds.has(cur.id)) return false;
+      cur = cur.parent_notebook_id ? list.find(function (n) { return n.id === cur.parent_notebook_id; }) : null;
+    }
+    return true;
+  }
+
+  /* Dùng THAY CHO w.DB.getNotebooks() ở MỌI nơi gán S.notebooks — tự lọc
+     bớt Notebook "restricted" mà user hiện tại không được share. */
+  async function loadNotebooksFiltered(hubId) {
+    var nbs = hubId ? await w.DB.getNotebooks(hubId) : [];
+    return nbs.filter(function (n) { return notebookAllowedForUser(n.id, nbs); });
+  }
+  App.notebookAllowedForUser = notebookAllowedForUser;   /* home.js/journey.js dùng lại để lọc t.notebooks */
+
+  /* Vai trò của USER HIỆN TẠI trong 1 Notebook — 'edit' (mặc định, y hệt
+     trước giờ) hoặc 'view' (chỉ học/xem, không thêm/sửa được từ vựng).
+     Lấy đúng vai trò ở mắt xích "restricted" GẦN NHẤT (tính từ chính
+     Notebook đó đi ngược lên) mà user có được cấp quyền — Notebook không
+     restricted ở mắt xích nào cả (mặc định "everyone") thì luôn 'edit',
+     y hệt hành vi trước khi có tính năng Share. */
+  function myRoleInNotebook(notebookId) {
+    if (w.Auth.isAdmin()) return "edit";
+    var myId = w.Auth.user && w.Auth.user.id;
+    var cur = S.notebooks.find(function (n) { return n.id === notebookId; });
+    var guard = 0;
+    while (cur && guard++ < 50) {
+      if (cur.visibility === "restricted") {
+        var g = notebookAccessAll.find(function (r) { return r.notebook_id === cur.id && r.user_id === myId; });
+        if (g) return g.role;
+      }
+      cur = cur.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === cur.parent_notebook_id; }) : null;
+    }
+    return "edit";
+  }
+  App.myRoleInNotebook = myRoleInNotebook;
+
+  /* Modal "🔗 Chia sẻ" — mở từ menu ⋯ của 1 Notebook (chỉ Admin thấy, xem
+     openMenu). Liệt kê MỌI user KHÔNG PHẢI Admin (Admin mặc định thấy hết,
+     không cần share riêng) — tick chọn + vai trò (Xem/Toàn quyền), cộng 1
+     công tắc "Riêng tư" (visibility). Bấm "💾 Lưu" mới thật sự ghi DB. */
+  App.openShareModal = async function (notebookId) {
+    var nb = S.notebooks.find(function (n) { return n.id === notebookId; });
+    if (!nb) return;
+    w.$("#share-title").textContent = '🔗 Chia sẻ "' + nb.name + '"';
+    w.$("#share-restricted").checked = nb.visibility === "restricted";
+    w.$("#modal-share").dataset.notebook = notebookId;
+
+    var box = w.$("#share-user-list");
+    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải danh sách user…</p>';
+    w.$("#modal-share").hidden = false;
+
+    var profiles;
+    try { profiles = await w.DB.listProfiles(); }
+    catch (e) { box.innerHTML = "Lỗi tải danh sách user: " + w.esc(e.message || String(e)); return; }
+    var others = profiles.filter(function (p) { return !p.is_admin; });
+    var grantsForNb = {};
+    notebookAccessAll.forEach(function (r) { if (r.notebook_id === notebookId) grantsForNb[r.user_id] = r.role; });
+
+    box.innerHTML = others.length
+      ? others.map(function (p) {
+          var role = grantsForNb[p.id] || "";
+          return '<div class="share-user-row" data-user="' + p.id + '">' +
+            '<label class="share-user-label"><input type="checkbox" data-share-check' + (role ? " checked" : "") + '> ' +
+              w.esc(p.avatar_emoji || "🐣") + " " + w.esc(p.display_name || "(chưa đặt tên)") +
+            "</label>" +
+            '<select data-share-role class="mini-select">' +
+              '<option value="view"' + (role !== "edit" ? " selected" : "") + '>Chỉ xem</option>' +
+              '<option value="edit"' + (role === "edit" ? " selected" : "") + '>Toàn quyền</option>' +
+            "</select>" +
+          "</div>";
+        }).join("")
+      : '<div class="nav-empty">Chưa có tài khoản nào khác — tạo ở "👑 Quản lý tài khoản" trước đã.</div>';
+  };
+
+  /* Trang tổng quan Admin: MỌI Notebook đang "Riêng tư" (mọi Hub, không
+     chỉ Hub đang mở) + ai được share gì — dùng DB.getFullTree() để lấy
+     đủ notebooks xuyên suốt mọi Hub (S.notebooks chỉ scope 1 Hub). */
+  App.openShareOverview = async function () {
+    var box = w.$("#share-overview-body");
+    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
+    w.$("#modal-share-overview").hidden = false;
+    try {
+      var t = await w.DB.getFullTree(w.Auth.user && w.Auth.user.id);
+      var profiles = await w.DB.listProfiles();
+      await loadNotebookAccess();   /* nạp lại cho chắc mới nhất */
+      var profileById = {};
+      profiles.forEach(function (p) { profileById[p.id] = p; });
+      var hubNameById = {};
+      (t.hubs || []).forEach(function (h) { hubNameById[h.id] = h.name; });
+      var restricted = (t.notebooks || []).filter(function (n) { return n.visibility === "restricted"; });
+
+      if (!restricted.length) {
+        box.innerHTML = '<div class="nav-empty">Chưa có Notebook nào đặt "Riêng tư" — mọi Notebook đang mở cho tất cả mọi người xem.</div>';
+        return;
+      }
+      box.innerHTML = restricted.map(function (n) {
+        var grants = notebookAccessAll.filter(function (r) { return r.notebook_id === n.id; });
+        var who = grants.length
+          ? grants.map(function (g) {
+              var p = profileById[g.user_id];
+              return (p ? w.esc(p.avatar_emoji || "🐣") + " " + w.esc(p.display_name || "?") : "(user đã xoá)") +
+                ' <span class="share-role-tag">' + (g.role === "edit" ? "Toàn quyền" : "Chỉ xem") + "</span>";
+            }).join(", ")
+          : '<i style="color:var(--text-3)">Chưa share cho ai — chỉ Admin thấy</i>';
+        return '<div class="share-overview-row">' +
+          '<div class="share-overview-nb">🗂️ ' + w.esc(hubNameById[n.hub_id] || "?") + ' › ' + w.esc(n.name) + "</div>" +
+          '<div class="share-overview-who">' + who + "</div>" +
+        "</div>";
+      }).join("");
+    } catch (e) {
+      box.innerHTML = "Lỗi tải: " + w.esc(e.message || String(e));
+    }
+  };
+
   /* true nếu "nodeId" CHÍNH LÀ "ancestorId" hoặc nằm lồng bên trong nó (đi
      ngược lên theo parent_notebook_id) — dùng để chặn kéo/đặt 1 Notebook
      vào trong CHÍNH NÓ hoặc trong 1 Notebook con-cháu của nó (tránh vòng
@@ -664,7 +816,7 @@
   App.ensureNotebookContext = async function (hubId, notebookId) {
     if (hubId && S.hubId !== hubId) {
       S.hubId = hubId;
-      S.notebooks = await w.DB.getNotebooks(hubId);
+      S.notebooks = await loadNotebooksFiltered(hubId);
     }
     if (notebookId && S.notebookId !== notebookId) {
       S.notebookId = notebookId;
@@ -865,11 +1017,19 @@
        thật) không có cách nào tạo thêm tài khoản mới từ trong app — xem
        giải thích ở #modal-admin. */
     w.$("#mi-admin").style.display = isAdmin ? "" : "none";
+    var shareOv = w.$("#mi-share-overview");
+    if (shareOv) shareOv.style.display = (isAdmin && w.DB.mode === "cloud") ? "" : "none";
     /* "✨ Dán bài, tự trích từ" — TỪNG chỉ Admin thấy ("AI chỉ Admin"),
        nay MỞ CHO MỌI USER (theo yêu cầu) — ai cũng dùng được AI (Gemini
-       free) để trích từ vựng, không cần phân biệt vai trò nữa. */
+       free) để trích từ vựng, không cần phân biệt vai trò nữa.
+       NGOẠI TRỪ: role "Chỉ xem" (Share, Mức A) trong Notebook đang mở —
+       ẩn cả 2 nút thêm/tạo Block mới, cùng "+ Paste từ mới" cạnh nó. */
+    var myRole = S.notebookId ? myRoleInNotebook(S.notebookId) : "edit";
+    var canAddContent = myRole !== "view";
     var extractBtn = w.$("#btn-paste-extract");
-    if (extractBtn) extractBtn.hidden = false;
+    if (extractBtn) extractBtn.hidden = !canAddContent;
+    var pasteNewBtn = w.$("#btn-paste-new");
+    if (pasteNewBtn) pasteNewBtn.hidden = !canAddContent;
     /* Nút "🔄 Xem như User"/"🔄 Về giao diện Admin" — CHỈ Admin THẬT thấy
        (u.admin, không phải isAdmin() — nếu không, bật xong thì chính nút
        để quay lại cũng biến mất, kẹt luôn trong chế độ xem thử). */
@@ -1409,6 +1569,12 @@
        nhất 1 Notebook khác hợp lệ (không phải chính nó/con cháu nó);
        "Đưa ra ngoài" chỉ hiện khi ĐANG là Notebook con của ai đó. */
     if (table === "notebooks") {
+      /* Share (Mức A) — CHỈ Admin thật thấy (không hiện lúc đang "Xem như
+         User"), và chỉ ở Cloud mode (cần bảng profiles thật, xem
+         DB.listAllNotebookAccess). */
+      if (w.Auth.user && w.Auth.user.admin && !w.Auth.viewAsUser && w.DB.mode === "cloud") {
+        items.push({ act: "share", icon: "🔗", text: "Chia sẻ / Ẩn Notebook này…" });
+      }
       var nbCandidates = S.notebooks.filter(function (n) { return n.id !== id && !notebookIsDescendant(n.id, id); });
       if (nbCandidates.length) items.push({ act: "setparent", icon: "📂", text: "Đặt vào trong Notebook khác" });
       if (row.parent_notebook_id) items.push({ act: "unparent", icon: "📤", text: "Đưa ra ngoài (bỏ làm Notebook con)" });
@@ -1501,6 +1667,11 @@
         if (j < 0 || j >= list.length) return;
         var arr = reordered(list, id, act === "down" || act === "bottom" ? j + 1 : j);
         if (arr) await App.renumber(table, arr);
+      }
+
+      else if (act === "share") {
+        await App.openShareModal(id);
+        return;   /* modal tự lo lưu + vẽ lại lúc bấm "💾 Lưu", khỏi cần reloadCurrent() ở cuối hàm này */
       }
 
       else if (act === "move") {
@@ -1934,7 +2105,7 @@
     if (!S.hubs.some(function (h) { return h.id === S.hubId; })) {
       S.hubId = S.hubs.length ? S.hubs[0].id : null;
     }
-    S.notebooks = S.hubId ? await w.DB.getNotebooks(S.hubId) : [];
+    S.notebooks = await loadNotebooksFiltered(S.hubId);
     if (!S.notebooks.some(function (n) { return n.id === S.notebookId; })) {
       S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
     }
@@ -2246,7 +2417,7 @@
       if (!b) return;
       leaveDetail();
       S.hubId = b.dataset.hub;
-      w.DB.getNotebooks(S.hubId).then(async function (nbs) {
+      loadNotebooksFiltered(S.hubId).then(async function (nbs) {
         S.notebooks = nbs;
         S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
         if (S.notebookId) await loadNotebook(S.notebookId);
@@ -2528,10 +2699,59 @@
       menu.hidden = true;
       openAiReportModal();
     };
-    w.$("#mi-view-toggle").onclick = function () {
+    w.$("#mi-share-overview").onclick = function () {
+      menu.hidden = true;
+      App.openShareOverview();
+    };
+    w.$("#btn-share-save").onclick = async function () {
+      var notebookId = w.$("#modal-share").dataset.notebook;
+      var restricted = w.$("#share-restricted").checked;
+      var btn = this;
+      btn.disabled = true; btn.textContent = "⏳ Đang lưu…";
+      try {
+        await w.DB.setNotebookVisibility(notebookId, restricted ? "restricted" : "everyone");
+        var rows = w.$$(".share-user-row");
+        for (var i = 0; i < rows.length; i++) {
+          var r2 = rows[i];
+          var userId = r2.dataset.user;
+          var checked = r2.querySelector("[data-share-check]").checked;
+          var role = r2.querySelector("[data-share-role]").value;
+          if (checked) await w.DB.grantNotebookAccess(notebookId, userId, role);
+          else await w.DB.revokeNotebookAccess(notebookId, userId);
+        }
+        var nbRow = S.notebooks.find(function (n) { return n.id === notebookId; });
+        if (nbRow) nbRow.visibility = restricted ? "restricted" : "everyone";
+        await loadNotebookAccess();
+        S.notebooks = await loadNotebooksFiltered(S.hubId);
+        if (!S.notebooks.some(function (n) { return n.id === S.notebookId; })) {
+          leaveDetail();
+          S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+          if (S.notebookId) await loadNotebook(S.notebookId); else clearContent();
+        }
+        w.$("#modal-share").hidden = true;
+        renderAll();
+        w.toast("Đã lưu cấu hình chia sẻ", "ok");
+      } catch (e) {
+        w.toast("Lỗi: " + (e.message || e), "err");
+      } finally {
+        btn.disabled = false; btn.textContent = "💾 Lưu";
+      }
+    };
+    w.$("#mi-view-toggle").onclick = async function () {
       menu.hidden = true;
       w.Auth.toggleViewMode();
       renderUserChip();
+      /* isAdmin() giờ tôn trọng viewAsUser (xem Auth.isAdmin trong
+         auth.js) -> notebookAllowedForUser cũng tự đổi theo -> lọc lại
+         S.notebooks để Admin xem thử ĐÚNG Notebook nào bị ẩn với User
+         thường (hữu ích để tự kiểm tra cấu hình Share vừa cấp). */
+      S.notebooks = await loadNotebooksFiltered(S.hubId);
+      if (!S.notebooks.some(function (n) { return n.id === S.notebookId; })) {
+        leaveDetail();
+        S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+        if (S.notebookId) await loadNotebook(S.notebookId); else clearContent();
+      }
+      renderAll();
       /* Đang ở trong màn Chi tiết Block -> vẽ lại luôn để nút "🔄 Tạo lại"/
          khu dán bài đọc ẩn/hiện đúng NGAY, khỏi phải đổi Block mới thấy. */
       if (w.Detail && w.Detail.blockId && w.Detail.renderPassage) w.Detail.renderPassage();
@@ -2835,8 +3055,19 @@
     await w.Auth.init();
     refreshPinsForUser();   /* nạp đúng cài đặt ẩn/hiện cột của user vừa xác định (xem khai báo ở trên) */
     refreshCollapsedForUser();   /* nạp đúng nhánh Notebook đã thu/bung của user vừa xác định */
+    await loadNotebookAccess();   /* PHẢI xong TRƯỚC lần loadNotebooksFiltered() đầu tiên bên dưới, không thì lọc sai (myGrantedIds rỗng) */
 
     w.Auth.onChange(async function () {
+      await loadNotebookAccess();   /* đổi user -> myGrantedIds đổi theo -> phải nạp lại TRƯỚC khi lọc lại cây bên dưới */
+      S.notebooks = await loadNotebooksFiltered(S.hubId);   /* S.notebooks đang lọc theo user CŨ -> lọc lại theo user MỚI */
+      if (!S.notebooks.some(function (n) { return n.id === S.notebookId; })) {
+        /* Notebook đang xem bị ẩn khỏi user MỚI (vd Admin đổi qua xem như
+           1 user thường không được share) -> PHẢI đổi ngay, không thôi
+           workspace vẫn hiện nội dung của Notebook lẽ ra đã bị ẩn. */
+        leaveDetail();
+        S.notebookId = S.notebooks.length ? S.notebooks[0].id : null;
+        if (S.notebookId) await loadNotebook(S.notebookId); else clearContent();
+      }
       await loadProgress();
       renderAll();
       App.refreshWordCounter();
@@ -2850,7 +3081,7 @@
     S.hubId = pick(S.hubs, sel.hubId);
 
     if (S.hubId) {
-      S.notebooks = await w.DB.getNotebooks(S.hubId);
+      S.notebooks = await loadNotebooksFiltered(S.hubId);
       S.notebookId = pick(S.notebooks, sel.notebookId);
       if (S.notebookId) await loadNotebook(S.notebookId);
     }

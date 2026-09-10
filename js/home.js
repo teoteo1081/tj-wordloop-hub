@@ -87,8 +87,14 @@
     if (!hubs.length) return '<div class="nav-empty">Chưa có Hub nào — bấm "+" ở thanh trên để thêm.</div>';
 
     var byNotebook = blocksByNotebook(t);
+    /* Lọc Notebook "restricted" mà user hiện tại không được share (Share,
+       Mức A) — dùng CHUNG hàm lọc với sidebar (App.notebookAllowedForUser
+       trong app.js), tránh viết lại logic đi ngược parent chain 2 lần. */
+    var visibleNbs = (t.notebooks || []).filter(function (n) {
+      return !w.App.notebookAllowedForUser || w.App.notebookAllowedForUser(n.id, t.notebooks);
+    });
     var notebooksByHub = {};
-    (t.notebooks || []).forEach(function (n) { (notebooksByHub[n.hub_id] = notebooksByHub[n.hub_id] || []).push(n); });
+    visibleNbs.forEach(function (n) { (notebooksByHub[n.hub_id] = notebooksByHub[n.hub_id] || []).push(n); });
 
     return hubs.map(function (h) {
       var allNbs = (notebooksByHub[h.id] || []).slice().sort(bySort);

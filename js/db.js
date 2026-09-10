@@ -767,6 +767,46 @@
     return true;
   };
 
+  /* ══════════════ SHARE NOTEBOOK (Mức A — chỉ ẩn/hiện giao diện, xem
+     ghi chú dài trong tools/supabase_schema.sql phần "SHARE") ══════════════
+     CHỈ hoạt động ở Cloud mode (cần bảng profiles thật) — local mode
+     (hồ sơ trên máy, không phải tài khoản Cloud) không có khái niệm
+     "share cho user khác" vì mỗi hồ sơ vốn đã tách biệt theo máy. */
+  DB.setNotebookVisibility = async function (notebookId, visibility) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("notebooks").update({ visibility: visibility }).eq("id", notebookId).select().single();
+    if (r.error) throw r.error;
+    return r.data;
+  };
+
+  /* Toàn bộ dòng notebook_access (mọi Notebook) — tải 1 lần, dùng cho cả
+     việc LỌC hiển thị (App.notebookVisibleTo) lẫn trang "🔐 Quản lý chia
+     sẻ" (liệt kê hết ai được share gì, không cần tra riêng từng Notebook). */
+  DB.listAllNotebookAccess = async function () {
+    if (DB.mode !== "cloud" || !DB.sb) return [];
+    var r = await DB.sb.from("notebook_access").select("*");
+    if (r.error) throw r.error;
+    return r.data || [];
+  };
+
+  /* upsert — set lại role nếu đã share rồi (không tạo trùng dòng), thêm
+     mới nếu chưa share. */
+  DB.grantNotebookAccess = async function (notebookId, userId, role) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("notebook_access")
+      .upsert({ notebook_id: notebookId, user_id: userId, role: role }, { onConflict: "notebook_id,user_id" })
+      .select().single();
+    if (r.error) throw r.error;
+    return r.data;
+  };
+
+  DB.revokeNotebookAccess = async function (notebookId, userId) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("notebook_access").delete().eq("notebook_id", notebookId).eq("user_id", userId);
+    if (r.error) throw r.error;
+    return true;
+  };
+
   /* Cây con của từng bảng — dùng để xoá dây chuyền ở chế độ local.
      Trên cloud thì Postgres tự lo nhờ ON DELETE CASCADE. */
   var CHILD = {

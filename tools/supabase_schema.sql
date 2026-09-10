@@ -216,6 +216,39 @@ create index if not exists idx_words_updated_at  on words(updated_at);
 create index if not exists idx_blocks_updated_at on blocks(updated_at);
 
 -- ══════════════════════════════════════════════════════════════════
+-- SHARE / ẨN-HIỆN NOTEBOOK THEO USER (2026-09-11, Mức A — CHỈ ẩn/hiện
+-- giao diện, KHÔNG PHẢI bảo mật database thật, xem ghi chú dài trong
+-- js/app.js gần Share.* — RLS bảng notebooks/blocks/... VẪN mở chung như
+-- cũ, ai gọi thẳng Supabase API vẫn đọc được hết. Muốn chặn THẬT ở tầng
+-- database (Mức B) thì phải làm lại toàn bộ tầng xác thực + RLS, xem
+-- memory "project_tjhub_wordloop" — không làm trong đợt này).
+--   · notebooks.visibility = 'everyone' (mặc định, y hệt trước giờ) |
+--     'restricted' (chỉ Admin + user có mặt trong notebook_access mới
+--     THẤY Notebook đó, kể cả Notebook con lồng bên trong — xem
+--     App.notebookVisibleTo trong app.js đi ngược parent_notebook_id).
+--   · notebook_access: 1 dòng = 1 user được share 1 Notebook, kèm role
+--     ('view' = chỉ xem/học, không paste/sửa/xoá gì trong Notebook đó;
+--     'edit' = toàn quyền y hệt mặc định trước giờ).
+-- ══════════════════════════════════════════════════════════════════
+alter table notebooks add column if not exists visibility text not null default 'everyone';
+
+create table if not exists notebook_access (
+  notebook_id text not null references notebooks(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  role text not null default 'view',   -- 'view' | 'edit'
+  created_at timestamptz not null default now(),
+  primary key (notebook_id, user_id)
+);
+alter table notebook_access enable row level security;
+-- Đọc được cả bảng (kể cả anon) để CLIENT tự lọc Notebook nào ẩn/hiện —
+-- ghi thì mọi role đều mở (giống "shared_all" ở trên, khớp mức tin tưởng
+-- chung của app) vì đây chỉ là bảng cấu hình HIỂN THỊ, không phải nơi
+-- chứa dữ liệu học thật.
+drop policy if exists "shared_all" on notebook_access;
+create policy "shared_all" on notebook_access for all to anon, authenticated using (true) with check (true);
+create index if not exists idx_notebook_access_user on notebook_access(user_id);
+
+-- ══════════════════════════════════════════════════════════════════
 -- GIỚI HẠN AI — user THƯỜNG chỉ được nhờ Gemini viết bài đọc cho tối đa
 -- 3 Block KHÁC NHAU mỗi ngày (Admin không giới hạn) — chấm ở
 -- supabase/functions/gemini-proxy/index.ts (checkQuota/recordUsage), CHỈ

@@ -102,6 +102,9 @@
            app.js) — người dùng thường (kể cả đăng nhập qua link) không
            bao giờ thấy nút này, không tạo được tài khoản mới. -->
       <button class="menu-item" id="mi-admin" style="display:none">👑 <span>Quản lý tài khoản</span></button>
+      <!-- CHỈ Admin thật + Cloud mode thấy (xem renderUserChip) — trang tổng
+           quan mọi Notebook đang "Riêng tư" + ai được share gì. -->
+      <button class="menu-item" id="mi-share-overview" style="display:none">🔐 <span>Quản lý chia sẻ</span></button>
       <!-- CHỈ Admin thật thấy (Auth.user.admin — không đổi theo chế độ
            xem thử, để luôn có đường quay lại). Bấm để đổi Auth.viewAsUser
            — CHỈ ảnh hưởng giao diện (ẩn/hiện các nút Admin-only), KHÔNG hề
@@ -683,6 +686,45 @@ mitigate | giảm nhẹ"></textarea>
     <div id="admin-list" class="admin-list"></div>
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-admin">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chia sẻ 1 Notebook — mở từ menu "⋯ > 🔗 Chia sẻ / Ẩn Notebook này…",
+     CHỈ Admin thấy (xem openMenu trong app.js). Mức A: chỉ ẩn/hiện giao
+     diện, KHÔNG phải bảo mật database thật — xem ghi chú dài trong
+     App.openShareModal. -->
+<div class="modal-overlay" id="modal-share" hidden>
+  <div class="modal-box wide">
+    <h3 id="share-title">🔗 Chia sẻ Notebook</h3>
+    <p class="modal-desc">
+      Chỉ ẩn/hiện trên giao diện cho gọn — KHÔNG phải khoá dữ liệu thật (ai
+      rành kỹ thuật vẫn đọc được qua Supabase API). Phù hợp gia đình/nhóm
+      tin tưởng nhau, không dùng để giấu dữ liệu nhạy cảm thật sự.
+      Share 1 Notebook mẹ thì Notebook con lồng bên trong cũng tự thấy theo.
+    </p>
+    <label class="share-toggle">
+      <input type="checkbox" id="share-restricted">
+      <span>Chỉ người được chia sẻ bên dưới (+ Admin) mới thấy Notebook này</span>
+    </label>
+    <div id="share-user-list" class="share-user-list"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-share">Huỷ</button>
+      <button class="btn-primary" id="btn-share-save">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quản lý chia sẻ (tổng quan) — menu "👑 Quản lý tài khoản" hoặc menu
+     riêng, liệt kê MỌI Notebook đang "restricted" + ai được share gì, để
+     Admin không phải mở từng Notebook 1 mới biết đang share những gì. -->
+<div class="modal-overlay" id="modal-share-overview" hidden>
+  <div class="modal-box wide">
+    <h3>🔐 Quản lý chia sẻ</h3>
+    <p class="modal-desc">Mọi Notebook đang đặt "Riêng tư" (chỉ người được share mới thấy) và danh sách người được share.</p>
+    <div id="share-overview-body"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-share-overview">Đóng</button>
     </div>
   </div>
 </div>
