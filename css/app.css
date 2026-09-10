@@ -284,6 +284,13 @@ button{font-family:inherit;}
 .resizer:hover::after,.resizer.dragging::after{background:var(--blue);}
 body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .sidebar-scroll{padding:.5rem .25rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.3rem;}
+/* Riêng sidebar TRÁI: .sidebar-scroll (cây Notebook) không còn flex:1
+   (chiếm hết chỗ) nữa — chỉ cao vừa đủ nội dung của nó (tự cuộn riêng nếu
+   dài quá), NHƯỜNG khoảng trống còn lại cho "🏆 RANKING" bên dưới (khối
+   đó mới là flex:1, xem .sidebar-lb-mini) thay vì để Ranking chỉ cao vừa
+   đủ vài dòng "nhỏ xíu" như TJ báo. Cap 55dvh để cây Notebook không nuốt
+   hết sidebar khi có rất nhiều Notebook, vẫn còn chỗ cho Ranking. */
+.sidebar-left>.sidebar-scroll{flex:0 1 auto;max-height:55vh;max-height:55dvh;}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.15rem;}
 .sidebar-title{
   font-size:.68rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;
@@ -355,13 +362,24 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .legend-updated.fresh{color:var(--amber, #d97706);font-weight:700;}
 
 /* Bảng xếp hạng thu nhỏ ở cuối sidebar trái — TJ yêu cầu để dễ thấy hơn
-   là phải bấm sâu vào menu ⋯. Theo đúng Notebook đang mở, Top 3. */
-/* Cùng lý do như .sidebar-foot ở trên: nay là anh em cố định của
-   .sidebar-scroll chứ không phải con bên trong nó nữa -> tự thêm padding
-   ngang + flex-shrink:0. */
-.sidebar-lb-mini{flex-shrink:0;padding:.8rem .5rem .3rem;border-top:1px solid var(--border-soft);cursor:pointer;}
+   là phải bấm sâu vào menu ⋯. Theo đúng Notebook đang mở, Top 5. */
+/* Khối này giờ CHIẾM HẾT khoảng trống còn lại giữa cây Notebook (phía
+   trên, .sidebar-scroll giờ chỉ cao vừa đủ nội dung/cuộn riêng khi dài,
+   xem .sidebar-scroll bên dưới) và "Chu kỳ Tony Buzan" ghim đáy — TJ báo
+   trước đó nó chỉ cao vừa đủ vài dòng, "nhỏ xíu", trong khi đúng ra phải
+   to bằng cả khoảng đó. flex:1 + min-height:0 để tự cuộn riêng nếu Top 5
+   + phần chừa cho message trống vẫn không lấp hết chiều cao. */
+.sidebar-lb-mini{
+  flex:1;min-height:4rem;display:flex;flex-direction:column;
+  padding:.8rem .5rem .3rem;border-top:1px solid var(--border-soft);cursor:pointer;
+}
 .sidebar-lb-mini:hover .legend-title{color:var(--text-2);}
-.sb-lb-row{display:flex;align-items:center;gap:.5rem;font-size:.76rem;color:var(--text-2);padding:.3rem 0;}
+.sidebar-lb-mini .legend-title{flex-shrink:0;}
+/* Nội dung (danh sách Top 5, hoặc chữ "Đang tải…"/"Chưa ai học…") được
+   CĂN GIỮA theo chiều dọc trong khoảng trống lớn đó thay vì dồn lên đầu,
+   trông tự nhiên hơn khi khối cao hơn hẳn số dòng thật có. */
+#sidebar-lb-mini-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:center;}
+.sb-lb-row{display:flex;align-items:center;gap:.5rem;font-size:.76rem;color:var(--text-2);padding:.3rem 0;flex-shrink:0;}
 .sb-lb-row .sb-lb-rank{width:2rem;flex-shrink:0;text-align:center;}
 .sb-lb-row .sb-lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sb-lb-row .sb-lb-score{font-weight:700;color:var(--text-1);flex-shrink:0;}
