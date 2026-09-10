@@ -288,6 +288,15 @@
     var ws = words();
     var b = block();
 
+    /* User có ngôn ngữ giao diện "en" (Admin gán trong "👑 Quản lý tài
+       khoản", vd share app cho bạn nước ngoài) -> cột "Vietnamese Meaning"
+       không còn ý nghĩa gì (chữ Việt) — ẩn đi, chỉ còn "English
+       Definition" làm cột nghĩa chính, KHÔNG dịch AI gì thêm (theo đúng
+       yêu cầu TJ — dùng luôn cột định nghĩa Anh có sẵn). Không đụng gì
+       tới quiz/chấm điểm — bảng này chỉ để ĐỌC. */
+    var wrapEl = w.$("#vocab-wrap");
+    if (wrapEl) wrapEl.classList.toggle("hide-vi-col", w.Auth.effectiveLang && w.Auth.effectiveLang() === "en");
+
     /* Nguồn/chi phí AI đã tốn để tự điền cột còn thiếu cho bảng từ vựng
        này — giống badge bài đọc, đọc từ blocks.vocab_fill_meta (ghi lúc
        dán từ mới ở app.js doPaste()). Không có (Gemini free/điền tay/chưa
@@ -857,18 +866,33 @@
     };
   };
 
-  /* ---------- Đề chọn nghĩa (tab Nghĩa, riêng, không ảnh hưởng SRS) ---------- */
+  /* ---------- Đề chọn nghĩa (tab Nghĩa, riêng, không ảnh hưởng SRS) ----------
+     2 kiểu kiểm tra CHỌN ĐƯỢC bằng nút "🇻🇳 Nghĩa VN" / "🇬🇧 Meaning EN" ngay
+     trong tab (KHÔNG tự động theo Auth.effectiveLang() — đây là lựa chọn
+     RIÊNG của người đang làm bài, mặc định "vi" cho MỌI người kể cả tài
+     khoản tiếng Anh, theo đúng yêu cầu TJ "mặc định là tiếng Việt trước").
+     "vi" dùng meaning_vi (như cũ) — "en" dùng def_en (định nghĩa Anh có
+     sẵn, không dịch AI gì thêm), dành cho người học không phải người
+     Việt. Nhớ lựa chọn qua localStorage, riêng theo máy/trình duyệt. */
+  var LS_MEANING_LANG = "tjwl_meaning_lang_v1";
+  D.meaningLang = function () {
+    try { return localStorage.getItem(LS_MEANING_LANG) === "en" ? "en" : "vi"; } catch (e) { return "vi"; }
+  };
+  D.setMeaningLang = function (lang) {
+    try { localStorage.setItem(LS_MEANING_LANG, lang === "en" ? "en" : "vi"); } catch (e) {}
+  };
   D.buildMeaningQuiz = function () {
     var ws = words();
-    var withVi = ws.filter(function (x) { return x.meaning_vi; });
+    var field = D.meaningLang() === "en" ? "def_en" : "meaning_vi";
+    var withVi = ws.filter(function (x) { return x[field]; });
     if (!withVi.length) return null;
 
     var mcWords = shuffle(withVi).slice(0, Math.min(MEANING_CAP, withVi.length));
     var mc = mcWords.map(function (x) {
       var others = shuffle(withVi.filter(function (y) {
-        return y.id !== x.id && y.meaning_vi !== x.meaning_vi;
-      })).slice(0, 3).map(function (y) { return y.meaning_vi; });
-      return { term: x.term, answer: x.meaning_vi, options: shuffle([x.meaning_vi].concat(others)), given: null };
+        return y.id !== x.id && y[field] !== x[field];
+      })).slice(0, 3).map(function (y) { return y[field]; });
+      return { term: x.term, answer: x[field], options: shuffle([x[field]].concat(others)), given: null };
     });
 
     return { mc: mc, total: mc.length, graded: false };
@@ -1308,8 +1332,15 @@
      luôn — đúng thì tự động qua câu sau, sai thì hiện đáp án đúng và chờ
      bấm "Câu tiếp →" mới đi tiếp. */
   D.renderMeaning = function () {
+    D.bindMeaningLangTabs();
     var ex = D._meaningQuiz;
-    if (!ex) { w.$("#meaning-card").innerHTML = '<div class="quiz-done">Block này chưa có từ nào có nghĩa tiếng Việt để tạo bài này.</div>'; return; }
+    if (!ex) {
+      var emptyMsg = D.meaningLang() === "en"
+        ? "Block này chưa có từ nào có English Definition để tạo bài này."
+        : "Block này chưa có từ nào có nghĩa tiếng Việt để tạo bài này.";
+      w.$("#meaning-card").innerHTML = '<div class="quiz-done">' + emptyMsg + "</div>";
+      return;
+    }
 
     if (ex.graded) { w.$("#meaning-card").innerHTML = D.meaningResultHtml(ex) + D.meaningResultActionsHtml(); D.bindMeaningResult(); return; }
 
@@ -1431,6 +1462,24 @@
   D.bindMeaningResult = function () {
     w.$("#meaning-again").onclick = function () { D._meaningQuiz = D.buildMeaningQuiz(); D.mi = 0; D.renderMeaning(); };
     w.$("#meaning-back").onclick = function () { D.close(); w.App.renderBlocks(); };
+  };
+
+  /* Nút "🇻🇳 Nghĩa VN" / "🇬🇧 Meaning EN" — đổi NGAY (tạo lại đề, về câu 1)
+     khi bấm khác lựa chọn hiện tại; bấm lại đúng cái đang chọn thì bỏ qua. */
+  D.bindMeaningLangTabs = function () {
+    var box = w.$("#meaning-lang-tabs");
+    if (!box) return;
+    var cur = D.meaningLang();
+    w.$$(".mn-lang-tab", box).forEach(function (b) {
+      b.classList.toggle("active", b.dataset.mnlang === cur);
+      b.onclick = function () {
+        if (b.dataset.mnlang === D.meaningLang()) return;
+        D.setMeaningLang(b.dataset.mnlang);
+        D._meaningQuiz = D.buildMeaningQuiz();
+        D.mi = 0;
+        D.renderMeaning();
+      };
+    });
   };
 
   D.submitMeaning = async function () {

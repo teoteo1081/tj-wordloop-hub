@@ -138,6 +138,12 @@ create table if not exists profiles (
   display_name text,
   avatar_emoji text
 );
+-- lang: ngôn ngữ GIAO DIỆN (không phải ngôn ngữ học) cho tài khoản này —
+-- 'vi' (mặc định) | 'en'... Admin tự gán trong "👑 Quản lý tài khoản" khi
+-- share cho bạn nước ngoài — cả khung UI (menu/nút, xem js/i18n.js) lẫn cột
+-- "Nghĩa" của từ vựng (dùng def_en thay meaning_vi khi lang='en', xem
+-- detail.js/app.js) tự đổi theo. Điểm số/leaderboard KHÔNG đổi theo lang.
+alter table profiles add column if not exists lang text not null default 'vi';
 
 -- ══════════════════════════════════════════════════════════════════
 -- ROW LEVEL SECURITY

@@ -868,6 +868,18 @@
     return r.data;
   };
 
+  /* Ngôn ngữ GIAO DIỆN của tài khoản này — 'vi' (mặc định) | 'en' — dùng
+     khi share app cho bạn nước ngoài (xem js/i18n.js + Auth.effectiveLang
+     trong auth.js). Admin tự đổi trong "👑 Quản lý tài khoản". KHÔNG ảnh
+     hưởng cách chấm điểm/quiz — chỉ đổi ngôn ngữ khung UI + cột "Nghĩa"
+     hiển thị (dùng def_en thay meaning_vi khi lang="en"). */
+  DB.setProfileLang = async function (id, lang) {
+    if (DB.mode !== "cloud" || !DB.sb) return null;
+    var r = await DB.sb.from("profiles").update({ lang: lang || "vi" }).eq("id", id).select().single();
+    if (r.error) throw r.error;
+    return r.data;
+  };
+
   /* Chỉ xoá dòng "profiles" — KHÔNG dọn theo word_progress/block_progress/
      daily_log của người đó (không có FK cascade từ khi bỏ khoá ngoại về
      auth.users, xem ghi chú lịch sử trong CLAUDE.md). Các dòng tiến trình

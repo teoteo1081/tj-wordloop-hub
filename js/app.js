@@ -292,17 +292,11 @@
      openMenu). Liệt kê MỌI user KHÔNG PHẢI Admin (Admin mặc định thấy hết,
      không cần share riêng) — tick chọn + vai trò (Xem/Toàn quyền), cộng 1
      công tắc "Riêng tư" (visibility). Bấm "💾 Lưu" mới thật sự ghi DB. */
-  App.openShareModal = async function (notebookId) {
-    var nb = S.notebooks.find(function (n) { return n.id === notebookId; });
-    if (!nb) return;
-    w.$("#share-title").textContent = '🔗 Chia sẻ "' + nb.name + '"';
-    w.$("#share-restricted").checked = nb.visibility === "restricted";
-    w.$("#modal-share").dataset.notebook = notebookId;
-
+  /* Tách riêng phần vẽ danh sách user để gọi lại được sau khi "+ Thêm
+     người mới & chia sẻ luôn" tạo xong 1 tài khoản (khỏi phải đóng/mở lại
+     cả modal mới thấy tài khoản mới trong danh sách). */
+  async function renderShareUserList(notebookId) {
     var box = w.$("#share-user-list");
-    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải danh sách user…</p>';
-    w.$("#modal-share").hidden = false;
-
     var profiles;
     try { profiles = await w.DB.listProfiles(); }
     catch (e) { box.innerHTML = "Lỗi tải danh sách user: " + w.esc(e.message || String(e)); return; }
@@ -329,6 +323,20 @@
           "</div>";
         }).join("")
       : '<div class="nav-empty">Chưa có tài khoản nào khác — tạo ở "👑 Quản lý tài khoản" trước đã.</div>';
+  }
+
+  App.openShareModal = async function (notebookId) {
+    var nb = S.notebooks.find(function (n) { return n.id === notebookId; });
+    if (!nb) return;
+    w.$("#share-title").textContent = '🔗 Chia sẻ "' + nb.name + '"';
+    w.$("#share-restricted").checked = nb.visibility === "restricted";
+    w.$("#modal-share").dataset.notebook = notebookId;
+    w.$("#share-new-user-result").innerHTML = "";
+
+    var box = w.$("#share-user-list");
+    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải danh sách user…</p>';
+    w.$("#modal-share").hidden = false;
+    await renderShareUserList(notebookId);
   };
 
   /* ══════════════ MA TRẬN CHIA SẺ (🔐 Quản lý chia sẻ) ══════════════
@@ -794,7 +802,12 @@
              kéo-thả sẽ có chỗ riêng khác, không cần nhắc lại ở đây nữa).
              Chưa có nghĩa (từ mới paste, chưa "Tự điền còn thiếu") thì
              rơi về gợi ý kéo-thả cũ, đỡ để trống hẳn tooltip. */
-          var tip = x.meaning_vi ? x.meaning_vi : "Kéo thả qua Block khác để gộp từ";
+          /* User ngôn ngữ "en" -> hover xem def_en (định nghĩa Anh) thay
+             vì nghĩa tiếng Việt — không dịch AI gì thêm, dùng luôn cột đã
+             có sẵn (theo yêu cầu TJ). */
+          var wantEn = w.Auth.effectiveLang && w.Auth.effectiveLang() === "en";
+          var tip = wantEn ? (x.def_en || x.meaning_vi || "Drag to another Block to merge")
+                            : (x.meaning_vi ? x.meaning_vi : "Kéo thả qua Block khác để gộp từ");
           return '<span class="vchip' + (ok ? " ok" : "") + '" draggable="true" data-word="' + x.id + '" title="' + w.esc(tip) + '">' + w.esc(x.term) +
             (canDeleteWord ? '<button class="vchip-del" data-delword="' + x.id + '" title="Xoá từ khỏi kho">×</button>' : "") + "</span>";
         }).join("") + "</div>" +
@@ -1170,11 +1183,14 @@
         emojiBox.innerHTML = w.Auth.EMOJIS.map(function (e) {
           return '<button class="emoji-pick' + (e === chosen ? " sel" : "") + '" data-e="' + e + '">' + e + "</button>";
         }).join("");
+        /* Bấm lại đúng emoji ĐANG chọn -> BỎ chọn (chosen = null) thay vì
+           cứ giữ nguyên không đổi được gì — theo yêu cầu TJ ("hong chọn
+           thì nhấp bỏ dc chứ"). Bấm 1 emoji khác thì chọn cái đó như cũ. */
         emojiBox.onclick = function (ev) {
           var b = ev.target.closest(".emoji-pick");
           if (!b) return;
-          chosen = b.dataset.e;
-          w.$$(".emoji-pick", emojiBox).forEach(function (x) { x.classList.toggle("sel", x === b); });
+          chosen = (b.dataset.e === chosen) ? null : b.dataset.e;
+          w.$$(".emoji-pick", emojiBox).forEach(function (x) { x.classList.toggle("sel", x.dataset.e === chosen); });
         };
       } else {
         emojiBox.hidden = true;
@@ -1252,6 +1268,13 @@
             (p.is_admin || p.can_edit_passage ? " checked" : "") + (p.is_admin ? " disabled" : "") + ">" +
           "<span>✏️ Sửa đoạn văn</span>" +
         "</label>" +
+        /* Ngôn ngữ GIAO DIỆN của tài khoản này — dùng khi share cho bạn
+           nước ngoài (xem js/i18n.js). Đổi lưu ngay, không cần bấm gì
+           thêm. KHÔNG ảnh hưởng cách chấm điểm/quiz. */
+        '<select class="mini-select" data-lang-select="' + p.id + '" title="Ngôn ngữ giao diện của tài khoản này">' +
+          '<option value="vi"' + (p.lang !== "en" ? " selected" : "") + '>🇻🇳 Tiếng Việt</option>' +
+          '<option value="en"' + (p.lang === "en" ? " selected" : "") + '>🇬🇧 English</option>' +
+        "</select>" +
         '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
         '<button class="btn-soft" data-email-link="' + p.id + '" title="Mở email có sẵn để gửi link đăng nhập này">📧 Gửi email</button>' +
         '<button class="btn-soft danger" data-del-profile="' + p.id + '"' + (isMe ? " disabled" : "") +
@@ -1814,9 +1837,12 @@
         if (!r) return;
         row.name = r.text;
         await w.DB.rename(table, id, r.text);
-        if (withIcon && r.emoji && r.emoji !== row.icon) {
-          row.icon = r.emoji;
-          await w.DB.patch(table, id, { icon: r.emoji });
+        /* r.emoji có thể là null (TJ bấm bỏ chọn icon đang chọn) — vẫn
+           phải lưu để XOÁ icon đi (không phải chỉ bỏ qua khi falsy như
+           trước, khiến "bỏ chọn" không có tác dụng gì cả). */
+        if (withIcon && r.emoji !== row.icon) {
+          row.icon = r.emoji || "";
+          await w.DB.patch(table, id, { icon: row.icon });
         }
         w.toast("Đã đổi tên", "ok");
       }
@@ -3275,6 +3301,38 @@
       var nb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
       App.openLeaderboardPage("notebooks", S.notebookId, nb ? nb.name : "Notebook");
     };
+    /* "+ Thêm người mới & chia sẻ luôn" — tạo thẳng 1 tài khoản Cloud thật
+       (giống "👑 Quản lý tài khoản") NGAY TRONG modal Share, khỏi phải
+       thoát ra màn khác rồi quay lại — tự cấp quyền "Chỉ xem" cho Notebook
+       đang mở luôn (ghi DB ngay, không cần bấm "💾 Lưu"), và đưa sẵn link
+       đăng nhập để copy gửi cho họ. Tài khoản này là 1 dòng THẬT trong
+       bảng profiles chung — mở "🔗 Chia sẻ" ở Notebook khác sau đó cũng
+       thấy họ trong danh sách (mặc định "Không chia sẻ" ở Notebook đó,
+       chờ chọn riêng), không tự động share lan sang chỗ khác. */
+    w.$("#btn-share-new-user").onclick = async function () {
+      var notebookId = w.$("#modal-share").dataset.notebook;
+      if (!notebookId) return;
+      var r = await askText({
+        title: "👤 Tài khoản mới", desc: "Tạo xong sẽ tự chia sẻ Notebook này cho họ (Chỉ xem).",
+        withEmoji: true, emoji: "🦊", placeholder: "Tên hiển thị"
+      });
+      if (!r) return;
+      try {
+        var p = await w.DB.createProfile(r.text, r.emoji);
+        await w.DB.grantNotebookAccess(notebookId, p.id, "view");
+        await loadNotebookAccess();   /* để renderShareUserList thấy đúng role vừa cấp */
+        var link = adminLink(p.id);
+        w.$("#share-new-user-result").innerHTML =
+          '<div class="admin-new-link">✅ Đã tạo <b>' + w.esc(p.display_name) + '</b> — đã chia sẻ "Chỉ xem" Notebook này, gửi link cho họ:<br>' +
+          '<code>' + w.esc(link) + '</code>' +
+          '<button class="btn-soft" id="share-new-user-copy">📋 Copy link</button></div>';
+        w.$("#share-new-user-copy").onclick = function () {
+          navigator.clipboard.writeText(link).then(function () { w.toast("Đã copy link", "ok"); });
+        };
+        await renderShareUserList(notebookId);
+        w.toast('Đã tạo và chia sẻ cho "' + p.display_name + '"', "ok");
+      } catch (e) { w.toast("Không tạo được: " + (e.message || e), "err"); }
+    };
     w.$("#btn-share-save").onclick = async function () {
       var notebookId = w.$("#modal-share").dataset.notebook;
       var restricted = w.$("#share-restricted").checked;
@@ -3313,8 +3371,8 @@
        tự đổi theo ngay, nên phải nạp lại notebookAccessAll + lọc lại
        S.notebooks để thấy ĐÚNG Notebook nào Notebook đó thấy được, không
        chỉ đổi mỗi cái badge. */
-    async function applyViewAsUser(userId, displayName) {
-      w.Auth.setViewAsUser(userId, displayName);
+    async function applyViewAsUser(userId, displayName, lang) {
+      w.Auth.setViewAsUser(userId, displayName, lang);
       renderUserChip();
       await loadNotebookAccess();
       S.notebooks = await loadNotebooksFiltered(S.hubId);
@@ -3324,6 +3382,7 @@
         if (S.notebookId) await loadNotebook(S.notebookId); else clearContent();
       }
       renderAll();
+      if (w.I18N && w.I18N.apply) w.I18N.apply();   /* xem thử user có lang khác (vd 'en') -> đổi luôn khung UI theo */
       /* Đang ở trong màn Chi tiết Block -> vẽ lại luôn để nút "🔄 Tạo lại"/
          khu dán bài đọc ẩn/hiện đúng NGAY, khỏi phải đổi Block mới thấy. */
       if (w.Detail && w.Detail.blockId && w.Detail.renderPassage) w.Detail.renderPassage();
@@ -3356,7 +3415,7 @@
       if (!picked) return;
       var target = others.find(function (p) { return p.id === picked; });
       var targetName = target ? (target.display_name || "(chưa đặt tên)") : "user này";
-      await applyViewAsUser(picked, targetName);
+      await applyViewAsUser(picked, targetName, target ? target.lang : "vi");
       w.toast('Đang xem như "' + targetName + '" — chỉ đổi giao diện, quyền thật không đổi', "ok");
     };
     w.$("#btn-admin-new").onclick = async function () {
@@ -3453,6 +3512,21 @@
         if (!pok) { passBox.checked = !pnext; return; }
         try { await w.DB.setProfileCanEditPassage(pid, pnext); w.toast("Đã cập nhật", "ok"); }
         catch (e3) { passBox.checked = !pnext; w.toast("Không cập nhật được: " + (e3.message || e3), "err"); }
+        return;
+      }
+      var langSel = e.target.closest("[data-lang-select]");
+      if (langSel) {
+        var lid = langSel.dataset.langSelect;
+        var lval = langSel.value;
+        try {
+          await w.DB.setProfileLang(lid, lval);
+          w.toast("Đã cập nhật ngôn ngữ", "ok");
+          /* Nếu đang xem thử ĐÚNG tài khoản vừa đổi -> áp dụng ngay, khỏi
+             phải tắt "Xem như User" rồi bật lại mới thấy đổi. */
+          if (w.Auth.viewAsUserId === lid) { w.Auth.viewAsUserLang = lval; if (w.I18N) w.I18N.apply(); }
+          /* Đổi ngôn ngữ của CHÍNH tài khoản đang đăng nhập -> đổi UI ngay. */
+          if (w.Auth.user && w.Auth.user.id === lid) { w.Auth.user.lang = lval; if (w.I18N) w.I18N.apply(); }
+        } catch (e4) { w.toast("Không cập nhật được: " + (e4.message || e4), "err"); }
       }
     });
     w.$("#mi-logout").onclick = async function () {

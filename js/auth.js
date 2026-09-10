@@ -72,15 +72,28 @@
   Auth.effectiveUserId = function () {
     return Auth.viewAsUserId || (Auth.user && Auth.user.id) || null;
   };
+  /* Ngôn ngữ GIAO DIỆN hiện đang áp dụng — 'vi' (mặc định) | 'en'... Theo
+     Auth.user.lang (đọc từ profiles.lang), hoặc theo profile đang "xem
+     thử" (viewAsUserLang) nếu Admin đang bật "Xem như User" — để bản xem
+     thử phản ánh ĐÚNG cái người đó thấy, kể cả ngôn ngữ. Dùng ở
+     js/i18n.js (đổi khung UI) và detail.js/app.js (đổi cột "Nghĩa" sang
+     def_en khi lang="en") — KHÔNG đụng gì tới cách chấm điểm/quiz. */
+  Auth.effectiveLang = function () {
+    if (Auth.viewAsUserId) return Auth.viewAsUserLang || "vi";
+    return (Auth.user && Auth.user.lang) || "vi";
+  };
   /* userId = null -> tắt xem thử, về lại chính mình. userId = 1 profile
      id -> xem ĐÚNG như người đó (Share/notebook_access của họ), không
      đăng nhập thật vào tài khoản họ. Chỉ Admin thật (bất kể đang xem thử
-     ai) mới gọi được — để luôn có đường quay lại giao diện Admin. */
-  Auth.setViewAsUser = function (userId, displayName) {
+     ai) mới gọi được — để luôn có đường quay lại giao diện Admin.
+     lang: ngôn ngữ CỦA NGƯỜI ĐANG XEM THỬ (không phải của Admin) — để
+     effectiveLang() ở trên phản ánh đúng. */
+  Auth.setViewAsUser = function (userId, displayName, lang) {
     if (!(Auth.user && Auth.user.admin)) return;
     Auth.viewAsUserId = userId || null;
     Auth.viewAsUser = !!Auth.viewAsUserId;
     Auth.viewAsUserName = Auth.viewAsUserId ? (displayName || "") : "";   /* chỉ để hiện badge "👁️ Xem như <tên>", không dùng để tính quyền gì */
+    Auth.viewAsUserLang = Auth.viewAsUserId ? (lang || "vi") : "";
     fire();
   };
 
@@ -118,7 +131,7 @@
     var u = readUsers().find(function (x) { return x.id === id; });
     if (!u) return null;
     localStorage.setItem(LS_CUR, id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "vi" };
     if (w.DB) w.DB.progressCloud = false;
     fire();
     return Auth.user;
@@ -147,7 +160,7 @@
     var id = localStorage.getItem(LS_CUR);
     var u = arr.find(function (x) { return x.id === id; }) || arr[0];
     localStorage.setItem(LS_CUR, u.id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "vi" };
     if (w.DB) w.DB.progressCloud = false;
   }
 
@@ -174,7 +187,8 @@
     Auth.user = {
       id: uid, name: name, emoji: emoji, email: email, cloud: true,
       admin: !!(r && r.data && r.data.is_admin),
-      canEditPassage: !!(r && r.data && r.data.can_edit_passage)
+      canEditPassage: !!(r && r.data && r.data.can_edit_passage),
+      lang: (r && r.data && r.data.lang) || "vi"
     };
     w.DB.progressCloud = true;
     fire();
@@ -222,7 +236,8 @@
         /* Cờ RIÊNG (tách khỏi admin) — cho phép đổi bài đọc CHUNG của Block
            (dán/chọn Claude 1/2/3) mà không cần lên hẳn Admin. Xem
            renderPassage trong detail.js + #modal-admin trong app.js. */
-        canEditPassage: !!r.data.can_edit_passage
+        canEditPassage: !!r.data.can_edit_passage,
+        lang: r.data.lang || "vi"
       };
       w.DB.progressCloud = true;
 

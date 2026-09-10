@@ -414,6 +414,12 @@
 
       <!-- TAB: NGHĨA (10 từ đảo nghĩa, trắc nghiệm 4 đáp án — riêng, không tính SRS) -->
       <div class="tab-pane" id="pane-meaning">
+        <!-- Chọn kiểm tra theo nghĩa Tiếng Việt (mặc định) hay Meaning EN
+             (dành cho người học không phải người Việt) — xem D.setMeaningLang -->
+        <div class="meaning-lang-tabs" id="meaning-lang-tabs">
+          <button class="mn-lang-tab active" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
+          <button class="mn-lang-tab" data-mnlang="en">🇬🇧 Meaning EN</button>
+        </div>
         <div class="card final-wrap" id="meaning-card"></div>
       </div>
 
@@ -729,6 +735,8 @@ mitigate | giảm nhẹ"></textarea>
       <input type="checkbox" id="share-restricted">
       <span>Chỉ người được chia sẻ bên dưới (+ Admin) mới thấy Notebook này</span>
     </label>
+    <button class="btn-soft" id="btn-share-new-user" title="Tạo tài khoản mới cho bạn chưa có, tự chia sẻ Notebook này luôn và cho copy link đăng nhập">+ Thêm người mới &amp; chia sẻ luôn</button>
+    <div id="share-new-user-result"></div>
     <div id="share-user-list" class="share-user-list"></div>
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-share">Huỷ</button>
@@ -908,6 +916,7 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/speech.js?v=1"></script>
 <script src="js/db.js?v=5"></script>
 <script src="js/auth.js?v=4"></script>
+<script src="js/i18n.js?v=1"></script>
 <script src="js/reader.js?v=1"></script>
 <script src="js/detail.js?v=18"></script>
 <script src="js/export.js?v=1"></script>
