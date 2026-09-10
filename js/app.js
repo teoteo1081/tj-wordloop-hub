@@ -230,7 +230,11 @@
 
   async function loadNotebookAccess() {
     try { notebookAccessAll = await w.DB.listAllNotebookAccess(); } catch (e) { notebookAccessAll = []; }
-    var myId = w.Auth.user && w.Auth.user.id;
+    /* effectiveUserId() trả về ĐÚNG người đang "xem như" nếu Admin bật
+       xem thử 1 user cụ thể (xem Auth.setViewAsUser trong auth.js) — để
+       Notebook nào bị ẩn/hiện đúng y hệt người đó thấy, không phải luôn
+       theo Admin thật. */
+    var myId = w.Auth.effectiveUserId ? w.Auth.effectiveUserId() : (w.Auth.user && w.Auth.user.id);
     myGrantedIds = new Set(notebookAccessAll.filter(function (r) { return r.user_id === myId; }).map(function (r) { return r.notebook_id; }));
   }
 
@@ -1068,7 +1072,7 @@
       if (!u.cloud) { el.hidden = true; return; }
       el.hidden = false;
       if (previewing) {
-        el.textContent = "👁️ Xem như User";
+        el.textContent = "👁️ Xem như " + (w.Auth.viewAsUserName || "User");
         el.className = "role-badge preview";
       } else {
         el.textContent = isAdmin ? "👑 Admin" : "User";
@@ -1118,7 +1122,7 @@
     var viewToggle = w.$("#mi-view-toggle");
     if (viewToggle) {
       viewToggle.style.display = u.admin ? "" : "none";
-      w.$("#mi-view-toggle-text").textContent = previewing ? "Về giao diện Admin" : "Xem như User";
+      w.$("#mi-view-toggle-text").textContent = previewing ? ("Về giao diện Admin (đang xem " + (w.Auth.viewAsUserName || "User") + ")") : "Xem như user…";
     }
     reflectAddressBar(modeSlug, u.name);
   }
@@ -1603,6 +1607,36 @@
     return (S[table] || []).find(function (r) { return r.id === id; });
   }
 
+  /* Notebook nào SỞ HỮU 1 dòng bất kỳ (đi ngược FK, không phụ thuộc lựa
+     chọn hiện tại S.sectionId/S.pageId/... — dùng đúng row đang bấm vào)
+     — dùng để chấm role "Chỉ xem"/"Toàn quyền" (Share) cho ĐÚNG dòng đó
+     khi mở menu ⋯, xem App.openMenu. Hub không thuộc Notebook nào -> trả
+     về null (không chặn thao tác Hub theo Share — Share chỉ hoạt động ở
+     cấp Notebook trở xuống). */
+  function resolveNotebookIdForRow(table, id) {
+    if (table === "hubs") return null;
+    if (table === "notebooks") return id;
+    var row = rowOf(table, id);
+    if (!row) return null;
+    if (table === "sections") return row.notebook_id;
+    if (table === "pages") {
+      var sec = S.sections.find(function (s) { return s.id === row.section_id; });
+      return sec ? sec.notebook_id : null;
+    }
+    if (table === "batches") {
+      var pg = S.pages.find(function (p) { return p.id === row.page_id; });
+      var sec2 = pg ? S.sections.find(function (s) { return s.id === pg.section_id; }) : null;
+      return sec2 ? sec2.notebook_id : null;
+    }
+    if (table === "blocks") {
+      var bt = S.batches.find(function (b) { return b.id === row.batch_id; });
+      var pg2 = bt ? S.pages.find(function (p) { return p.id === bt.page_id; }) : null;
+      var sec3 = pg2 ? S.sections.find(function (s) { return s.id === pg2.section_id; }) : null;
+      return sec3 ? sec3.notebook_id : null;
+    }
+    return null;
+  }
+
   /* Đếm xem xoá cái này thì mất theo bao nhiêu thứ bên dưới */
   function childCount(table, id) {
     if (table === "notebooks") {
@@ -1685,9 +1719,28 @@
        vi = đúng những gì đang bấm vào (Notebook/Section/Page/Batch/Block),
        dùng App.scopeIds có sẵn — xem App.openLeaderboard bên dưới. */
     if (w.DB.mode === "cloud") items.push({ act: "leaderboard", icon: "🏆", text: "Xem xếp hạng" });
-    items.push({ act: "reset", icon: "🔄", text: "Xoá tiến trình học" });
+    items.push({ act: "reset", icon: "🔄", text: "Xoá tiến trình học" });   /* xoá tiến trình CỦA CHÍNH MÌNH — không phải sửa nội dung chung, cho phép dù role "Chỉ xem" */
     items.push({ act: "sep" });
     items.push({ act: "del", icon: "🗑", text: "Xoá " + meta.label, danger: true });
+
+    /* Role "Chỉ xem" (Share) — bỏ hẳn mọi hành động SỬA/XOÁ nội dung
+       DÙNG CHUNG khỏi menu (rename/reorder/move/setparent/unparent/
+       duplicate/del) — trước đây không kiểm tra gì, ai được share "Chỉ
+       xem" vẫn xoá/sửa được nguyên Block/Batch/Page/Section/Notebook
+       (TJ phát hiện). Giữ lại phần KHÔNG đụng nội dung chung: bung/thu
+       nhánh, share, xem xếp hạng, xoá tiến trình CỦA RIÊNG MÌNH. */
+    var ownerNbId = resolveNotebookIdForRow(table, id);
+    if (ownerNbId && myRoleInNotebook(ownerNbId) === "view") {
+      var EDIT_ACTS = { rename: 1, up: 1, down: 1, top: 1, bottom: 1, move: 1, setparent: 1, unparent: 1, duplicate: 1, del: 1 };
+      items = items.filter(function (it) { return !EDIT_ACTS[it.act]; });
+      /* Dọn dấu "———" thừa nếu 2 dấu đứng liền nhau hoặc ở đầu/cuối sau khi lọc */
+      items = items.filter(function (it, i) {
+        if (it.act !== "sep") return true;
+        var prevSep = i === 0 || items[i - 1].act === "sep";
+        var nextSep = i === items.length - 1;
+        return !prevSep && !nextSep;
+      });
+    }
 
     var box = w.$("#ctx-menu");
     box.innerHTML =
@@ -1725,6 +1778,18 @@
     var meta = MENU[table];
     var row = rowOf(table, id);
     if (!row) return;
+
+    /* Chặn kép — menu vốn đã lọc bỏ các nút này với role "Chỉ xem" (xem
+       App.openMenu), kiểm tra lại đây phòng ai đó tự gọi act qua DevTools.
+       Vẫn chỉ là Mức A (chặn ở client), không phải RLS thật. */
+    var EDIT_ACTS_GUARD = { rename: 1, up: 1, down: 1, top: 1, bottom: 1, move: 1, setparent: 1, unparent: 1, duplicate: 1, del: 1 };
+    if (EDIT_ACTS_GUARD[act]) {
+      var ownerNbIdGuard = resolveNotebookIdForRow(table, id);
+      if (ownerNbIdGuard && myRoleInNotebook(ownerNbIdGuard) === "view") {
+        w.toast("Bạn chỉ được xem Notebook này, không sửa/xoá được", "err");
+        return;
+      }
+    }
 
     try {
       if (act === "rename") {
@@ -3185,14 +3250,15 @@
         btn.disabled = false; btn.textContent = "💾 Lưu";
       }
     };
-    w.$("#mi-view-toggle").onclick = async function () {
-      menu.hidden = true;
-      w.Auth.toggleViewMode();
+    /* Áp dụng "Xem như <user>" (hoặc tắt hẳn nếu userId null) — dùng
+       CHUNG cho cả 2 nhánh bên dưới. isAdmin()/effectiveUserId() (auth.js)
+       tự đổi theo ngay, nên phải nạp lại notebookAccessAll + lọc lại
+       S.notebooks để thấy ĐÚNG Notebook nào Notebook đó thấy được, không
+       chỉ đổi mỗi cái badge. */
+    async function applyViewAsUser(userId, displayName) {
+      w.Auth.setViewAsUser(userId, displayName);
       renderUserChip();
-      /* isAdmin() giờ tôn trọng viewAsUser (xem Auth.isAdmin trong
-         auth.js) -> notebookAllowedForUser cũng tự đổi theo -> lọc lại
-         S.notebooks để Admin xem thử ĐÚNG Notebook nào bị ẩn với User
-         thường (hữu ích để tự kiểm tra cấu hình Share vừa cấp). */
+      await loadNotebookAccess();
       S.notebooks = await loadNotebooksFiltered(S.hubId);
       if (!S.notebooks.some(function (n) { return n.id === S.notebookId; })) {
         leaveDetail();
@@ -3203,7 +3269,37 @@
       /* Đang ở trong màn Chi tiết Block -> vẽ lại luôn để nút "🔄 Tạo lại"/
          khu dán bài đọc ẩn/hiện đúng NGAY, khỏi phải đổi Block mới thấy. */
       if (w.Detail && w.Detail.blockId && w.Detail.renderPassage) w.Detail.renderPassage();
-      w.toast(w.Auth.viewAsUser ? "Đang xem như User — chỉ đổi giao diện, quyền thật không đổi" : "Đã về giao diện Admin", "ok");
+    }
+
+    /* "🔄 Xem như User" — giờ cho CHỌN ĐÚNG 1 user cụ thể trong TẤT CẢ
+       tài khoản (theo yêu cầu TJ "cho mình tất cả option của all user"),
+       không còn chỉ mô phỏng "1 user thường chung chung" như trước — xem
+       ĐÚNG Notebook nào user đó thật sự được share (dựa vào
+       notebook_access thật của họ), mà KHÔNG đăng nhập thật vào tài
+       khoản họ (an toàn tuyệt đối, xem chú thích Auth.setViewAsUser). */
+    w.$("#mi-view-toggle").onclick = async function () {
+      menu.hidden = true;
+      if (w.Auth.viewAsUserId) {
+        await applyViewAsUser(null, "");
+        w.toast("Đã về giao diện Admin", "ok");
+        return;
+      }
+      var profiles;
+      try { profiles = await w.DB.listProfiles(); }
+      catch (e) { w.toast("Lỗi tải danh sách user: " + (e.message || e), "err"); return; }
+      var others = profiles.filter(function (p) { return p.id !== w.Auth.user.id; });
+      if (!others.length) { w.toast("Chưa có tài khoản nào khác để xem thử", "err"); return; }
+      var picked = await askPick({
+        title: "👁️ Xem như user nào?",
+        options: others.map(function (p) {
+          return { id: p.id, name: (p.avatar_emoji || "🐣") + " " + (p.display_name || "(chưa đặt tên)") + (p.is_admin ? " 👑" : "") };
+        })
+      });
+      if (!picked) return;
+      var target = others.find(function (p) { return p.id === picked; });
+      var targetName = target ? (target.display_name || "(chưa đặt tên)") : "user này";
+      await applyViewAsUser(picked, targetName);
+      w.toast('Đang xem như "' + targetName + '" — chỉ đổi giao diện, quyền thật không đổi', "ok");
     };
     w.$("#btn-admin-new").onclick = async function () {
       var r = await askText({

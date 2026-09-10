@@ -42,26 +42,45 @@
     EMOJIS: EMOJIS,
     _listeners: [],
     /* "Xem như User" — CHỈ đổi cách GIAO DIỆN hiển thị (preview), KHÔNG
-       đụng gì tới cờ is_admin/can_edit_passage thật trên Supabase. Reset
-       về false mỗi lần tải lại trang (cố tình — tránh admin bật xem thử
-       rồi quên tắt, lần sau mở app lại tưởng mất quyền như đã từng gặp). */
-    viewAsUser: false
+       đụng gì tới cờ is_admin/can_edit_passage/notebook_access THẬT trên
+       Supabase, và KHÔNG hề đăng nhập thật vào tài khoản người đó (vẫn là
+       chính Admin đang thao tác, chỉ đổi CÁCH TÍNH quyền để hiển thị) —
+       an toàn tuyệt đối, không risk ghi đè tiến trình học thật của ai cả,
+       khác hẳn việc mở thẳng link đăng nhập của họ. Reset về null mỗi lần
+       tải lại trang (cố tình — tránh admin bật xem thử rồi quên tắt, lần
+       sau mở app lại tưởng mất quyền như đã từng gặp).
+       viewAsUserId: null (không xem thử) | id của 1 profile CỤ THỂ (xem
+       ĐÚNG như người đó, dựa vào notebook_access thật của họ — không phải
+       "1 user thường chung chung" như trước) — xem Auth.setViewAsUser. */
+    viewAsUserId: null,
+    viewAsUser: false   /* = !!viewAsUserId, giữ lại cho chỗ nào đang đọc thẳng cờ này (xem renderUserChip trong app.js) */
   };
 
   /* Toàn app PHẢI gọi 2 hàm này thay vì đọc thẳng Auth.user.admin/
      canEditPassage — để chỗ nào cũng tự động tôn trọng chế độ xem thử.
-     Chỉ Admin THẬT mới bật/tắt được viewAsUser (xem toggleViewMode). */
+     Chỉ Admin THẬT mới bật/tắt được viewAsUserId (xem setViewAsUser). */
   Auth.isAdmin = function () {
-    return !!(Auth.user && Auth.user.admin) && !Auth.viewAsUser;
+    return !!(Auth.user && Auth.user.admin) && !Auth.viewAsUserId;
   };
   Auth.hasPassageEdit = function () {
-    return Auth.isAdmin() || (!!(Auth.user && Auth.user.canEditPassage) && !Auth.viewAsUser);
+    return Auth.isAdmin() || (!!(Auth.user && Auth.user.canEditPassage) && !Auth.viewAsUserId);
   };
-  /* Chỉ Admin thật (bất kể đang xem thử hay không) mới gọi được — để
-     luôn có đường quay lại giao diện Admin. */
-  Auth.toggleViewMode = function () {
+  /* id người muốn "xem như" hiện tại có hiệu lực cho việc tính Share
+     (notebook_access) — trả về CHÍNH profile mình nếu không xem thử ai
+     (viewAsUserId null). Dùng ở app.js/loadNotebookAccess thay vì đọc
+     thẳng Auth.user.id, để tôn trọng chế độ xem thử. */
+  Auth.effectiveUserId = function () {
+    return Auth.viewAsUserId || (Auth.user && Auth.user.id) || null;
+  };
+  /* userId = null -> tắt xem thử, về lại chính mình. userId = 1 profile
+     id -> xem ĐÚNG như người đó (Share/notebook_access của họ), không
+     đăng nhập thật vào tài khoản họ. Chỉ Admin thật (bất kể đang xem thử
+     ai) mới gọi được — để luôn có đường quay lại giao diện Admin. */
+  Auth.setViewAsUser = function (userId, displayName) {
     if (!(Auth.user && Auth.user.admin)) return;
-    Auth.viewAsUser = !Auth.viewAsUser;
+    Auth.viewAsUserId = userId || null;
+    Auth.viewAsUser = !!Auth.viewAsUserId;
+    Auth.viewAsUserName = Auth.viewAsUserId ? (displayName || "") : "";   /* chỉ để hiện badge "👁️ Xem như <tên>", không dùng để tính quyền gì */
     fire();
   };
 
