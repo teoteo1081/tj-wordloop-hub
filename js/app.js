@@ -733,7 +733,12 @@
            tự xoá Block rỗng qua menu "⋯". */
         '<div class="vocab-chips">' + ws.map(function (x) {
           var ok = S.wp[x.id] && S.wp[x.id].mastered;
-          return '<span class="vchip' + (ok ? " ok" : "") + '" draggable="true" data-word="' + x.id + '" title="Kéo thả qua Block khác để gộp từ">' + w.esc(x.term) +
+          /* Hover xem nhanh nghĩa tiếng Việt (theo yêu cầu TJ — hướng dẫn
+             kéo-thả sẽ có chỗ riêng khác, không cần nhắc lại ở đây nữa).
+             Chưa có nghĩa (từ mới paste, chưa "Tự điền còn thiếu") thì
+             rơi về gợi ý kéo-thả cũ, đỡ để trống hẳn tooltip. */
+          var tip = x.meaning_vi ? x.meaning_vi : "Kéo thả qua Block khác để gộp từ";
+          return '<span class="vchip' + (ok ? " ok" : "") + '" draggable="true" data-word="' + x.id + '" title="' + w.esc(tip) + '">' + w.esc(x.term) +
             '<button class="vchip-del" data-delword="' + x.id + '" title="Xoá từ khỏi kho">×</button></span>';
         }).join("") + "</div>" +
         '<div class="block-bottom">' +
