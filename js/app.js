@@ -201,7 +201,8 @@
   var updateHubTabsScroll, updateSectionTabsScroll;
 
   function renderHubs() {
-    w.$("#hub-tabs").innerHTML = S.hubs.map(function (h) {
+    var hubs = visibleHubIds ? S.hubs.filter(function (h) { return visibleHubIds.has(h.id); }) : S.hubs;
+    w.$("#hub-tabs").innerHTML = hubs.map(function (h) {
       return '<span class="hub-tab' + (h.id === S.hubId ? " active" : "") +
              '" data-hub="' + h.id + '" draggable="true" tabindex="0" role="button">' + w.esc(h.name) +
              '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác" aria-label="Thao tác với hub ' + w.esc(h.name) + '">⋯</button>' +
@@ -237,6 +238,21 @@
        theo Admin thật. */
     var myId = w.Auth.effectiveUserId ? w.Auth.effectiveUserId() : (w.Auth.user && w.Auth.user.id);
     myGrantedIds = new Set(notebookAccessAll.filter(function (r) { return r.user_id === myId; }).map(function (r) { return r.notebook_id; }));
+    await refreshVisibleHubIds();
+  }
+
+  /* Hub nào KHÔNG CÓ 1 Notebook nào user hiện tại thấy được thì ẨN LUÔN
+     tab Hub đó (TJ hỏi "David chỉ được share David Class thì hong thấy
+     các hub heng?" -> xác nhận đúng, rồi yêu cầu ẩn Hub rỗng thay vì hiện
+     tab trống). null = không lọc gì (Admin luôn thấy hết mọi Hub). */
+  var visibleHubIds = null;
+  async function refreshVisibleHubIds() {
+    if (w.Auth.isAdmin()) { visibleHubIds = null; return; }
+    var allNbs;
+    try { allNbs = await w.DB.getAllNotebooksLite(); } catch (e) { visibleHubIds = null; return; }
+    var ids = new Set();
+    allNbs.forEach(function (n) { if (notebookAllowedForUser(n.id, allNbs)) ids.add(n.hub_id); });
+    visibleHubIds = ids;
   }
 
   /* true nếu USER HIỆN TẠI được thấy Notebook này — Admin luôn thấy hết.
@@ -274,16 +290,21 @@
      nào thực sự được share đúng Notebook chứa Block đó, không tính lẫn
      user không liên quan (dù họ lỡ có progress cũ từ trước khi bị đổi
      quyền/Notebook đổi sang riêng tư). */
-  function userAllowedForNotebook(userId, notebookId, isUserAdmin) {
+  function userAllowedForNotebook(userId, notebookId, isUserAdmin, nbList) {
     if (isUserAdmin) return true;
-    var cur = S.notebooks.find(function (n) { return n.id === notebookId; });
+    /* nbList (khuyến nghị truyền tree.notebooks — TOÀN APP) — không có
+       thì rơi về S.notebooks (chỉ đúng Hub đang mở, có thể fail-open sai
+       nếu notebookId thuộc Hub khác — bug thật phát hiện qua subagent
+       review, chỉ nên dùng fallback này khi chắc chắn cùng Hub). */
+    var list = nbList || S.notebooks;
+    var cur = list.find(function (n) { return n.id === notebookId; });
     var guard = 0;
     while (cur && guard++ < 50) {
       if (cur.visibility === "restricted") {
         var granted = notebookAccessAll.some(function (r) { return r.notebook_id === cur.id && r.user_id === userId; });
         if (!granted) return false;
       }
-      cur = cur.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === cur.parent_notebook_id; }) : null;
+      cur = cur.parent_notebook_id ? list.find(function (n) { return n.id === cur.parent_notebook_id; }) : null;
     }
     return true;
   }
@@ -2117,7 +2138,7 @@
       }
 
       else if (act === "reset") {
-        var ids = App.scopeIds(table, id);
+        var ids = await App.scopeIds(table, id);
         var okR = await askConfirm({
           title: "🔄 Xoá tiến trình học?",
           desc: 'Toàn bộ điểm bài kiểm tra, chu kỳ ôn và mức độ thuộc trong "' + row.name +
@@ -2151,9 +2172,24 @@
     await App.reloadCurrent();
   };
 
-  /* Gom tất cả block & word nằm dưới một mục — dùng cho "xoá tiến trình học".
-     table = "hub" | "notebooks" | "sections" | "pages" | "batches" | "blocks" */
-  App.scopeIds = function (table, id) {
+  /* Gom tất cả block & word nằm dưới một mục — dùng cho "xoá tiến trình học"
+     VÀ Bảng xếp hạng. table = "hubs" | "notebooks" | "sections" | "pages" |
+     "batches" | "blocks".
+     QUAN TRỌNG (sửa 2026-09-10, bug thật phát hiện qua subagent review):
+     với "sections"/"pages"/"batches"/"blocks" thì id LUÔN thuộc đúng nhánh
+     Notebook đang mở (S.sectionId/S.pageId/...) — vì menu "⋯" của các cấp
+     đó chỉ hiện ra cho dòng đang render trong nhánh hiện tại, nên dùng
+     thẳng S.blocks/S.batches/... (đồng bộ, nhanh) là ĐÚNG.
+     Nhưng "notebooks" (cây bên trái liệt kê MỌI Notebook của Hub, không
+     chỉ Notebook đang mở) và "hubs" (tab Hub, liệt kê MỌI Hub) thì id có
+     thể là 1 Notebook/Hub KHÁC hẳn nhánh đang mở — trước đây rơi vào
+     nhánh else và ÂM THẦM trả về S.blocks.slice() (blocks của Notebook
+     ĐANG MỞ, sai hoàn toàn với Notebook/Hub vừa bấm) — vd bấm "🔄 Xoá tiến
+     trình học" ở 1 Notebook khác có thể xoá NHẦM tiến trình của Notebook
+     đang xem. Giờ 2 case này tải riêng cây đầy đủ (DB.getFullTree +
+     DB.getAllWordsLite), không phụ thuộc S.* nữa -> luôn đúng bất kể đang
+     mở nhánh nào. Vì vậy hàm này giờ LÀ ASYNC — mọi nơi gọi phải await. */
+  App.scopeIds = async function (table, id) {
     var blocks;
     if (table === "blocks") blocks = S.blocks.filter(function (b) { return b.id === id; });
     else if (table === "batches") blocks = App.blocksOf(id);
@@ -2165,10 +2201,37 @@
       var bt2 = S.batches.filter(function (b) { return pg.some(function (p) { return p.id === b.page_id; }); });
       blocks = S.blocks.filter(function (b) { return bt2.some(function (x) { return x.id === b.batch_id; }); });
     } else {
-      /* notebooks hoặc hub -> mọi thứ đang nạp trong notebook hiện tại */
-      blocks = S.blocks.slice();
+      var tree = await w.DB.getFullTree();
+      var sectionNb = {}, pageNb = {}, batchNb = {};
+      (tree.sections || []).forEach(function (s) { sectionNb[s.id] = s.notebook_id; });
+      (tree.pages || []).forEach(function (p) { pageNb[p.id] = sectionNb[p.section_id] || null; });
+      (tree.batches || []).forEach(function (b) { batchNb[b.id] = pageNb[b.page_id] || null; });
+
+      if (table === "notebooks") {
+        /* Đệ quy theo parent_notebook_id trên CHÍNH tree.notebooks (không
+           dùng S.notebooks/notebookDescendantIds — Notebook bấm vào có
+           thể thuộc Hub khác Hub đang mở). */
+        function descOf(nbId) {
+          var out = [nbId];
+          (tree.notebooks || []).filter(function (n) { return n.parent_notebook_id === nbId; })
+            .forEach(function (n) { out = out.concat(descOf(n.id)); });
+          return out;
+        }
+        var nbIds = descOf(id);
+        blocks = (tree.blocks || []).filter(function (b) { return nbIds.indexOf(batchNb[b.batch_id]) >= 0; });
+      } else {   /* "hubs" */
+        var hubNbIds = (tree.notebooks || []).filter(function (n) { return n.hub_id === id; }).map(function (n) { return n.id; });
+        blocks = (tree.blocks || []).filter(function (b) { return hubNbIds.indexOf(batchNb[b.batch_id]) >= 0; });
+      }
     }
     var bIds = blocks.map(function (b) { return b.id; });
+
+    if (table === "notebooks" || table === "hubs") {
+      /* S.words chỉ có từ của nhánh đang mở -> không đủ, lấy từ toàn app. */
+      var allWords = await w.DB.getAllWordsLite();
+      var wIds2 = allWords.filter(function (x) { return bIds.indexOf(x.block_id) >= 0; }).map(function (x) { return x.id; });
+      return { blocks: bIds, words: wIds2 };
+    }
     var wIds = S.words.filter(function (x) { return bIds.indexOf(x.block_id) >= 0; })
                       .map(function (x) { return x.id; });
     return { blocks: bIds, words: wIds };
@@ -2205,13 +2268,18 @@
   var LB_CACHE = null;
 
   async function loadLeaderboardData(table, id) {
-    var scope = App.scopeIds(table, id);
+    var scope = await App.scopeIds(table, id);
     if (!scope.blocks.length) return null;
     /* Trọng số của TỪNG Block = tổng độ khó các từ trong nó — tính 1 lần,
-       dùng lại cho mọi user (không đổi theo ai học). */
+       dùng lại cho mọi user (không đổi theo ai học). Dùng
+       DB.getAllWordsLite() (TOÀN APP) chứ không phải S.words — S.words
+       chỉ có từ của nhánh Notebook đang mở, không đủ khi phạm vi là 1
+       Notebook/Hub KHÁC (bug thật phát hiện qua subagent review, xem ghi
+       chú dài ở App.scopeIds). */
     var blockWeight = {};
     scope.blocks.forEach(function (bid) { blockWeight[bid] = 0; });
-    S.words.forEach(function (x) {
+    var allWords = await w.DB.getAllWordsLite();
+    allWords.forEach(function (x) {
       if (blockWeight.hasOwnProperty(x.block_id)) blockWeight[x.block_id] += levelWeight(x.level);
     });
     var bpRows = await w.DB.getLeaderboardProgress(scope.blocks);
@@ -2240,7 +2308,9 @@
       var nbId = blockNbId[r.block_id];
       if (!nbId) return true;   /* không xác định được Notebook (dữ liệu lạ) -> không chặn oan */
       var p = profileById[r.user_id];
-      return userAllowedForNotebook(r.user_id, nbId, !!(p && p.is_admin));
+      /* tree.notebooks (TOÀN APP) chứ không phải S.notebooks (chỉ đúng Hub
+         đang mở) — bug thật phát hiện qua subagent review. */
+      return userAllowedForNotebook(r.user_id, nbId, !!(p && p.is_admin), tree.notebooks);
     });
 
     return { blockWeight: blockWeight, bpRows: bpRows, profileById: profileById };

@@ -18,3 +18,4 @@ tools/tu_vung.xlsx
 .DS_Store
 tools/__pycache__/
 supabase/.temp/
+.claude/

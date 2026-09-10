@@ -149,6 +149,13 @@
     "← Về học tiếp": "← Back to learning",
     "⟳ Tải lại": "⟳ Reload",
     "🏆 Xếp hạng": "🏆 Ranking",
+    "Điểm = độ khó từ vựng trong Block (A1/A2=1 · B1=2 · B2=3 · C1=5 · C2=8) × hệ số loại bài đã Done qua (🔀 Nghĩa = ×1 · 📋 Phiếu đầy đủ/🔤 Từng câu = ×1.5). Chỉ tính Block đã Done (đạt ≥ 80% ở bất kỳ 1 trong các bài kiểm tra).":
+      "Score = word difficulty in the Block (A1/A2=1 · B1=2 · B2=3 · C1=5 · C2=8) × multiplier for the test type passed (🔀 Meaning = ×1 · 📋 Full sheet/🔤 Sentence by sentence = ×1.5). Only counts Blocks that are Done (≥ 80% on any one test).",
+    "Điểm = độ khó từ vựng trong Block (A1/A2=1 · B1=2 · B2=3 · C1=5 · C2=8) × hệ số loại bài đã Done qua (🔀 Nghĩa = ×1 · 📋 Phiếu đầy đủ/🔤 Từng câu = ×1.5).":
+      "Score = word difficulty in the Block (A1/A2=1 · B1=2 · B2=3 · C1=5 · C2=8) × multiplier for the test type passed (🔀 Meaning = ×1 · 📋 Full sheet/🔤 Sentence by sentence = ×1.5).",
+    "Chưa ai học xong Block nào trong phạm vi này cả.": "No one has finished any Block in this scope yet.",
+    "Chưa có ai Done Block nào trong khoảng thời gian này (hoặc dữ liệu cũ chưa có mốc ngày, xem 'Từ đầu').":
+      "No one has Done a Block in this period yet (or old data has no date, check 'All-time').",
     "🏆 Bảng xếp hạng": "🏆 Leaderboard",
     "Xem xếp hạng": "View ranking",
     "Tuần": "Week",
@@ -279,6 +286,7 @@
     "CÂU ": "QUESTION ",
     "đã làm ": "done ",
     "Tháng ": "Month ",
+    "🏆 Xếp hạng — ": "🏆 Ranking — ",
     "🔴 Đến hạn ôn ngay (": "🔴 Review due now (",
     "🟢 Đã ôn, chưa tới hạn kế tiếp (": "🟢 Reviewed, next round not due ("
   };
@@ -288,12 +296,23 @@
   var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, INPUT: 1 };
   var ATTRS = ["title", "placeholder", "aria-label"];
 
+  /* Gộp mọi khoảng trắng/xuống dòng thành 1 dấu cách — mấy đoạn mô tả dài
+     trong index.html viết xuống dòng nhiều chỗ cho dễ đọc source, nhưng
+     textContent giữ nguyên các dấu xuống dòng/thụt lề đó -> so khớp
+     NGUYÊN VĂN (kể cả whitespace) sẽ trật lất. DICT lưu key đã gộp sẵn 1
+     dấu cách, nên chuẩn hoá TRƯỚC KHI tra thay vì bắt key phải khớp y hệt
+     cách viết xuống dòng trong file. */
+  function normWs(s) { return String(s || "").replace(/\s+/g, " ").trim(); }
+
   function translateText(s, target) {
     var trimmed = String(s || "").trim();
     if (!trimmed) return null;
     var map = target === "en" ? DICT : REV;
     var hit = map[trimmed];
-    return hit || null;
+    if (hit) return hit;
+    var norm = normWs(trimmed);
+    if (norm !== trimmed) return map[norm] || null;
+    return null;
   }
 
   /* Thay THEO SUBSTRING (không cần khớp nguyên cả text node) — dùng cho

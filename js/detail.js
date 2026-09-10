@@ -766,7 +766,10 @@
 
     var patch = { attempts: attempts, correct: correct, mastered: mastered, last_reviewed_at: Date.now() };
     S().wp[item.id] = Object.assign({}, prev, patch, { user_id: w.Auth.user.id, word_id: item.id });
-    try { await w.DB.saveWordProgress(w.Auth.user.id, item.id, patch); } catch (e) {}
+    /* Không toast mỗi câu (dễ spam nếu mất mạng cả bài) — chỉ log để còn
+       debug được, xem chú thích đầy đủ ở submitFinal/submitMeaning. */
+    try { await w.DB.saveWordProgress(w.Auth.user.id, item.id, patch); }
+    catch (e) { console.warn("[Detail] saveWordProgress lỗi:", e); }
   };
 
   D.nextQuestion = function () {
@@ -1280,8 +1283,16 @@
       patch.passed = !!bp.passed;   /* đã từng đạt thì không bị mất */
     }
 
+    /* Cập nhật S() (state hiển thị) NGAY, nhưng nếu ghi DB lỗi (mất mạng,
+       server quá tải...) thì phải BÁO cho người học biết — trước đây lỗi
+       bị nuốt im lặng hoàn toàn, UI vẫn hiện "Đã Done ✔" nhưng DB không
+       hề có gì, mở lại app sau sẽ thấy tiến trình/điểm biến mất mà không
+       hiểu vì sao (bug thật phát hiện qua subagent review). Không toast
+       từng từ 1 (dễ spam nếu mất mạng cả loạt) — gom lại báo 1 lần cuối. */
+    var saveFailed = false;
     S().bp[D.blockId] = Object.assign({}, bp, patch, { user_id: w.Auth.user.id, block_id: D.blockId });
-    try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, patch); } catch (e) {}
+    try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, patch); }
+    catch (e) { saveFailed = true; console.warn("[Detail] saveBlockProgress lỗi:", e); }
 
     /* kết quả cũng tính vào độ nhớ từng từ */
     var byTerm = {};
@@ -1300,11 +1311,15 @@
         last_reviewed_at: Date.now()
       };
       S().wp[x.id] = Object.assign({}, prev, wpatch, { user_id: w.Auth.user.id, word_id: x.id });
-      try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
+      try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); }
+      catch (e) { saveFailed = true; console.warn("[Detail] saveWordProgress lỗi:", e); }
     }
 
     /* Đạt ≥ 80% -> tính vào "số từ học hôm nay" cho màn Journey. */
     if (passed) { try { await w.DB.bumpLearnedToday(w.Auth.user.id, ex.total); } catch (e) {} }
+    if (saveFailed) {
+      w.toast("⚠️ Có phần điểm chưa lưu được lên máy chủ (mất mạng?) — kiểm tra lại mạng rồi làm lại bài này", "err");
+    }
 
     D.renderSheet();
     D.renderSingle();
@@ -1487,7 +1502,10 @@
     ex.graded = true;
 
     /* Luyện riêng, không đụng SRS/passed — nhưng vẫn ghi vào độ nhớ từng
-       từ cho nhất quán với Active Recall Quiz. */
+       từ cho nhất quán với Active Recall Quiz. saveFailed: xem chú thích
+       ở submitFinal phía trên — gom lỗi lưu lại báo 1 lần, không im lặng
+       nuốt hết như trước (bug thật phát hiện qua subagent review). */
+    var saveFailed = false;
     var byTerm = {};
     words().forEach(function (x) { byTerm[x.term.toLowerCase()] = x; });
     for (var i = 0; i < ex.mc.length; i++) {
@@ -1504,7 +1522,8 @@
         last_reviewed_at: Date.now()
       };
       S().wp[x.id] = Object.assign({}, prev, wpatch, { user_id: w.Auth.user.id, word_id: x.id });
-      try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); } catch (e) {}
+      try { await w.DB.saveWordProgress(w.Auth.user.id, x.id, wpatch); }
+      catch (e) { saveFailed = true; console.warn("[Detail] saveWordProgress lỗi:", e); }
     }
 
     /* Đạt ≥ 80% -> tính vào "số từ học hôm nay" cho màn Journey, VÀ giờ
@@ -1523,7 +1542,11 @@
          submitFinal phía trên (cùng lý do, cùng cơ chế "ghi 1 lần"). */
       if (!bp0.easy_passed_at) bpatch.easy_passed_at = Date.now();
       S().bp[D.blockId] = Object.assign({}, bp0, bpatch, { user_id: w.Auth.user.id, block_id: D.blockId });
-      try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, bpatch); } catch (e) {}
+      try { await w.DB.saveBlockProgress(w.Auth.user.id, D.blockId, bpatch); }
+      catch (e) { saveFailed = true; console.warn("[Detail] saveBlockProgress lỗi:", e); }
+    }
+    if (saveFailed) {
+      w.toast("⚠️ Có phần điểm chưa lưu được lên máy chủ (mất mạng?) — kiểm tra lại mạng rồi làm lại bài này", "err");
     }
 
     D.renderMeaning();

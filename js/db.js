@@ -424,6 +424,18 @@
     return { hubs: hubs, notebooks: notebooks, sections: sections, pages: pages, batches: batches, blocks: blocks, bp: bp };
   };
 
+  /* Bản NHẸ của toàn bộ bảng "words" (chỉ id/block_id/level) — dùng khi
+     cần tính đúng phạm vi Block/Word cho 1 Hub/Notebook BẤT KỲ, không chỉ
+     Notebook đang mở trên UI (App.scopeIds/loadLeaderboardData trong
+     app.js chỉ có S.words của nhánh đang xem, không đủ — bug thật TJ phát
+     hiện qua subagent review 2026-09-10, xem ghi chú ở App.scopeIds). */
+  DB.getAllWordsLite = async function () {
+    if (DB.mode === "local") {
+      return local().words.map(function (x) { return { id: x.id, block_id: x.block_id, level: x.level }; });
+    }
+    return await sbListAll("words", function (q) { return q.select("id,block_id,level"); });
+  };
+
   /* ══════════════ ĐỌC CÂY DỮ LIỆU ══════════════ */
   DB.getHubs = async function () {
     if (DB.mode === "local") return local().hubs.slice().sort(bySort);
@@ -433,6 +445,15 @@
   DB.getNotebooks = async function (hubId) {
     if (DB.mode === "local") return where(local().notebooks, "hub_id", hubId).sort(bySort);
     return (await sbList("notebooks", function (q) { return q.eq("hub_id", hubId).order("sort"); }));
+  };
+
+  /* MỌI Notebook của MỌI Hub (không lọc theo hub_id) — dùng để xét Hub nào
+     nên ẨN vì user không được share Notebook nào trong đó (App.renderHubs
+     trong app.js). Bảng notebooks nhỏ (vài chục dòng), không cần phân
+     trang như sbListAll. */
+  DB.getAllNotebooksLite = async function () {
+    if (DB.mode === "local") return local().notebooks.slice();
+    return await sbList("notebooks");
   };
 
   /* Nạp toàn bộ nội dung của 1 notebook (sections -> words) */
