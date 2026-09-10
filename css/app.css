@@ -1374,6 +1374,7 @@ textarea:focus{border-color:var(--blue);}
    thường rộng + cao hơn khung nhìn, cuộn ngang/dọc vẫn thấy đang ở
    đúng hàng/cột nào. */
 .share-hub-filter{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0;}
+#btn-share-restrict-all{margin-bottom:.6rem;}
 .share-matrix-wrap{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:8px;}
 .share-matrix{border-collapse:collapse;font-size:.78rem;white-space:nowrap;}
 .share-matrix th,.share-matrix td{border:1px solid var(--border);padding:.4rem .5rem;}

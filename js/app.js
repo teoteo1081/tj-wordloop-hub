@@ -3023,6 +3023,29 @@
       renderShareHubFilter();
       renderShareMatrix();
     });
+    /* "🔒 Riêng tư tất cả" — đặt HẾT Notebook đang lọc (theo tab Hub) sang
+       Riêng tư trong 1 phát, để rồi tự tick chọn ai xem từng cái — đỡ
+       phải bấm từng chip 1 (theo yêu cầu TJ). KHÔNG tự share cho ai cả,
+       chỉ đổi visibility — matrix bung ô trống ra là xong, phần còn lại
+       TJ tự tick. */
+    w.$("#btn-share-restrict-all").onclick = async function () {
+      if (!SHARE_MX.t) return;
+      var nbs = (SHARE_MX.t.notebooks || []).filter(function (n) {
+        return (SHARE_MX.hubFilter === "all" || n.hub_id === SHARE_MX.hubFilter) && n.visibility !== "restricted";
+      });
+      if (!nbs.length) { w.toast("Mọi Notebook đang lọc đã Riêng tư hết rồi", "ok"); return; }
+      var btn = this;
+      btn.disabled = true;
+      try {
+        for (var i = 0; i < nbs.length; i++) {
+          await w.DB.setNotebookVisibility(nbs[i].id, "restricted");
+          nbs[i].visibility = "restricted";
+        }
+        renderShareMatrix();
+        w.toast("Đã đặt Riêng tư " + nbs.length + " Notebook — giờ tự tick chọn ai xem", "ok");
+      } catch (e) { w.toast("Lỗi: " + (e.message || e), "err"); }
+      btn.disabled = false;
+    };
     /* Ma trận chia sẻ — event delegation vì bảng tự vẽ lại liên tục
        (đổi Hub/tick ô), gắn 1 lần lên #share-overview-body là đủ. */
     w.$("#share-overview-body").addEventListener("click", async function (e) {
