@@ -330,16 +330,6 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .nb-caret:hover{background:var(--bg-hover);color:var(--text);}
 .nb-caret-sp{flex-shrink:0;width:.9rem;}
 
-/* "Quyển sách" (icon Notebook) tự đổi màu xen kẽ (theo yêu cầu TJ — "trẻ
-   trung hiện đại") — 1 ô bo góc nhỏ làm nền màu sau icon, dùng lại đúng
-   bộ --blk-1..8 (xem renderNotebooks trong app.js gán --blk-N qua inline
-   style). Icon giữ nguyên màu emoji gốc, chỉ NỀN phía sau đổi màu — không
-   cần tự vẽ lại icon theo từng theme. */
-.nb-icon{
-  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
-  width:1.25rem;height:1.25rem;border-radius:5px;font-size:.72rem;line-height:1;
-}
-
 .sidebar-foot{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border-soft);}
 .legend-title{font-size:.66rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;}
 .legend-row{font-size:.7rem;color:var(--text-3);display:flex;align-items:center;gap:.35rem;margin-bottom:.25rem;}

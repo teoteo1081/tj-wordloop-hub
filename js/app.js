@@ -426,11 +426,9 @@
        các đường guide dọc mảnh (1 đường/cấp cha, y hệt Explorer của VS
        Code), icon nhỏ lại, hàng thấp hơn (xem .nav-item/.nb-indent trong
        app.css). Mỗi "quyển sách" (Notebook) tự đổi màu xen kẽ — dùng lại
-       ĐÚNG bộ 8 màu --blk-1..8 đã có sẵn cho dải màu Block card (đã kiểm
-       chứng đẹp ở cả 2 giao diện sáng/tối), đánh số liên tục theo thứ tự
-       hiện ra (KHÔNG reset theo từng nhánh) để cả cây nhìn sống động, đủ
-       khác biệt giữa các Notebook cạnh nhau. */
-    var nbColorSeq = 0;
+       KHÔNG dùng màu xen kẽ nữa (đã thử — TJ thấy xấu, bỏ) — icon giữ
+       nguyên mặc định, giao diện tối giản đúng tinh thần VS Code Explorer
+       hơn là màu mè. */
     function renderLevel(list, depth) {
       var indent = "";
       for (var g = 0; g < depth; g++) indent += '<span class="nb-indent"></span>';
@@ -440,11 +438,10 @@
         var caret = children.length
           ? '<button class="nb-caret" data-caret="' + n.id + '" title="' + (collapsed ? "Bung nhánh" : "Thu nhánh") + '" aria-label="' + (collapsed ? "Bung" : "Thu") + ' nhánh ' + w.esc(n.name) + '">' + (collapsed ? "▸" : "▾") + "</button>"
           : '<span class="nb-caret-sp"></span>';
-        var colorIdx = (nbColorSeq++ % 8) + 1;
         return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") +
                  '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
                  indent + caret +
-                 '<span class="nb-icon" style="background:var(--blk-' + colorIdx + ')">' + w.esc(n.icon || (children.length ? "🗂️" : "📓")) + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
+                 "<span>" + w.esc(n.icon || (children.length ? "🗂️" : "📓")) + '</span><span class="nm">' + w.esc(n.name) + "</span>" +
                  '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
                "</div>" +
                (children.length && !collapsed ? renderLevel(children, depth + 1) : "");
@@ -480,10 +477,12 @@
       return;
     }
     /* Đã bỏ số liệu "N block · M từ" cạnh tên Page (theo yêu cầu) — bị
-       che mất tiêu đề khi tên Page dài trên thanh hẹp. */
+       che mất tiêu đề khi tên Page dài trên thanh hẹp. Đã bỏ luôn icon
+       📄 đầu dòng (theo yêu cầu TJ — thử bỏ icon cho gọn/đỡ rối), tên
+       Page giờ có thêm chỗ để hiện dài hơn trước khi bị "…". */
     box.innerHTML = list.map(function (p) {
       return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true" tabindex="0" role="button">' +
-               '<span>📄</span><span class="nm">' + w.esc(p.name) + '</span>' +
+               '<span class="nm">' + w.esc(p.name) + '</span>' +
                '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác" aria-label="Thao tác với page ' + w.esc(p.name) + '">⋯</button>' +
              "</div>";
     }).join("");
