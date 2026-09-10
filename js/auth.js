@@ -79,8 +79,8 @@
      js/i18n.js (đổi khung UI) và detail.js/app.js (đổi cột "Nghĩa" sang
      def_en khi lang="en") — KHÔNG đụng gì tới cách chấm điểm/quiz. */
   Auth.effectiveLang = function () {
-    if (Auth.viewAsUserId) return Auth.viewAsUserLang || "vi";
-    return (Auth.user && Auth.user.lang) || "vi";
+    if (Auth.viewAsUserId) return Auth.viewAsUserLang || "en";
+    return (Auth.user && Auth.user.lang) || "en";
   };
   /* userId = null -> tắt xem thử, về lại chính mình. userId = 1 profile
      id -> xem ĐÚNG như người đó (Share/notebook_access của họ), không
@@ -93,7 +93,7 @@
     Auth.viewAsUserId = userId || null;
     Auth.viewAsUser = !!Auth.viewAsUserId;
     Auth.viewAsUserName = Auth.viewAsUserId ? (displayName || "") : "";   /* chỉ để hiện badge "👁️ Xem như <tên>", không dùng để tính quyền gì */
-    Auth.viewAsUserLang = Auth.viewAsUserId ? (lang || "vi") : "";
+    Auth.viewAsUserLang = Auth.viewAsUserId ? (lang || "en") : "";
     fire();
   };
 
@@ -131,7 +131,7 @@
     var u = readUsers().find(function (x) { return x.id === id; });
     if (!u) return null;
     localStorage.setItem(LS_CUR, id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "vi" };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "en" };
     if (w.DB) w.DB.progressCloud = false;
     fire();
     return Auth.user;
@@ -160,7 +160,7 @@
     var id = localStorage.getItem(LS_CUR);
     var u = arr.find(function (x) { return x.id === id; }) || arr[0];
     localStorage.setItem(LS_CUR, u.id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "vi" };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "en" };
     if (w.DB) w.DB.progressCloud = false;
   }
 
@@ -188,7 +188,7 @@
       id: uid, name: name, emoji: emoji, email: email, cloud: true,
       admin: !!(r && r.data && r.data.is_admin),
       canEditPassage: !!(r && r.data && r.data.can_edit_passage),
-      lang: (r && r.data && r.data.lang) || "vi"
+      lang: (r && r.data && r.data.lang) || "en"
     };
     w.DB.progressCloud = true;
     fire();
@@ -237,7 +237,7 @@
            (dán/chọn Claude 1/2/3) mà không cần lên hẳn Admin. Xem
            renderPassage trong detail.js + #modal-admin trong app.js. */
         canEditPassage: !!r.data.can_edit_passage,
-        lang: r.data.lang || "vi"
+        lang: r.data.lang || "en"
       };
       w.DB.progressCloud = true;
 
