@@ -1058,8 +1058,10 @@
 
   /* Bảng xếp hạng THU NHỎ ở chân sidebar trái — TJ yêu cầu ("cho cái bảng
      nhỏ nhỏ ở đây đi") vì trước đó phải bấm sâu vào menu ⋯ mới thấy được.
-     Luôn theo ĐÚNG Notebook đang mở (S.notebookId), Top 3, "Từ đầu"
-     (period "all" — đơn giản, khỏi thêm tab con trong khoảng nhỏ này).
+     Luôn theo ĐÚNG Notebook đang mở (S.notebookId), Top 5 kèm SỐ THỨ TỰ rõ
+     ràng (1-5, không chỉ dựa vào emoji huy chương — TJ báo "thiếu số thứ
+     tự"), "Từ đầu" (period "all" — đơn giản, khỏi thêm tab con trong
+     khoảng nhỏ này).
      Bấm vào mở thẳng trang đầy đủ (App.openLeaderboardPage), y hệt dữ
      liệu/luật lọc share như bảng xếp hạng chính (dùng chung
      loadLeaderboardData/computeLeaderboardRanking). Cache riêng
@@ -1085,13 +1087,16 @@
     }
     if (!SB_LB_CACHE) { body.innerHTML = '<div class="sb-lb-empty">Chưa có ai học Block nào ở đây.</div>'; return; }
 
-    var ranking = computeLeaderboardRanking("all", SB_LB_CACHE).slice(0, 3);
+    var ranking = computeLeaderboardRanking("all", SB_LB_CACHE).slice(0, 5);
     if (!ranking.length) { body.innerHTML = '<div class="sb-lb-empty">Chưa ai Done Block nào cả.</div>'; return; }
     var medal = ["🥇", "🥈", "🥉"];
     body.innerHTML = ranking.map(function (r, i) {
       var me = w.Auth.user && w.Auth.user.id === r.uid;
+      /* Luôn hiện SỐ THỨ TỰ (1-5) — medal chỉ thêm cho đẹp ở Top 3, không
+         thay thế số (trước đó chỉ có medal, hạng 4-5 rơi vào số thường
+         nhưng bị coi là "thiếu số" vì không đồng nhất/rõ ràng). */
       return '<div class="sb-lb-row' + (me ? " sb-lb-me" : "") + '">' +
-        '<span class="sb-lb-rank">' + (medal[i] || (i + 1)) + "</span>" +
+        '<span class="sb-lb-rank">' + (i + 1) + (medal[i] ? " " + medal[i] : "") + "</span>" +
         '<span class="sb-lb-name">' + w.esc(r.emoji) + " " + w.esc(r.name) + "</span>" +
         '<span class="sb-lb-score">' + Math.round(r.score) + "</span>" +
       "</div>";
