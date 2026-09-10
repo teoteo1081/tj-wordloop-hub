@@ -283,7 +283,7 @@ button{font-family:inherit;}
 }
 .resizer:hover::after,.resizer.dragging::after{background:var(--blue);}
 body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
-.sidebar-scroll{padding:.65rem .45rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.35rem;}
+.sidebar-scroll{padding:.5rem .25rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.3rem;}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.15rem;}
 .sidebar-title{
   font-size:.68rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;
@@ -300,8 +300,8 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 /* Gọn kiểu VS Code Explorer (theo yêu cầu TJ) — hàng thấp, đệm sát trái,
    chữ nhỏ vừa đủ đọc, không còn khoảng trắng thừa như trước. */
 .nav-item{
-  padding:.3rem .4rem;border-radius:4px;font-size:.78rem;font-weight:500;color:var(--text-2);
-  cursor:pointer;display:flex;align-items:center;gap:.3rem;border-left:2px solid transparent;
+  padding:.28rem .2rem;border-radius:4px;font-size:.78rem;font-weight:500;color:var(--text-2);
+  cursor:pointer;display:flex;align-items:center;gap:.25rem;border-left:2px solid transparent;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .nav-item:hover{background:var(--bg-hover);color:var(--text);}
@@ -315,7 +315,7 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    này ra cho mỗi hàng (xem renderLevel trong app.js) — đơn giản hơn cách
    VS Code thật (đường chỉ chạy tới sibling cuối cùng) nhưng đủ rõ, không
    cần theo dõi "có phải con cuối không" cho từng nhánh. */
-.nb-indent{width:.8rem;flex-shrink:0;align-self:stretch;position:relative;}
+.nb-indent{width:.65rem;flex-shrink:0;align-self:stretch;position:relative;}
 .nb-indent::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);}
 
 /* Mũi tên bung/thu 1 nhánh Notebook (renderNotebooks trong app.js) — nút
@@ -324,11 +324,11 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
    đó luôn. .nb-caret-sp là khoảng trống thế chỗ cho Notebook lá (không
    con) để tên vẫn thẳng hàng với Notebook có mũi tên. */
 .nb-caret{
-  flex-shrink:0;width:.9rem;height:.9rem;display:flex;align-items:center;justify-content:center;
-  background:transparent;border:none;color:var(--text-3);font-size:.62rem;cursor:pointer;border-radius:3px;padding:0;
+  flex-shrink:0;width:.75rem;height:.75rem;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:var(--text-3);font-size:.6rem;cursor:pointer;border-radius:3px;padding:0;
 }
 .nb-caret:hover{background:var(--bg-hover);color:var(--text);}
-.nb-caret-sp{flex-shrink:0;width:.9rem;}
+.nb-caret-sp{flex-shrink:0;width:.75rem;}
 
 .sidebar-foot{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border-soft);}
 .legend-title{font-size:.66rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;}
