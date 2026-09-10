@@ -3211,7 +3211,20 @@
       var openBtn = e.target.closest("[data-open]");
       var card = e.target.closest("[data-block]");
       var id = openBtn ? openBtn.dataset.open : (card ? card.dataset.block : null);
-      if (id) w.Detail.open(id, openBtn ? openBtn.dataset.quicktab : undefined);
+      if (!id) return;
+      var quickTab = openBtn ? openBtn.dataset.quicktab : undefined;
+      w.Detail.open(id, quickTab);
+      /* Tab "📘 Bài học & Đọc" (study) gồm CẢ bảng từ vựng lẫn bài đọc
+         trong cùng 1 màn — D.open() luôn cuộn lên đầu (thấy bảng từ vựng
+         trước). Bấm quick-tab 📘 từ danh sách Block thì TJ muốn thấy NGAY
+         bài đọc (mục đích chính của nút này), không phải bảng từ vựng —
+         cuộn thẳng xuống khối bài đọc sau khi mở. */
+      if (quickTab === "study") {
+        setTimeout(function () {
+          var el = w.$("#passage-content-block");
+          if (el) el.scrollIntoView({ block: "start" });
+        }, 0);
+      }
     };
 
     /* Block card giờ có tabindex/role="button" (bấm được bằng bàn phím) —
