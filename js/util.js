@@ -108,6 +108,36 @@
 
       /* nếu lỡ nhét phiên âm vào ô loại từ thì hoán đổi lại */
       if (/^\/.*\/$/.test(item.pos) && !item.ipa) { item.ipa = item.pos; item.pos = ""; }
+
+      /* Sách/vocabulary bank hay gộp vài từ đồng dạng thành 1 dòng kiểu
+         "beef / lamb / pork" (nghĩa Việt cũng gộp theo "Thịt bò / thịt
+         cừu non / thịt heo") — TÁCH thành TỪNG TỪ RIÊNG thay vì giữ
+         nguyên 1 dòng dài (theo yêu cầu TJ — "coi như có thêm từ vựng").
+         Chỉ tách khi term CÓ dấu "/" ĐỆM KHOẢNG TRẮNG hai bên (" / ") —
+         không đụng vào phiên âm IPA (vốn cũng có "/" nhưng sát chữ, kiểu
+         "/bi:f/") hay literal "TP.HCM/VN" không có khoảng trắng.
+         meaning_vi tách theo CÙNG SỐ LƯỢNG thì ghép đúng cặp; lệch số
+         lượng thì giữ nguyên meaning_vi cho mọi từ con (an toàn hơn bịa
+         sai). ipa cũng vậy nếu tách theo dấu phẩy khớp số lượng. def_en
+         KHÔNG tách (thường là 1 câu tả chung, tách theo "/" dễ sai nghĩa
+         từng từ) — để trống cho từ con, dùng "Tự điền còn thiếu" (AI) bù
+         lại definition đúng riêng từng từ sau. */
+      if (/\s+\/\s+/.test(item.term)) {
+        var subTerms = item.term.split(/\s+\/\s+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        if (subTerms.length > 1) {
+          var subMeanings = /\s+\/\s+/.test(item.meaning_vi) ? item.meaning_vi.split(/\s+\/\s+/).map(function (s) { return s.trim(); }) : [];
+          var subIpas = item.ipa.indexOf(",") >= 0 ? item.ipa.split(",").map(function (s) { return s.trim(); }) : [];
+          subTerms.forEach(function (t, i) {
+            out.push({
+              term: t, level: item.level, pos: item.pos,
+              ipa: subIpas.length === subTerms.length ? subIpas[i] : (subTerms.length === 1 ? item.ipa : ""),
+              def_en: "",   /* để "Tự điền còn thiếu" (AI) tự tra definition riêng từng từ, tránh bịa sai khi tách */
+              meaning_vi: subMeanings.length === subTerms.length ? subMeanings[i] : item.meaning_vi
+            });
+          });
+          return;   /* đã push từng từ con rồi, KHÔNG push nguyên dòng gộp nữa */
+        }
+      }
       out.push(item);
     });
     return out;
