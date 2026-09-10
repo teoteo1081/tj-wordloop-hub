@@ -460,6 +460,27 @@
       <div class="home-hubs" id="home-hubs"><!-- JS: mỗi Hub 1 khối, bên trong là lưới thẻ Notebook --></div>
     </section>
 
+    <!-- ===== MÀN HÌNH B3: BẢNG XẾP HẠNG ĐẦY ĐỦ — mở khi bấm "Xem thêm"
+         trong modal xếp hạng rút gọn (App.openLeaderboardPage trong app.js).
+         Đường dẫn thư mục ở trên cùng để biết đang xem đúng phạm vi nào. -->
+    <section id="screen-leaderboard" hidden>
+      <div class="journey-topbar">
+        <button class="btn-ghost" id="btn-leaderboard-back">← Về học tiếp</button>
+      </div>
+      <div class="crumb" id="lb-page-crumb"></div>
+      <h2 style="margin:.3rem 0 .6rem">🏆 Bảng xếp hạng</h2>
+      <p class="modal-desc" style="margin-bottom:.8rem">
+        Điểm = độ khó từ vựng trong Block (A1/A2=1 · B1=2 · B2=3 · C1=5 · C2=8) ×
+        hệ số loại bài đã Done qua (🔀 Nghĩa = ×1 · 📋 Phiếu đầy đủ/🔤 Từng câu = ×1.5).
+      </p>
+      <div class="lb-tabs">
+        <button class="lb-tab" data-period="week">Tuần</button>
+        <button class="lb-tab" data-period="month">Tháng</button>
+        <button class="lb-tab active" data-period="all">Từ đầu</button>
+      </div>
+      <div id="lb-page-body"></div>
+    </section>
+
     <!-- ===== MÀN HÌNH C: JOURNEY — thống kê học theo ngày + cây tiến độ =====
          Tổng quan (số liệu + 4 tab theo giai đoạn Tony Buzan) LUÔN là số của
          TOÀN BỘ TJ WordLoop, không đổi theo cây thư mục bên phải — cây bên
@@ -468,6 +489,7 @@
       <div class="journey-topbar">
         <button class="btn-ghost" id="btn-journey-back">← Về học tiếp</button>
         <button class="btn-ghost" id="journey-refresh" title="Tải lại số liệu">⟳ Tải lại</button>
+        <button class="btn-ghost" id="btn-journey-leaderboard" title="Xếp hạng của Notebook đang học">🏆 Xếp hạng</button>
       </div>
 
       <!-- Đã bỏ hẳn khối "Tổng quan" (3 thẻ số liệu + 4 chip giai đoạn) theo

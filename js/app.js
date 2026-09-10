@@ -892,6 +892,7 @@
     closeDrawers();
     w.$("#screen-journey").hidden = true;
     w.$("#screen-home").hidden = true;
+    w.$("#screen-leaderboard").hidden = true;
     w.$("#btn-learning").hidden = true;
 
     /* Bug đã gặp: nhảy từ Trang chủ/Journey vào 1 Notebook/Section/Page/
@@ -914,6 +915,7 @@
   w.$("#btn-learning").onclick = function () {
     if (w.Home && !w.$("#screen-home").hidden) { w.Home.close(); return; }
     if (w.Journey && !w.$("#screen-journey").hidden) { w.Journey.close(); return; }
+    if (!w.$("#screen-leaderboard").hidden) { App.closeLeaderboardPage(); return; }
   };
 
   /* ══════════════ BỘ ĐẾM TỔNG SỐ TỪ (góc phải thanh trên cùng) ══════════════
@@ -1904,43 +1906,29 @@
     return r.passed ? 1.5 : 1;     // đã qua Phiếu đầy đủ/Từng câu (khó hơn) -> 1.5; chỉ qua Nghĩa (dễ, mặc định) -> 1
   }
 
-  var LB_CACHE = null;   /* {blockWeight, bpRows, profileById} — nạp 1 lần lúc mở modal, đổi tab Tuần/Tháng/Từ đầu chỉ lọc lại, không gọi DB thêm */
-  App.openLeaderboard = async function (table, id, scopeName) {
-    var box = w.$("#leaderboard-body");
-    w.$("#leaderboard-title").textContent = "🏆 Xếp hạng — " + scopeName;
-    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
-    w.$("#modal-leaderboard").hidden = false;
-    w.$$(".lb-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.period === "all"); });
-    LB_CACHE = null;
+  /* {blockWeight, bpRows, profileById, table, id, scopeName} — nạp 1 lần
+     lúc mở modal/trang, đổi tab Tuần/Tháng/Từ đầu chỉ lọc lại trên dữ liệu
+     đã có, KHÔNG gọi DB thêm. Dùng CHUNG cho cả modal rút gọn lẫn trang
+     đầy đủ "Xem thêm" — mở lại (openLeaderboard/openLeaderboardPage) mới
+     tải lại, đổi tab thì không. */
+  var LB_CACHE = null;
 
-    try {
-      var scope = App.scopeIds(table, id);
-      if (!scope.blocks.length) {
-        box.innerHTML = '<div class="nav-empty">Chưa có Block nào trong phạm vi này.</div>';
-        return;
-      }
-      /* Trọng số của TỪNG Block = tổng độ khó các từ trong nó — tính 1
-         lần, dùng lại cho mọi user (không đổi theo ai học). */
-      var blockWeight = {};
-      scope.blocks.forEach(function (bid) { blockWeight[bid] = 0; });
-      S.words.forEach(function (x) {
-        if (blockWeight.hasOwnProperty(x.block_id)) blockWeight[x.block_id] += levelWeight(x.level);
-      });
-
-      var bpRows = await w.DB.getLeaderboardProgress(scope.blocks);
-      var profiles = await w.DB.listProfiles();
-      var profileById = {};
-      profiles.forEach(function (p) { profileById[p.id] = p; });
-
-      /* Cache lại — bấm đổi tab Tuần/Tháng/Từ đầu chỉ LỌC LẠI trên dữ liệu
-         đã tải, không gọi DB lại (xem renderLeaderboardPeriod + wiring
-         ".lb-tab" trong bind()). */
-      LB_CACHE = { blockWeight: blockWeight, bpRows: bpRows, profileById: profileById };
-      renderLeaderboardPeriod("all");
-    } catch (e) {
-      box.innerHTML = "Lỗi tải xếp hạng: " + w.esc(e.message || String(e));
-    }
-  };
+  async function loadLeaderboardData(table, id) {
+    var scope = App.scopeIds(table, id);
+    if (!scope.blocks.length) return null;
+    /* Trọng số của TỪNG Block = tổng độ khó các từ trong nó — tính 1 lần,
+       dùng lại cho mọi user (không đổi theo ai học). */
+    var blockWeight = {};
+    scope.blocks.forEach(function (bid) { blockWeight[bid] = 0; });
+    S.words.forEach(function (x) {
+      if (blockWeight.hasOwnProperty(x.block_id)) blockWeight[x.block_id] += levelWeight(x.level);
+    });
+    var bpRows = await w.DB.getLeaderboardProgress(scope.blocks);
+    var profiles = await w.DB.listProfiles();
+    var profileById = {};
+    profiles.forEach(function (p) { profileById[p.id] = p; });
+    return { blockWeight: blockWeight, bpRows: bpRows, profileById: profileById };
+  }
 
   /* period: "week" (7 ngày gần nhất) | "month" (30 ngày) | "all" (từ
      đầu, không lọc ngày). Tuần/Tháng CHỈ tính Block có mốc Done rõ ràng
@@ -1949,10 +1937,11 @@
      này tồn tại (mốc NULL) chỉ hiện ở "Từ đầu", không suy ngược được đã
      Done ngày nào. Lấy đúng mốc theo hệ số CAO NHẤT đang dùng (đã qua
      Phiếu đầy đủ/Từng câu -> hard_passed_at; chỉ qua Nghĩa -> easy_passed_at)
-     — khớp với passTypeMultiplier() đã dùng để tính điểm. */
-  function renderLeaderboardPeriod(period) {
-    if (!LB_CACHE) return;
-    var box = w.$("#leaderboard-body");
+     — khớp với passTypeMultiplier() đã dùng để tính điểm.
+     Trả về mảng ranking ĐẦY ĐỦ (không cắt) đã sắp theo điểm giảm dần —
+     nơi gọi (modal/trang) tự quyết định cắt Top 10 hay hiện hết. */
+  function computeLeaderboardRanking(period) {
+    if (!LB_CACHE) return [];
     var now = Date.now();
     var cutoff = period === "week" ? now - 7 * 24 * 3600 * 1000
                : period === "month" ? now - 30 * 24 * 3600 * 1000 : 0;
@@ -1969,7 +1958,7 @@
       doneByUser[r.user_id] = (doneByUser[r.user_id] || 0) + 1;
     });
 
-    var ranking = Object.keys(scoreByUser).map(function (uid) {
+    return Object.keys(scoreByUser).map(function (uid) {
       var p = LB_CACHE.profileById[uid];
       return {
         uid: uid, score: scoreByUser[uid], done: doneByUser[uid],
@@ -1977,26 +1966,146 @@
         emoji: p ? (p.avatar_emoji || "🐣") : "❔"
       };
     }).sort(function (a, b) { return b.score - a.score; });
-
-    if (!ranking.length) {
-      box.innerHTML = '<div class="nav-empty">' +
-        (period === "all" ? "Chưa ai học xong Block nào trong phạm vi này cả."
-          : "Chưa có ai Done Block nào trong khoảng thời gian này (hoặc dữ liệu cũ chưa có mốc ngày, xem 'Từ đầu').") +
-        "</div>";
-      return;
-    }
-    var medal = ["🥇", "🥈", "🥉"];
-    box.innerHTML = '<table class="ai-report-table"><thead><tr><th></th><th>Người học</th><th>Điểm</th><th>Block Done</th></tr></thead><tbody>' +
-      ranking.map(function (r, i) {
-        var me = w.Auth.user && w.Auth.user.id === r.uid;
-        return '<tr' + (me ? ' style="font-weight:700;color:var(--blue-l)"' : "") + '>' +
-          "<td>" + (medal[i] || (i + 1)) + "</td>" +
-          "<td>" + w.esc(r.emoji) + " " + w.esc(r.name) + (me ? " (bạn)" : "") + "</td>" +
-          "<td>" + Math.round(r.score) + "</td>" +
-          "<td>" + r.done + "</td>" +
-        "</tr>";
-      }).join("") + "</tbody></table>";
   }
+
+  function leaderboardRowHtml(r, rank) {
+    var medal = ["🥇", "🥈", "🥉"];
+    var me = w.Auth.user && w.Auth.user.id === r.uid;
+    return '<tr' + (me ? ' class="lb-me"' : "") + '>' +
+      "<td>" + (medal[rank - 1] || rank) + "</td>" +
+      "<td>" + w.esc(r.emoji) + " " + w.esc(r.name) + (me ? " (bạn)" : "") + "</td>" +
+      "<td>" + Math.round(r.score) + "</td>" +
+      "<td>" + r.done + "</td>" +
+    "</tr>";
+  }
+
+  var LB_TOP_N = 5;   /* modal rút gọn chỉ Top 5 (tiết kiệm diện tích, theo yêu cầu TJ) — trang đầy đủ ("Xem thêm") vẫn hiện hết, không giới hạn */
+  function emptyRankingMsg(period) {
+    return period === "all" ? "Chưa ai học xong Block nào trong phạm vi này cả."
+      : "Chưa có ai Done Block nào trong khoảng thời gian này (hoặc dữ liệu cũ chưa có mốc ngày, xem 'Từ đầu').";
+  }
+
+  /* Modal rút gọn (mở từ menu ⋯) — chỉ Top 10 + GHIM riêng dòng của CHÍNH
+     mình nếu đang đứng ngoài Top 10 (giống Memrise: luôn thấy mình đang ở
+     đâu dù chưa lọt top), kèm nút "Xem thêm →" mở sang trang đầy đủ. */
+  function renderLeaderboardModal(period) {
+    var box = w.$("#leaderboard-body");
+    var ranking = computeLeaderboardRanking(period);
+    if (!ranking.length) { box.innerHTML = '<div class="nav-empty">' + emptyRankingMsg(period) + "</div>"; return; }
+
+    var top = ranking.slice(0, LB_TOP_N);
+    var myIdx = ranking.findIndex(function (r) { return w.Auth.user && r.uid === w.Auth.user.id; });
+    var rowsHtml = top.map(function (r, i) { return leaderboardRowHtml(r, i + 1); }).join("");
+    if (myIdx >= LB_TOP_N) {
+      rowsHtml += '<tr class="lb-gap"><td colspan="4">⋯</td></tr>' + leaderboardRowHtml(ranking[myIdx], myIdx + 1);
+    }
+    box.innerHTML = '<table class="ai-report-table"><thead><tr><th></th><th>Người học</th><th>Điểm</th><th>Block Done</th></tr></thead><tbody>' +
+      rowsHtml + "</tbody></table>" +
+      (ranking.length > LB_TOP_N ? '<button class="btn-ghost lb-more" id="btn-lb-more">Xem thêm →</button>' : "");
+    var moreBtn = w.$("#btn-lb-more");
+    if (moreBtn) moreBtn.onclick = function () {
+      w.$("#modal-leaderboard").hidden = true;
+      App.openLeaderboardPage(LB_CACHE.table, LB_CACHE.id, LB_CACHE.scopeName);
+    };
+  }
+
+  App.openLeaderboard = async function (table, id, scopeName) {
+    var box = w.$("#leaderboard-body");
+    w.$("#leaderboard-title").textContent = "🏆 Xếp hạng — " + scopeName;
+    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
+    w.$("#modal-leaderboard").hidden = false;
+    w.$$("#modal-leaderboard .lb-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.period === "all"); });
+    LB_CACHE = null;
+    try {
+      var data = await loadLeaderboardData(table, id);
+      if (!data) { box.innerHTML = '<div class="nav-empty">Chưa có Block nào trong phạm vi này.</div>'; return; }
+      LB_CACHE = Object.assign(data, { table: table, id: id, scopeName: scopeName });
+      renderLeaderboardModal("all");
+    } catch (e) {
+      box.innerHTML = "Lỗi tải xếp hạng: " + w.esc(e.message || String(e));
+    }
+  };
+
+  /* Trang đầy đủ "🏆 Bảng xếp hạng" (#screen-leaderboard) — mở từ nút
+     "Xem thêm →" trong modal, hiện HẾT danh sách (không cắt Top 10) +
+     đường dẫn thư mục đúng phạm vi ở trên cùng, giống các màn Trang chủ/
+     Journey khác (ẩn/hiện lẫn nhau, nút "← Về học tiếp" quay lại đúng chỗ
+     đang học dở trước đó). */
+  var LB_PAGE = { prevWasDetail: false };
+  function leaderboardScopeParts(table, id) {
+    if (table === "hubs") {
+      var hub = S.hubs.find(function (h) { return h.id === id; });
+      return [hub ? hub.name : "?"];
+    }
+    var blockRow = table === "blocks" ? rowOf("blocks", id) : null;
+    var batchRow = table === "batches" ? rowOf("batches", id) : (blockRow ? S.batches.find(function (x) { return x.id === blockRow.batch_id; }) : null);
+    var pageRow = table === "pages" ? rowOf("pages", id) : (batchRow ? S.pages.find(function (x) { return x.id === batchRow.page_id; }) : null);
+    var sectionRow = table === "sections" ? rowOf("sections", id) : (pageRow ? S.sections.find(function (x) { return x.id === pageRow.section_id; }) : null);
+    var notebookId = table === "notebooks" ? id : (sectionRow ? sectionRow.notebook_id : S.notebookId);
+
+    var nbChain = [];
+    var curNb = S.notebooks.find(function (n) { return n.id === notebookId; });
+    var guard = 0;
+    while (curNb && guard++ < 50) {
+      nbChain.unshift(curNb.name);
+      curNb = curNb.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === curNb.parent_notebook_id; }) : null;
+    }
+    var parts = nbChain.slice();
+    if (sectionRow) parts.push(sectionRow.name);
+    if (pageRow) parts.push(pageRow.name);
+    if (batchRow) parts.push(batchRow.name);
+    if (blockRow) parts.push(blockRow.name);
+    return parts.length ? parts : ["?"];
+  }
+
+  function renderLeaderboardPage(period) {
+    var box = w.$("#lb-page-body");
+    var ranking = computeLeaderboardRanking(period);
+    if (!ranking.length) { box.innerHTML = '<div class="nav-empty">' + emptyRankingMsg(period) + "</div>"; return; }
+    box.innerHTML = '<table class="ai-report-table"><thead><tr><th></th><th>Người học</th><th>Điểm</th><th>Block Done</th></tr></thead><tbody>' +
+      ranking.map(function (r, i) { return leaderboardRowHtml(r, i + 1); }).join("") + "</tbody></table>";
+  }
+
+  App.openLeaderboardPage = async function (table, id, scopeName) {
+    w.Speech.stop();
+    LB_PAGE.prevWasDetail = !w.$("#screen-detail").hidden;
+    w.$("#screen-blocks").hidden = true;
+    w.$("#screen-detail").hidden = true;
+    w.$("#screen-home").hidden = true;
+    w.$("#screen-journey").hidden = true;
+    w.$("#btn-back").hidden = true;
+    w.$("#screen-leaderboard").hidden = false;
+    w.$("#btn-learning").hidden = false;
+    w.$("#workspace").scrollTop = 0;
+
+    var parts = leaderboardScopeParts(table, id);
+    w.$("#lb-page-crumb").innerHTML = "<b>" + w.esc(parts[0]) + "</b>" +
+      parts.slice(1).map(function (p) { return '<span class="sep">›</span>' + w.esc(p); }).join("");
+
+    var box = w.$("#lb-page-body");
+    box.innerHTML = '<p style="color:var(--text-3)">⏳ Đang tải…</p>';
+    w.$$("#screen-leaderboard .lb-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.period === "all"); });
+    LB_CACHE = null;
+    try {
+      var data = await loadLeaderboardData(table, id);
+      if (!data) { box.innerHTML = '<div class="nav-empty">Chưa có Block nào trong phạm vi này.</div>'; return; }
+      LB_CACHE = Object.assign(data, { table: table, id: id, scopeName: scopeName });
+      renderLeaderboardPage("all");
+    } catch (e) {
+      box.innerHTML = "Lỗi tải xếp hạng: " + w.esc(e.message || String(e));
+    }
+  };
+
+  App.closeLeaderboardPage = function () {
+    w.$("#screen-leaderboard").hidden = true;
+    w.$("#btn-learning").hidden = true;
+    if (LB_PAGE.prevWasDetail && w.Detail && w.Detail.blockId) {
+      w.$("#screen-detail").hidden = false;
+      w.$("#btn-back").hidden = false;
+    } else {
+      w.$("#screen-blocks").hidden = false;
+    }
+  };
 
   /* dọn khỏi bộ nhớ cả nhánh con, khỏi phải chờ tải lại */
   function removeLocal(table, id) {
@@ -2863,13 +2972,33 @@
       menu.hidden = true;
       App.openShareOverview();
     };
-    w.$$(".lb-tab").forEach(function (btn) {
+    /* 2 bộ tab Tuần/Tháng/Từ đầu RIÊNG — modal rút gọn (#modal-leaderboard)
+       và trang đầy đủ (#screen-leaderboard) — chỉ đổi active + vẽ lại
+       ĐÚNG bộ đang bấm, không đụng bộ kia. */
+    w.$$("#modal-leaderboard .lb-tab").forEach(function (btn) {
       btn.onclick = function () {
-        w.$$(".lb-tab").forEach(function (t) { t.classList.remove("active"); });
+        w.$$("#modal-leaderboard .lb-tab").forEach(function (t) { t.classList.remove("active"); });
         btn.classList.add("active");
-        renderLeaderboardPeriod(btn.dataset.period);
+        renderLeaderboardModal(btn.dataset.period);
       };
     });
+    w.$$("#screen-leaderboard .lb-tab").forEach(function (btn) {
+      btn.onclick = function () {
+        w.$$("#screen-leaderboard .lb-tab").forEach(function (t) { t.classList.remove("active"); });
+        btn.classList.add("active");
+        renderLeaderboardPage(btn.dataset.period);
+      };
+    });
+    w.$("#btn-leaderboard-back").onclick = function () { App.closeLeaderboardPage(); };
+    /* Lối vào Bảng xếp hạng NGAY từ Journey (theo câu hỏi TJ "có nên cho
+       vào Journey không") — mặc định scope theo Notebook ĐANG học
+       (S.notebookId), không cần vào tận Block mới xem được. */
+    var jLb = w.$("#btn-journey-leaderboard");
+    if (jLb) jLb.onclick = function () {
+      if (!S.notebookId) { w.toast("Chưa chọn Notebook nào để xem xếp hạng", "err"); return; }
+      var nb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
+      App.openLeaderboardPage("notebooks", S.notebookId, nb ? nb.name : "Notebook");
+    };
     w.$("#btn-share-save").onclick = async function () {
       var notebookId = w.$("#modal-share").dataset.notebook;
       var restricted = w.$("#share-restricted").checked;

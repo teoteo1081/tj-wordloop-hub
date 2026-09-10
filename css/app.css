@@ -330,14 +330,14 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .nb-caret:hover{background:var(--bg-hover);color:var(--text);}
 .nb-caret-sp{flex-shrink:0;width:.75rem;}
 
-.sidebar-foot{margin-top:auto;padding-top:1rem;border-top:1px solid var(--border-soft);}
-.legend-title{font-size:.66rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;}
-.legend-row{font-size:.7rem;color:var(--text-3);display:flex;align-items:center;gap:.35rem;margin-bottom:.25rem;}
+.sidebar-foot{margin-top:auto;padding-top:.65rem;border-top:1px solid var(--border-soft);}
+.legend-title{font-size:.62rem;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;}
+.legend-row{font-size:.66rem;color:var(--text-3);display:flex;align-items:center;gap:.3rem;margin-bottom:.15rem;}
 /* "🕒 Data cập nhật lần cuối" dưới khu Chu kỳ Tony Buzan (sidebar trái) —
    vàng cam + đậm nếu vừa cập nhật trong 24h, xám nhạt nếu cũ hơn. */
 .legend-updated{font-size:.66rem;color:var(--text-3);margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--border-soft);}
 .legend-updated.fresh{color:var(--amber, #d97706);font-weight:700;}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;}
 .dot.c1{background:var(--red);}
 .dot.c2{background:var(--amber);}
 .dot.c3{background:var(--blue);}
@@ -1385,6 +1385,12 @@ textarea:focus{border-color:var(--blue);}
 }
 .lb-tab.active{background:var(--blue-sub);color:var(--blue-l);border-color:var(--blue);}
 .lb-tab:hover{color:var(--text);}
+/* Dòng của CHÍNH người đang xem — tô nổi bật, kể cả khi bị ghim riêng ở
+   ngoài Top 10 (xem renderLeaderboardModal trong app.js). ".lb-gap" là
+   hàng "⋯" ngăn cách Top 10 với dòng ghim riêng đó, giống Memrise. */
+.lb-me{font-weight:700;color:var(--blue-l);background:var(--blue-sub);}
+.lb-gap td{text-align:center;color:var(--text-3);padding:.25rem;}
+.lb-more{width:100%;margin-top:.5rem;text-align:center;}
 
 /* Toast */
 .toast-wrap{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:.4rem;align-items:center;pointer-events:none;}

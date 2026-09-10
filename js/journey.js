@@ -60,6 +60,7 @@
     J._prevWasDetail = !w.$("#screen-detail").hidden;
     w.$("#screen-blocks").hidden = true;
     w.$("#screen-detail").hidden = true;
+    w.$("#screen-leaderboard").hidden = true;
     w.$("#screen-home").hidden = true;
     w.$("#btn-back").hidden = true;
     w.$("#screen-journey").hidden = false;
