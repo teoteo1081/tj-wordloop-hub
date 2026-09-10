@@ -664,6 +664,11 @@
   App.renderBlocks = function () {
     var batch = S.batches.find(function (b) { return b.id === S.batchId; });
     var list = S.batchId ? App.blocksOf(S.batchId) : [];
+    /* Role "Chỉ xem" (Share, xem myRoleInNotebook) — trước đây nút "×"
+       xoá từ trên chip KHÔNG kiểm tra gì cả, ai cũng xoá thẳng được từ
+       vựng dùng chung dù chỉ được share "Chỉ xem" (lỗ hổng TJ phát hiện).
+       Tính 1 lần ở đây, dùng cho mọi Block card bên dưới. */
+    var canDeleteWord = !S.notebookId || myRoleInNotebook(S.notebookId) !== "view";
 
     /* Đường dẫn thư mục (Notebook[/Notebook con...] › Section › Page ›
        Batch › Block) — GIỐNG hệt #crumb ở đầu trang (kể cả đi hết chuỗi
@@ -782,7 +787,7 @@
              rơi về gợi ý kéo-thả cũ, đỡ để trống hẳn tooltip. */
           var tip = x.meaning_vi ? x.meaning_vi : "Kéo thả qua Block khác để gộp từ";
           return '<span class="vchip' + (ok ? " ok" : "") + '" draggable="true" data-word="' + x.id + '" title="' + w.esc(tip) + '">' + w.esc(x.term) +
-            '<button class="vchip-del" data-delword="' + x.id + '" title="Xoá từ khỏi kho">×</button></span>';
+            (canDeleteWord ? '<button class="vchip-del" data-delword="' + x.id + '" title="Xoá từ khỏi kho">×</button>' : "") + "</span>";
         }).join("") + "</div>" +
         '<div class="block-bottom">' +
           '<span class="progress-bar"><i style="width:' + w.pct(mastered, ws.length) + '%"></i></span>' +
@@ -2837,6 +2842,13 @@
          không thì click lọt xuống card bên dưới sẽ mở luôn Block ra. */
       var delBtn = e.target.closest("[data-delword]");
       if (delBtn) {
+        /* Chặn kép — nút vốn đã ẩn với role "Chỉ xem" (xem App.renderBlocks),
+           kiểm tra lại đây phòng ai đó tự hiện lại qua DevTools. Vẫn chỉ
+           là Mức A (chặn ở client), không phải RLS thật. */
+        if (S.notebookId && myRoleInNotebook(S.notebookId) === "view") {
+          w.toast("Bạn chỉ được xem Notebook này, không xoá được từ vựng", "err");
+          return;
+        }
         var wordId = delBtn.dataset.delword;
         var word = S.words.find(function (x) { return x.id === wordId; });
         var ok = await App.askConfirm({
@@ -3094,10 +3106,19 @@
       var cell = e.target.closest("[data-cell-nb]");
       if (cell) {
         var nbId3 = cell.dataset.cellNb, userId3 = cell.dataset.cellUser;
+        var nbRow3 = SHARE_MX.t.notebooks.find(function (n) { return n.id === nbId3; });
+        var userRow3 = SHARE_MX.profiles.find(function (p) { return p.id === userId3; });
+        var nbName3 = nbRow3 ? nbRow3.name : "Notebook này";
+        var userName3 = userRow3 ? (userRow3.display_name || "user này") : "user này";
         cell.disabled = true;
         try {
-          if (cell.checked) await w.DB.grantNotebookAccess(nbId3, userId3, "view");
-          else await w.DB.revokeNotebookAccess(nbId3, userId3);
+          if (cell.checked) {
+            await w.DB.grantNotebookAccess(nbId3, userId3, "view");
+            w.toast('Đã chia sẻ "' + nbName3 + '" cho ' + userName3, "ok");
+          } else {
+            await w.DB.revokeNotebookAccess(nbId3, userId3);
+            w.toast('Đã bỏ chia sẻ "' + nbName3 + '" khỏi ' + userName3, "ok");
+          }
           await loadNotebookAccess();
         } catch (e5) { w.toast("Lỗi: " + (e5.message || e5), "err"); cell.checked = !cell.checked; }
         cell.disabled = false;
