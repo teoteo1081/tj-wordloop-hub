@@ -437,7 +437,13 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .mt-s{margin-top:.5rem;}
 
 /* Nút ⋯ và bảng thao tác (đổi tên · lên/xuống · chuyển · xoá) */
-.nav-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;}
+/* min-width:0 BẮT BUỘC ở đây — mặc định flex item không co dưới kích
+   thước nội dung tự nhiên của nó (min-width:auto), khiến tên DÀI (vd tên
+   Page) không chịu co lại nhường chỗ cho "…", đẩy nút ⋯ ra xa mép phải
+   thật của cột thay vì bám sát chữ đã bị cắt — chừa khoảng trắng thừa dư
+   ra bên phải dù chữ đã hiện "…" (đúng lỗi TJ chỉ ra ở cột Pages). */
+.nav-item{width:100%;}
+.nav-item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
 .dots{
   background:transparent;border:none;color:var(--text-3);cursor:pointer;
   font-size:.95rem;line-height:1;padding:.1rem .3rem;border-radius:5px;
