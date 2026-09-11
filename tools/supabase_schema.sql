@@ -185,12 +185,29 @@ end $$;
 -- tiến trình, không có chữ). 2 policy cộng lại (OR) cho SELECT: đọc thì
 -- luôn được (using true), còn ghi (insert/update/delete) vẫn CHỈ đúng chủ
 -- mới làm được (own_progress vẫn còn nguyên, không đụng gì).
+--
+-- CẬP NHẬT 2026-09-11: 2 policy trên KHÔNG PHẢI toàn bộ sự thật — verify
+-- trực tiếp qua Supabase Management API (pg_policies) phát hiện còn 1
+-- policy "shared_all" (for ALL, role anon+authenticated, using(true)/
+-- check(true)) đã được tạo THẲNG trên Supabase Dashboard lúc làm cơ chế
+-- đăng nhập qua link "?u=" (2026-09-07, xem đầu auth.js) nhưng CHƯA TỪNG
+-- được thêm vào file .sql này cho tới giờ — file từng lỗi thời so với DB
+-- thật hàng tháng trời. Policy "shared_all" RỘNG HƠN HẲN "own_progress"
+-- (cho ghi tiến trình của BẤT KỲ user_id nào, kể cả không phải chính
+-- mình, qua cả role anon — tức là RLS đã KHÔNG còn chặn ghi hộ người khác
+-- như "own_progress" một mình từng làm) — 2 policy own_progress/
+-- read_all_progress phía trên giờ bị "shared_all" bao trùm (không sai,
+-- chỉ dư, giữ lại cho rõ ý định gốc). Tính năng "Nhân bản Notebook mang
+-- tiến trình của user khác" (DB.duplicateNotebook, xem CLAUDE.md) dựa
+-- thẳng vào policy shared_all này để hoạt động.
 drop policy if exists "own_progress" on word_progress;
 create policy "own_progress" on word_progress
   for all to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "read_all_progress" on word_progress;
 create policy "read_all_progress" on word_progress for select to anon, authenticated using (true);
+drop policy if exists "shared_all" on word_progress;
+create policy "shared_all" on word_progress for all to anon, authenticated using (true) with check (true);
 
 drop policy if exists "own_progress" on block_progress;
 create policy "own_progress" on block_progress
@@ -198,6 +215,8 @@ create policy "own_progress" on block_progress
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "read_all_progress" on block_progress;
 create policy "read_all_progress" on block_progress for select to anon, authenticated using (true);
+drop policy if exists "shared_all" on block_progress;
+create policy "shared_all" on block_progress for all to anon, authenticated using (true) with check (true);
 
 drop policy if exists "own_progress" on daily_log;
 create policy "own_progress" on daily_log

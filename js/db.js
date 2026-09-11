@@ -605,6 +605,33 @@
     return newPage;
   };
 
+  /* Lấy nhanh danh sách block_id/word_id của 1 Notebook — KHÔNG kéo theo
+     dữ liệu Section/Page/Batch đầy đủ như DB.duplicateNotebook, chỉ cần
+     ID để biết "ai đã có tiến trình trên Notebook này" (app.js dùng lúc
+     Nhân bản, hỏi chọn "1 người cụ thể" trước khi gọi DB.getProgressRows). */
+  DB.getNotebookBlockWordIds = async function (notebookId) {
+    var d = local(), sectionIds, pageIds, batchIds, blockIds, wordIds;
+    if (DB.mode === "local") {
+      sectionIds = where(d.sections, "notebook_id", notebookId).map(function (s) { return s.id; });
+      pageIds = whereIn(d.pages, "section_id", sectionIds).map(function (p) { return p.id; });
+      batchIds = whereIn(d.batches, "page_id", pageIds).map(function (b) { return b.id; });
+      blockIds = whereIn(d.blocks, "batch_id", batchIds).map(function (b) { return b.id; });
+      wordIds = whereIn(d.words, "block_id", blockIds).map(function (x) { return x.id; });
+    } else {
+      var secs = await sbList("sections", function (q) { return q.eq("notebook_id", notebookId); });
+      sectionIds = secs.map(function (s) { return s.id; });
+      var pages = sectionIds.length ? await sbList("pages", function (q) { return q.in("section_id", sectionIds); }) : [];
+      pageIds = pages.map(function (p) { return p.id; });
+      var batches = pageIds.length ? await sbList("batches", function (q) { return q.in("page_id", pageIds); }) : [];
+      batchIds = batches.map(function (b) { return b.id; });
+      var blocks = batchIds.length ? await sbList("blocks", function (q) { return q.in("batch_id", batchIds); }) : [];
+      blockIds = blocks.map(function (b) { return b.id; });
+      var words = blockIds.length ? await sbList("words", function (q) { return q.in("block_id", blockIds); }) : [];
+      wordIds = words.map(function (x) { return x.id; });
+    }
+    return { blockIds: blockIds, wordIds: wordIds };
+  };
+
   /* Nhân bản 1 Notebook — CHỈ nội dung trực tiếp của nó (Section/Page/
      Batch/Block/Từ vựng), KHÔNG kéo theo Notebook con lồng bên trong (vd
      nhân bản "TOEIC 700+" để dán vào "DAVID CLASS" thì KHÔNG mang theo
@@ -619,8 +646,30 @@
      đi tiếp lên kiểm tra tổ tiên, nên cha đã share cho ai thì con mới
      (kể cả bản sao này) tự động họ thấy luôn, không cần share riêng lại.
      Không có targetParentId (đứng độc lập, không cha) -> "restricted"
-     như quy tắc mặc định chung mọi Notebook mới (DB.addNotebook). */
-  DB.duplicateNotebook = async function (notebookId, newName, targetParentId) {
+     như quy tắc mặc định chung mọi Notebook mới (DB.addNotebook).
+
+     progressScope (tuỳ chọn) — có mang tiến trình học sang bản sao không:
+       null/undefined   -> KHÔNG mang gì, bản sao trắng tiến trình (mặc định).
+       "__ALL__"        -> mang tiến trình của TẤT CẢ user đã có progress
+                           trên Block/Word gốc (mọi user, không chỉ người
+                           gọi hàm này) — CHỈ nên cho Admin chọn (kiểm tra ở
+                           app.js, xem comment tại nơi gọi), vì đây là copy
+                           dữ liệu học tập của người khác.
+       "<uuid cụ thể>"  -> mang tiến trình của ĐÚNG 1 user đó (có thể là
+                           chính người gọi, hoặc 1 user khác nếu Admin chọn).
+     Kỹ thuật: đọc bằng DB.getProgressRows (không lọc theo auth.uid() của
+     phiên hiện tại — cố tình, vì bảng word_progress/block_progress đã có
+     policy "shared_all" mở ghi/đọc cho cả role anon từ 2026-09-07, phục vụ
+     cơ chế "đăng nhập qua link ?u=" không xác thực thật, xem đầu auth.js —
+     KHÔNG phải sơ hở, đã là chủ đích của app "gia đình" này), rồi ghi lại
+     qua DB.saveBlockProgress/saveWordProgress với ĐÚNG user_id gốc của mỗi
+     dòng + block/word ID MỚI (remap qua blockIdMap/wordIdMap).
+     LUÔN LUÔN chỉ là "chụp ảnh" tiến trình tại đúng lúc nhân bản, KHÔNG có
+     đồng bộ tiếp diễn về sau — học tiếp/sửa nội dung ở bản gốc hay bản sao
+     sau đó không ảnh hưởng ngược lại bên kia (2 bộ block_progress/
+     word_progress độc lập hoàn toàn kể từ đây, không có cột nào lưu lại
+     "bản này sao từ bản kia"). */
+  DB.duplicateNotebook = async function (notebookId, newName, targetParentId, progressScope) {
     var d = local();
     var srcNb = DB.mode === "local"
       ? d.notebooks.find(function (n) { return n.id === notebookId; })
@@ -695,12 +744,41 @@
     });
     if (newBlocks.length) await insertMany("blocks", newBlocks);
 
-    var newWords = srcWords.map(function (x) {
+    var wordIdMap = {}, newWords = srcWords.map(function (x) {
       var nx = Object.assign({}, x); delete nx.id;
       nx.block_id = blockIdMap[x.block_id]; nx.id = w.uid("wd");
-      return nx;
+      wordIdMap[x.id] = nx.id; return nx;
     });
     if (newWords.length) await insertMany("words", newWords);
+
+    /* Copy tiến trình học sang Block/Word bản sao theo progressScope — xem
+       giải thích đầy đủ ở comment đầu hàm. DB.getProgressRows đọc RAW,
+       KHÔNG lọc theo user hiện tại (trả về của mọi user khớp filter), rồi
+       ghi lại từng dòng qua DB.saveBlockProgress/saveWordProgress (tự biết
+       local hay Supabase) — giữ ĐÚNG user_id gốc của từng dòng, chỉ đổi
+       block_id/word_id sang bản mới. */
+    if (progressScope) {
+      var oldBlockIds = srcBlocks.map(function (b) { return b.id; });
+      var oldWordIds = srcWords.map(function (x) { return x.id; });
+      var filterUserId = progressScope === "__ALL__" ? null : progressScope;
+      var prog = await DB.getProgressRows(oldBlockIds, oldWordIds, filterUserId);
+      var copyJobs = [];
+      prog.bp.forEach(function (row) {
+        var newId = blockIdMap[row.block_id];
+        if (!newId) return;
+        var data = Object.assign({}, row);
+        delete data.user_id; delete data.block_id;
+        copyJobs.push(DB.saveBlockProgress(row.user_id, newId, data));
+      });
+      prog.wp.forEach(function (row) {
+        var newId = wordIdMap[row.word_id];
+        if (!newId) return;
+        var data = Object.assign({}, row);
+        delete data.user_id; delete data.word_id;
+        copyJobs.push(DB.saveWordProgress(row.user_id, newId, data));
+      });
+      if (copyJobs.length) await Promise.all(copyJobs);
+    }
 
     return newNotebook;
   };
@@ -1085,6 +1163,45 @@
       }
     }
     return { wp: wp, bp: bp };
+  };
+
+  /* Đọc tiến trình học RAW (mảng, không gộp theo id) của MỘT hoặc TẤT CẢ
+     user trên 1 danh sách Block/Word — khác DB.loadProgress (luôn khoá
+     đúng 1 userId, trả về object gộp theo block_id/word_id). Dùng cho
+     DB.duplicateNotebook khi mang tiến trình sang bản sao (progressScope
+     "__ALL__" hoặc 1 user cụ thể khác người gọi) — đọc được nhờ policy
+     "shared_all" đã mở SELECT cho mọi user trên 2 bảng này (xem comment ở
+     DB.duplicateNotebook). filterUserId falsy -> lấy CỦA TẤT CẢ user khớp
+     blockIds/wordIds, có giá trị -> chỉ đúng user đó. Chia lô 200 id/lượt
+     giống DB.getLeaderboardProgress (PostgREST .in() không nên quá dài). */
+  DB.getProgressRows = async function (blockIds, wordIds, filterUserId) {
+    blockIds = blockIds || []; wordIds = wordIds || [];
+    if (progressLocal()) {
+      var d = local();
+      var bp = d.block_progress.filter(function (r) {
+        return blockIds.indexOf(r.block_id) >= 0 && (!filterUserId || r.user_id === filterUserId);
+      });
+      var wp = d.word_progress.filter(function (r) {
+        return wordIds.indexOf(r.word_id) >= 0 && (!filterUserId || r.user_id === filterUserId);
+      });
+      return { bp: bp, wp: wp };
+    }
+    var CHUNK = 200;
+    async function fetchAll(table, ids, col) {
+      var out = [];
+      for (var i = 0; i < ids.length; i += CHUNK) {
+        var part = ids.slice(i, i + CHUNK);
+        var rows = await sbList(table, function (q) {
+          q = q.in(col, part);
+          return filterUserId ? q.eq("user_id", filterUserId) : q;
+        });
+        out = out.concat(rows);
+      }
+      return out;
+    }
+    var bpOut = blockIds.length ? await fetchAll("block_progress", blockIds, "block_id") : [];
+    var wpOut = wordIds.length ? await fetchAll("word_progress", wordIds, "word_id") : [];
+    return { bp: bpOut, wp: wpOut };
   };
 
   DB.saveWordProgress = async function (userId, wordId, data) {

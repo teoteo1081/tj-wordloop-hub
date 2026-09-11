@@ -2126,10 +2126,54 @@
           break;
         }
 
+        /* Hỏi có mang tiến trình học sang bản sao không (2026-09-11, theo
+           yêu cầu TJ). "Của tôi" ai cũng chọn được — chỉ ghi tiến trình của
+           chính mình (an toàn tuyệt đối, không đụng ai khác). "Tất cả"/
+           "1 người cụ thể" CHỈ hiện cho Admin — về mặt kỹ thuật RLS
+           "shared_all" đã mở cho mọi user đọc/ghi progress của bất kỳ ai
+           (xem comment ở DB.duplicateNotebook/CLAUDE.md), nên đây là giới
+           hạn Ở TẦNG UI theo đúng quyết định của TJ, không phải giới hạn
+           thật của database — đừng hiểu lầm là "an toàn do DB chặn". */
+        var myDupId = w.Auth.effectiveUserId ? w.Auth.effectiveUserId() : (w.Auth.user && w.Auth.user.id);
+        var progressOpts = [
+          { id: "__NONE__", name: "Không mang gì — bản sao trắng tiến trình" }
+        ];
+        if (myDupId) progressOpts.push({ id: myDupId, name: "Của tôi (" + ((w.Auth.user && w.Auth.user.name) || "tôi") + ")" });
+        var isAdminDup = w.Auth.isAdmin && w.Auth.isAdmin();
+        if (isAdminDup && w.DB.mode === "cloud") {
+          progressOpts.push({ id: "__ALL__", name: "Của TẤT CẢ user đã học Notebook này" });
+          progressOpts.push({ id: "__PICK__", name: "Của 1 người cụ thể…" });
+        }
+        var progressPick = await askPick({ title: "📈 Mang tiến trình học sang bản sao?", options: progressOpts });
+        if (progressPick === null) return;   /* đóng dialog -> huỷ hẳn việc nhân bản, giống các bước hỏi trên */
+
+        var progressScope = null;
+        if (progressPick === "__ALL__") {
+          progressScope = "__ALL__";
+        } else if (progressPick === "__PICK__") {
+          var ids = await w.DB.getNotebookBlockWordIds(id);
+          var rows = await w.DB.getProgressRows(ids.blockIds, ids.wordIds, null);
+          var userIdSet = {};
+          rows.bp.concat(rows.wp).forEach(function (r) { userIdSet[r.user_id] = true; });
+          var profiles = await w.DB.listProfiles();
+          var pickUserOpts = profiles
+            .filter(function (p) { return userIdSet[p.id]; })
+            .map(function (p) { return { id: p.id, name: (p.avatar_emoji || "") + " " + p.display_name }; });
+          if (!pickUserOpts.length) {
+            w.toast("Chưa ai có tiến trình trên Notebook này — mang theo bản trắng", "warn");
+          } else {
+            var pickedUser = await askPick({ title: "👤 Mang tiến trình của ai?", options: pickUserOpts });
+            if (pickedUser === null) return;   /* huỷ hẳn, không chỉ huỷ bước chọn user */
+            progressScope = pickedUser;
+          }
+        } else if (progressPick !== "__NONE__") {
+          progressScope = progressPick;   /* chính là myDupId */
+        }
+
         w.toast("Đang nhân bản Notebook…");
-        var newNb = await w.DB.duplicateNotebook(id, newName, targetParentId);
+        var newNb = await w.DB.duplicateNotebook(id, newName, targetParentId, progressScope);
         await App.reloadCurrent();
-        w.toast('Đã tạo "' + newNb.name + '" — bản sao Section/Page/Batch/Block/Từ vựng', "ok");
+        w.toast('Đã tạo "' + newNb.name + '" — bản sao Section/Page/Batch/Block/Từ vựng' + (progressScope ? ", kèm tiến trình học" : ""), "ok");
       }
 
       else if (act === "leaderboard") {
