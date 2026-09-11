@@ -121,7 +121,7 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
 - `js/keys.local.js` (copy từ `js/keys.local.example.js`) — **gitignored**, không commit, chỉ tồn tại trên 1 máy cụ thể. Dùng **duy nhất** để bật **OpenAI tuỳ chọn** (`OPENAI_API_KEY` + `OPENAI_MODEL`) cho máy đó — trả tiền thật nên không đưa lên web live. Không có file này (mặc định) thì app chỉ dùng Gemini qua proxy, hoạt động bình thường ở mọi nơi.
 
 ## Việc còn dang dở
-> **Đây là NƠI DUY NHẤT ghi việc dang dở** (không còn file `HANDOFF.md` riêng — đã xoá vì từng lệch thông tin với file này, xem `CLAUDE.md` mục "Nguyên tắc chung"). Mọi phiên bàn giao: cập nhật thẳng vào đây, đừng tạo file `.md` mới.
+> **Đây là nơi ghi backlog nhiều-phiên, LÂU DÀI** (khác `HANDOFF.md` — file đó chỉ ghi checkpoint TẠM của 1 phiên sắp hết token, xem luật dùng ngay đầu file đó, và `CLAUDE.md` mục "Nguyên tắc chung"). Việc nào kéo dài nhiều phiên/nhiều người thì cập nhật thẳng vào đây; đừng lập thêm file `.md` mới ngoài 3 file đã có (README/CLAUDE/HANDOFF).
 
 - **Đăng nhập thật (magic link) để đồng bộ tiến trình học** (đã thuộc từ nào, streak Journey) giữa các thiết bị — hiện chỉ kho từ vựng/bài đọc đồng bộ qua Supabase, tiến trình vẫn theo từng máy (`progressLocal()` = true cho tới khi có đăng nhập thật).
 - **Viết bài đọc tay — 2 notebook riêng biệt đang thiếu, ĐỪNG NHẦM LẪN VỚI NHAU:**
