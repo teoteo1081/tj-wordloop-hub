@@ -170,9 +170,14 @@
       if (!blocks.length) { w.toast("Không có Block nào để xuất", "err"); return; }
 
       if (blocks.length > WARN_BLOCKS) {
+        /* Đếm THẬT số từ thay vì giả định cứng "10 từ/block" — từ khi có
+           Block "full_..." (dán bài báo, TJ yêu cầu 2026-09-12) 1 Block có
+           thể chứa TOÀN BỘ từ đã trích (30-60+ từ), giả định cũ báo sai
+           lệch số lượng trong hộp thoại này (không crash, chỉ sai chữ). */
+        var totalWords = blocks.reduce(function (sum, b) { return sum + w.App.wordsOf(b.id).length; }, 0);
         var ok = await w.App.askConfirm({
           title: "Xuất " + blocks.length + " Block",
-          desc: "Khá nhiều nội dung (" + blocks.length + " Block, khoảng " + (blocks.length * 10) +
+          desc: "Khá nhiều nội dung (" + blocks.length + " Block, " + totalWords +
                 " từ) — trình duyệt có thể mất một lúc để dựng bản in. Vẫn tiếp tục?"
         });
         if (!ok) return;

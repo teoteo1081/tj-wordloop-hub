@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=14">
+<link rel="stylesheet" href="css/app.css?v=15">
 </head>
 <body>
 
@@ -931,6 +931,20 @@ mitigate | giảm nhẹ"></textarea>
      (xem @media print trong app.css). Đừng xoá dù nhìn như rỗng. -->
 <div id="print-root" hidden></div>
 
+<!-- Thanh điều khiển NGHE NỔI (sticky player) — TJ yêu cầu 2026-09-12,
+     giống mini-player "Listen to Page" của Safari: tự hiện khi cuộn ra
+     khỏi vùng bài đọc lúc đang nghe, để dừng/tạm dừng bất cứ lúc nào mà
+     không cần cuộn lại lên đầu. Ẩn mặc định — JS (detail.js) tự hiện/ẩn,
+     xem D._stickyTick. -->
+<div id="sticky-player" class="sticky-player" hidden>
+  <button class="sp-btn" id="sp-toggle" aria-label="Tạm dừng / Tiếp tục">⏸</button>
+  <span class="sp-time" id="sp-elapsed">0:00</span>
+  <div class="sp-bar" id="sp-bar"><div class="sp-bar-fill" id="sp-bar-fill"></div></div>
+  <span class="sp-time" id="sp-total">0:00</span>
+  <span class="sp-title" id="sp-title"></span>
+  <button class="sp-btn sp-close" id="sp-close" aria-label="Dừng hẳn">✕</button>
+</div>
+
 <div id="toast-wrap" class="toast-wrap"></div>
 <input type="file" id="file-import" accept="application/json" hidden>
 
@@ -962,15 +976,15 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/util.js?v=1"></script>
 <script src="js/srs.js?v=1"></script>
 <script src="js/context.js?v=14"></script>
-<script src="js/speech.js?v=1"></script>
+<script src="js/speech.js?v=2"></script>
 <script src="js/db.js?v=7"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/i18n.js?v=1"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=18"></script>
-<script src="js/export.js?v=1"></script>
+<script src="js/detail.js?v=19"></script>
+<script src="js/export.js?v=2"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=21"></script>
+<script src="js/app.js?v=22"></script>
 </body>
 </html>

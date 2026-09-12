@@ -336,6 +336,13 @@
     S._qi = 0;
     S._boundaryFired = false;
 
+    /* Mốc bắt đầu + ước tính tổng thời gian — dùng cho thanh điều khiển
+       nghe nổi (S.getProgress ở trên). Đặt SAU S.stop() (đã reset về 0)
+       để không bị đè lại ngay. */
+    S._startedAt = Date.now();
+    S._pausedAt = null; S._pausedMs = 0;
+    S._estTotalMs = ((opts.plain || "").length / 14.5) * 1000 / (S.rate || 1);
+
     speakNext();
   };
 
@@ -378,11 +385,45 @@
     if (synth) synth.cancel();
     S.stopHighlight();
     S._queue = []; S._qi = 0; S._current = null;
+    S._startedAt = null; S._pausedAt = null; S._pausedMs = 0; S._estTotalMs = 0;
   };
 
   S.setRate = function (r) { S.rate = parseFloat(r) || 1; };
   S.setVocabRate = function (r) { S.vocabRate = parseFloat(r) || 1; };
   S.isSpeaking = function () { return !!(synth && synth.speaking); };
+
+  /* ---------- tạm dừng/tiếp tục (thanh điều khiển nghe nổi) ----------
+     Web Speech API hỗ trợ sẵn pause()/resume() — không cắt utterance
+     đang đọc dở như stop(), chỉ khựng lại đúng chỗ rồi đọc tiếp. Theo
+     dõi thời gian tạm dừng để tính "elapsed" không bị nhảy khi resume. */
+  S.pause = function () {
+    if (!synth || !synth.speaking || synth.paused) return;
+    synth.pause();
+    S._pausedAt = Date.now();
+  };
+  S.resume = function () {
+    if (!synth || !synth.paused) return;
+    synth.resume();
+    if (S._pausedAt) { S._pausedMs += Date.now() - S._pausedAt; S._pausedAt = null; }
+  };
+  S.isPaused = function () { return !!(synth && synth.paused); };
+
+  /* Ước tính tiến độ [0..1] + thời gian đã đọc/tổng — dùng cho thanh
+     điều khiển nghe nổi (sticky player, TJ yêu cầu 2026-09-12, giống
+     mini-player "Listen to Page" của Safari). KHÔNG có API nào của
+     trình duyệt trả về "đã đọc được bao nhiêu giây" thật, nên ước tính
+     theo cùng công thức đã dùng ở startFallbackTimer (~14.5 ký tự/giây
+     ở tốc độ 1.0) trên TOÀN BỘ độ dài bài, không phải chỉ 1 câu. */
+  S.getProgress = function () {
+    var now = Date.now();
+    var pausedMs = (S._pausedMs || 0) + (S._pausedAt ? (now - S._pausedAt) : 0);
+    var elapsedMs = S._startedAt ? Math.max(0, (now - S._startedAt) - pausedMs) : 0;
+    var totalMs = S._estTotalMs || 0;
+    return {
+      elapsedMs: elapsedMs, totalMs: totalMs,
+      frac: totalMs ? Math.min(1, elapsedMs / totalMs) : 0
+    };
+  };
 
   /* Bật sáng thủ công tại vị trí ký tự thứ N — dùng để kiểm thử phần
      karaoke mà không cần máy có sẵn giọng đọc, và để gỡ lỗi khi cần. */

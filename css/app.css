@@ -1352,6 +1352,34 @@ textarea:focus{border-color:var(--blue);}
 .book-chapter-row .book-chapter-name{flex:1;padding:.4rem .6rem;font-size:.85rem;}
 .book-chapter-meta{flex-shrink:0;font-size:.72rem;color:var(--text-2);white-space:nowrap;}
 .book-progress{margin-top:.7rem;font-size:.85rem;color:var(--text-2);}
+
+/* Thanh điều khiển NGHE NỔI (sticky player) — nổi cố định đáy màn hình,
+   tự hiện khi cuộn ra khỏi vùng bài đọc lúc đang nghe (xem detail.js). */
+.sticky-player{
+  position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
+  z-index:60;display:flex;align-items:center;gap:.6rem;
+  background:#2b2a28;color:#fff;border-radius:14px;
+  padding:.55rem .9rem;box-shadow:0 6px 24px rgba(0,0,0,.35);
+  max-width:calc(100vw - 24px);width:560px;
+}
+.sticky-player[hidden]{display:none;}
+.sp-btn{
+  flex-shrink:0;background:none;border:none;color:#fff;font-size:1.1rem;
+  cursor:pointer;line-height:1;padding:.2rem .3rem;
+}
+.sp-time{flex-shrink:0;font-size:.75rem;color:#cfcac2;min-width:32px;text-align:center;}
+.sp-bar{flex:1;height:4px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;min-width:60px;}
+.sp-bar-fill{height:100%;background:var(--blue);width:0%;}
+.sp-title{
+  flex-shrink:1;min-width:0;font-size:.78rem;color:#cfcac2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;
+}
+.sp-close{font-size:.95rem;opacity:.8;}
+.sp-close:hover{opacity:1;}
+@media (max-width:480px){
+  .sticky-player{width:calc(100vw - 24px);padding:.5rem .7rem;gap:.4rem;}
+  .sp-title{display:none;}
+}
 /* Hộp xuất PDF */
 .export-size-row{display:flex;gap:1rem;flex-wrap:wrap;font-size:.85rem;color:var(--text-2);}
 .export-size-row label{display:flex;align-items:center;gap:.35rem;cursor:pointer;}

@@ -1553,6 +1553,17 @@
     var extracted = await w.Context.extractVocab(rawInput, cfg2);
     var cleanText = w.Context.stripPasteNoise(rawInput);
 
+    /* Đọc lại provider/chi phí NGAY sau extractVocab — Context._callProvider
+       tự ghi 2 biến này làm side-channel (y hệt cách generateAI/enrichWords
+       đã dùng), extractVocab chỉ gọi AI ĐÚNG 1 LẦN nên không cần cộng dồn
+       qua nhiều lượt như enrichWords. TJ báo 2026-09-12: bảng từ vựng lẫn
+       bài đọc tạo từ "Dán bài, tự trích từ" KHÔNG hề hiện free/tốn bao
+       nhiêu — vì trước giờ hàm này chưa từng đọc 2 biến này, không phải
+       do UI mất tính năng (badge/cost vẫn hiện đúng ở generateAI/doPaste). */
+    var vocabProvider = w.Context._lastProvider || "";
+    var vocabCostUsd = (typeof w.Context._lastCostUsd === "number") ? w.Context._lastCostUsd : 0;
+    var vocabOrigin = w.Context._isWebOrigin() ? "web" : "local";
+
     var parsedWords = extracted.map(function (x) {
       return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "", freq: x.freq || "" };
     });
@@ -1560,6 +1571,12 @@
        cách (TJ yêu cầu 2026-09-12) — vd tên batch "Batch 1" -> "full_batch1". */
     var fullBlockName = "full_" + name.toLowerCase().replace(/\s+/g, "");
     var res = await w.DB.addBatchFromWordsWithFull(S.pageId, parsedWords, name, nextGlobalIndex(), fullBlockName);
+
+    /* 1 lượt gọi AI dùng chung cho MỌI Block vừa tạo (full + các Block 10
+       từ) — chia đều chi phí, y hệt cách doPaste() chia vocab_fill_meta
+       khi 1 lượt enrichWords tạo ra nhiều Block cùng lúc. */
+    var perBlockCost = vocabCostUsd / res.blocks.length;
+    var vocabFillMeta = { provider: vocabProvider, cost_usd: perBlockCost, at: Date.now(), shared_with_blocks: res.blocks.length };
 
     /* mỗi Block dùng lại CHÍNH bài đã dán, chỉ đánh dấu đúng từ của nó —
        RIÊNG Block "full" (đứng đầu, res.fullBlockId) đánh dấu HẾT mọi từ
@@ -1582,11 +1599,14 @@
         ai: true, vi: viMap, title: name,
         source: isFull
           ? "Bài đọc ĐẦY ĐỦ — nguyên văn bài đã dán, gồm TOÀN BỘ " + terms.length + " từ B1+ đã trích."
-          : "Bài đọc do bạn dán vào — AI trích " + terms.length + " từ B1+ trong đó."
+          : "Bài đọc do bạn dán vào — AI trích " + terms.length + " từ B1+ trong đó.",
+        provider: vocabProvider, origin: vocabOrigin, cost_usd: perBlockCost
       };
       var storable = marked + w.Context.META_SEP + JSON.stringify(meta);
       blk.context_passage = storable;
+      blk.vocab_fill_meta = vocabFillMeta;
       try { await w.DB.saveContext(blk.id, storable); } catch (e) { /* offline vẫn hiển thị được */ }
+      try { await w.DB.saveContext(blk.id, vocabFillMeta, "vocab_fill_meta"); } catch (e) { /* offline vẫn hiển thị được */ }
     }
 
     S.batches.push(res.batch);

@@ -1748,11 +1748,67 @@
     w.$("#btn-read").onclick = function () {
       D._autoRead = true;
       readCurrent();
+      startStickyPlayer();
     };
     w.$("#btn-stop").onclick = function () {
       D._autoRead = false;
       w.Speech.stop();
       w.$("#btn-read").textContent = "🎧 Nghe US";
+      hideStickyPlayer();
+    };
+
+    /* ══════════ THANH ĐIỀU KHIỂN NGHE NỔI (sticky player) ══════════
+       TJ yêu cầu 2026-09-12 — giống mini-player "Listen to Page" của
+       Safari: tự hiện khi cuộn RA KHỎI vùng bài đọc lúc đang nghe, để
+       tạm dừng/dừng hẳn bất cứ lúc nào không cần cuộn lại lên đầu.
+       Không dùng IntersectionObserver riêng — 1 setInterval vừa kiểm
+       tra "còn đang đọc không" (tự tắt khi hết bài/bị dừng nơi khác,
+       vd chuyển tab Quiz) vừa kiểm tra vị trí cuộn, đỡ phải wiring
+       nhiều nơi mỗi chỗ có thể dừng tiếng đọc. */
+    function fmtTime(ms) {
+      var s = Math.max(0, Math.round(ms / 1000));
+      return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    }
+    function passageOutOfView() {
+      var box = w.$("#passage-content-block");
+      var scroller = w.$("#workspace");
+      if (!box || !scroller) return false;
+      var br = box.getBoundingClientRect();
+      var sr = scroller.getBoundingClientRect();
+      return br.bottom < sr.top || br.top > sr.bottom;
+    }
+    function tickStickyPlayer() {
+      if (!w.Speech.isSpeaking() && !w.Speech.isPaused()) { hideStickyPlayer(); return; }
+      var bar = w.$("#sticky-player");
+      if (passageOutOfView()) {
+        bar.hidden = false;
+        var p = w.Speech.getProgress();
+        w.$("#sp-elapsed").textContent = fmtTime(p.elapsedMs);
+        w.$("#sp-total").textContent = fmtTime(p.totalMs);
+        w.$("#sp-bar-fill").style.width = (p.frac * 100) + "%";
+        w.$("#sp-toggle").textContent = w.Speech.isPaused() ? "▶" : "⏸";
+      } else {
+        bar.hidden = true;
+      }
+    }
+    function startStickyPlayer() {
+      w.$("#sp-title").textContent = w.$("#passage-title").textContent || "";
+      if (D._stickyTimer) clearInterval(D._stickyTimer);
+      D._stickyTimer = setInterval(tickStickyPlayer, 300);
+    }
+    function hideStickyPlayer() {
+      if (D._stickyTimer) { clearInterval(D._stickyTimer); D._stickyTimer = null; }
+      var bar = w.$("#sticky-player");
+      if (bar) bar.hidden = true;
+    }
+    w.$("#sp-toggle").onclick = function () {
+      if (w.Speech.isPaused()) { w.Speech.resume(); } else { w.Speech.pause(); }
+    };
+    w.$("#sp-close").onclick = function () {
+      D._autoRead = false;
+      w.Speech.stop();
+      w.$("#btn-read").textContent = "🎧 Nghe US";
+      hideStickyPlayer();
     };
 
     /* nút cuối Glossary -> vào THẲNG bài kiểm tra (tab Nghĩa — theo yêu
