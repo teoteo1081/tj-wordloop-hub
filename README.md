@@ -170,9 +170,18 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
     trước) để test: chuyển ngôn ngữ đổi đúng chữ ngay lập tức, tab Nghĩa
     ZH hiện đúng 3 tab + đúng thông báo trống cho Block cũ chưa có dữ
     liệu meaning_zh, insert thật lên Supabase có meaning_zh không lỗi.
-  - **CÒN THIẾU**: tạo Notebook "📘 Hướng dẫn sử dụng" trong Hub
-    COMMUNICATION (TJ yêu cầu, có ví dụ + hướng dẫn cách đổi ngôn ngữ
-    vi/en/zh) — chưa làm, xem tiếp nếu phiên sau nhặt lại việc này.
+  - **Hướng dẫn sử dụng — ĐÃ TẠO** (không phải Notebook riêng — COMMUNICATION
+    hoá ra là 1 NOTEBOOK có sẵn, không phải Hub): thêm 1 Section mới
+    "📘 Hướng dẫn sử dụng" ngay bên trong Notebook COMMUNICATION (id
+    `c545186c-d218-42a1-9196-03f87df60e4d`) > Page "Bắt đầu" > Batch 1 >
+    Block "Giới thiệu ứng dụng". Block này CHÍNH LÀ ví dụ sống — 10 "từ
+    vựng" thật ra là 10 THUẬT NGỮ CỦA APP (Hub/Notebook/Batch/Block/full
+    batch/karaoke/sticky player/Tony Buzan cycle + 2 thuật ngữ tiếng Anh
+    thật collocation/phrasal verb), bài đọc ~520 từ giải thích cách dùng
+    app bằng tiếng Việt kèm đoạn hướng dẫn đổi ngôn ngữ vi/en/zh (tính
+    năng vừa thêm ở trên). Đã verify bằng Playwright: đúng 10 dòng bảng
+    từ, đúng 10 từ được bôi [ngoặc] karaoke, đúng tiêu đề/nội dung khi mở
+    Block thật trên app.
 
 - **Phiên 2026-09-12 — ĐÃ XONG (lên live, commit `733ea53`):**
   - Fix DB thiếu cột `words.freq` (chưa từng chạy migration thật) — đã khiến CẢ "+ Paste từ mới" LẪN "✨ Dán bài, tự trích từ" lỗi PGRST204 mỗi lần tạo từ mới.
