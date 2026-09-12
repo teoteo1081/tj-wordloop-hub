@@ -641,13 +641,22 @@
 
   var I18N = { DICT: DICT };
 
-  /* Chạy 1 lượt dịch toàn bộ DOM hiện tại theo Auth.effectiveLang() —
-     chạy được cả 3 chiều (vi->en/zh lẫn en/zh->vi) nên gọi lại bao nhiêu
-     lần cũng an toàn, không cần biết trạng thái trước đó là gì. */
+  /* Chạy 1 lượt dịch toàn bộ DOM hiện tại theo Auth.effectiveLang().
+     ĐI QUA "vi" TRƯỚC luôn (bước walk(r,"vi") — vô hại/no-op nếu DOM đã
+     sẵn là vi, vì REV/REV_ZH không khớp được chữ tiếng Việt) rồi mới
+     dịch sang đích thật — bắt buộc phải làm vậy vì DICT/DICT_ZH chỉ có
+     chiều "từ vi", không có bản dịch TRỰC TIẾP en<->zh. Thiếu bước này,
+     đổi THẲNG en->zh (bỏ qua vi ở giữa, xảy ra thật khi bấm nút xoay
+     vòng 🇻🇳→🇬🇧→🇨🇳 mới thêm 2026-09-13) sẽ đứng yên sai ở "en" — đã bắt
+     lỗi này bằng Playwright trước khi sửa. Nhờ vậy gọi apply() lại bao
+     nhiêu lần cũng an toàn, không cần biết trạng thái DOM trước đó. */
   I18N.apply = function (root) {
     if (!(w.Auth && w.Auth.effectiveLang)) return;
     var target = w.Auth.effectiveLang();
-    walk(root || document.body, (target === "en" || target === "zh") ? target : "vi");
+    var normTarget = (target === "en" || target === "zh") ? target : "vi";
+    var r = root || document.body;
+    walk(r, "vi");
+    if (normTarget !== "vi") walk(r, normTarget);
   };
 
   /* Quan sát DOM để dịch NGAY nội dung mới render (menu ⋯, modal, danh

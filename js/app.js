@@ -3150,14 +3150,31 @@
      giống hệt theme) vì local mode không có bảng profiles thật để lưu. */
   var LS_LOCAL_LANG = "tjwl_local_lang_v1";
   var MY_LANGS = { vi: 1, en: 1, zh: 1 };
+  var LANG_ORDER = ["vi", "en", "zh"];
+  var LANG_FLAG = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳" };
 
   function applyLangDots() {
     var cur = (w.Auth && w.Auth.effectiveLang && w.Auth.effectiveLang()) || "vi";
+    var known = !!(w.Auth && w.Auth.user);
     w.$$(".lang-dot").forEach(function (d) {
       d.classList.toggle("on", d.dataset.mylang === cur);
     });
     var row = w.$("#lang-row");
-    if (row) row.hidden = !(w.Auth && w.Auth.user);
+    if (row) row.hidden = !known;
+    /* Nút nhanh sát 🌙/☀️ (topbar) — hiện đúng lá cờ đang dùng, bấm là
+       XOAY VÒNG sang ngôn ngữ kế tiếp (TJ yêu cầu 2026-09-13, "sát nút
+       đổi giao diện"). Ẩn tới khi biết user là ai, y hệt #lang-row. */
+    var btn = w.$("#lang-btn");
+    if (btn) {
+      btn.hidden = !known;
+      btn.textContent = LANG_FLAG[cur] || "🇻🇳";
+    }
+  }
+
+  function cycleMyLang() {
+    var cur = (w.Auth && w.Auth.effectiveLang && w.Auth.effectiveLang()) || "vi";
+    var i = LANG_ORDER.indexOf(cur);
+    setMyLang(LANG_ORDER[(i + 1) % LANG_ORDER.length]);
   }
 
   function setMyLang(lang) {
@@ -4109,6 +4126,7 @@
 
     /* --- đổi giao diện --- */
     w.$("#theme-btn").onclick = function (e) { e.stopPropagation(); App.toggleTheme(); };
+    w.$("#lang-btn").onclick = function (e) { e.stopPropagation(); cycleMyLang(); };
 
     /* --- ghim cột --- */
     w.$("#pin-left").onclick = function (e) { e.stopPropagation(); togglePin("left"); };
