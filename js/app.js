@@ -3167,7 +3167,7 @@
     var picker = w.$("#lang-picker");
     if (picker) picker.hidden = !known;
     var btn = w.$("#lang-btn");
-    if (btn) btn.textContent = (LANG_FLAG[cur] || "🇻🇳") + " ▾";
+    if (btn) btn.textContent = LANG_FLAG[cur] || "🇻🇳";
   }
 
   function setMyLang(lang) {
