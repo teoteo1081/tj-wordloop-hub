@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=13">
+<link rel="stylesheet" href="css/app.css?v=14">
 </head>
 <body>
 
@@ -686,6 +686,29 @@ mitigate | giảm nhẹ"></textarea>
       <button class="btn-ghost" data-close="modal-extract">Hủy</button>
       <button class="btn-primary" id="btn-do-extract">✨ Trích từ vựng &amp; tạo Block</button>
     </div>
+
+    <hr class="modal-sep">
+
+    <div class="wp-lbl">📚 Hoặc upload cả 1 quyển sách (PDF) — tự chia theo Chapter</div>
+    <p class="modal-desc">
+      Mỗi Chapter nhận diện được ("Chapter 1"/"Chương 2"...) sẽ ra <b>1 Batch riêng</b> (kèm 1
+      Block "full" chứa toàn bài + các Block 10 từ như bình thường) — xử lý lần lượt từng Chapter,
+      tốn kha khá quota AI nếu sách nhiều chương, xem lại danh sách trước khi bấm xử lý.
+    </p>
+    <div class="extract-url-row">
+      <input type="file" id="book-pdf-input" accept="application/pdf">
+      <button class="btn-soft" id="btn-read-pdf">📖 Đọc PDF &amp; chia Chapter</button>
+    </div>
+
+    <div id="book-chapters-box" hidden>
+      <div class="wp-lbl mt" id="book-chapters-summary"></div>
+      <div id="book-chapters-list" class="book-chapters-list"></div>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="btn-book-cancel">Huỷ danh sách này</button>
+        <button class="btn-primary" id="btn-book-start">🚀 Xử lý các phần đã chọn</button>
+      </div>
+      <div id="book-progress" class="book-progress" hidden></div>
+    </div>
   </div>
 </div>
 
@@ -920,6 +943,17 @@ mitigate | giảm nhẹ"></textarea>
      (đã gặp thật — xem CLAUDE.md). Đổi URL là cách CHẮC CHẮN 100% ép tải
      lại, không phụ thuộc người dùng có refresh cứng/xoá cache hay không. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<!-- pdf.js — đọc text từ file PDF khi upload "Dán cả sách" (js/app.js
+     readPdfText). Bản "legacy" build chạy được trên trình duyệt cũ hơn,
+     không cần bundler. Thiếu mạng/CDN chặn -> readPdfText tự báo lỗi rõ
+     ràng ("Chưa nạp được thư viện đọc PDF"), không vỡ chức năng khác. -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/legacy/build/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/legacy/build/pdf.worker.min.js";
+  }
+</script>
 <script src="js/config.js?v=4"></script>
 <!-- keys.local.js: key Gemini cá nhân, KHÔNG có trong git (.gitignore) — nếu
      thiếu file này (máy khác / clone lại repo) thì trình duyệt chỉ log lỗi
@@ -927,9 +961,9 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/keys.local.js?v=1"></script>
 <script src="js/util.js?v=1"></script>
 <script src="js/srs.js?v=1"></script>
-<script src="js/context.js?v=12"></script>
+<script src="js/context.js?v=14"></script>
 <script src="js/speech.js?v=1"></script>
-<script src="js/db.js?v=6"></script>
+<script src="js/db.js?v=7"></script>
 <script src="js/auth.js?v=4"></script>
 <script src="js/i18n.js?v=1"></script>
 <script src="js/reader.js?v=1"></script>
@@ -937,6 +971,6 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/export.js?v=1"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=19"></script>
+<script src="js/app.js?v=21"></script>
 </body>
 </html>

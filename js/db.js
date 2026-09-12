@@ -468,15 +468,44 @@
       return { sections: sections, pages: pages, batches: batches, blocks: blocks, words: words };
     }
 
-    var sections = await sbList("sections", function (q) { return q.eq("notebook_id", notebookId).order("sort"); });
-    var sIds = sections.map(function (s) { return s.id; });
-    var pages = sIds.length ? await sbList("pages", function (q) { return q.in("section_id", sIds).order("sort"); }) : [];
-    var pIds = pages.map(function (p) { return p.id; });
-    var batches = pIds.length ? await sbList("batches", function (q) { return q.in("page_id", pIds).order("sort"); }) : [];
-    var bIds = batches.map(function (b) { return b.id; });
-    var blocks = bIds.length ? await sbList("blocks", function (q) { return q.in("batch_id", bIds).order("sort"); }) : [];
-    var blIds = blocks.map(function (b) { return b.id; });
-    var words = blIds.length ? await sbList("words", function (q) { return q.in("block_id", blIds).order("sort"); }) : [];
+    /* 1 REQUEST DUY NHẤT thay vì 5 lần TUẦN TỰ (sections->pages->batches->
+       blocks->words, cái sau chờ cái trước xong mới gọi) — lồng bảng qua
+       khoá ngoại (PostgREST tự nhận diện FK, supabase-js hỗ trợ order lồng
+       nhau qua {foreignTable}). TJ báo app "chậm" (2026-09-12) lúc mạng có
+       độ trễ cao tới Supabase (Singapore) — đo thật bằng curl: notebook
+       602 từ giảm từ ~4s (5 round-trip tuần tự) còn ~0.8s (1 round-trip);
+       notebook 110 block/~5500 từ chỉ ~1.7s. Không đổi state cây/độ ưu
+       tiên gì — vẫn is đúng { sections, pages, batches, blocks, words }
+       phẳng như cũ, chỉ khác cách LẤY dữ liệu, chỗ gọi hàm này không cần
+       sửa gì. */
+    var r = await DB.sb.from("sections")
+      .select("*, pages(*, batches(*, blocks(*, words(*))))")
+      .eq("notebook_id", notebookId)
+      .order("sort")
+      .order("sort", { foreignTable: "pages" })
+      .order("sort", { foreignTable: "pages.batches" })
+      .order("sort", { foreignTable: "pages.batches.blocks" })
+      .order("sort", { foreignTable: "pages.batches.blocks.words" });
+    if (r.error) throw r.error;
+
+    var sections = [], pages = [], batches = [], blocks = [], words = [];
+    (r.data || []).forEach(function (sec) {
+      var secPages = sec.pages || []; delete sec.pages;
+      sections.push(sec);
+      secPages.forEach(function (pg) {
+        var pgBatches = pg.batches || []; delete pg.batches;
+        pages.push(pg);
+        pgBatches.forEach(function (bt) {
+          var btBlocks = bt.blocks || []; delete bt.blocks;
+          batches.push(bt);
+          btBlocks.forEach(function (bl) {
+            var blWords = bl.words || []; delete bl.words;
+            blocks.push(bl);
+            blWords.forEach(function (wd) { words.push(wd); });
+          });
+        });
+      });
+    });
     return { sections: sections, pages: pages, batches: batches, blocks: blocks, words: words };
   };
 
@@ -827,6 +856,69 @@
     }
 
     return { batch: batch, blocks: blocks, words: words };
+  };
+
+  /* Giống addBatchFromWords ở trên, nhưng thêm 1 Block "full" ĐỨNG ĐẦU
+     batch, chứa TOÀN BỘ danh sách từ (không chia 10) — dùng khi trích từ
+     vựng từ 1 bài báo/link thật (doPasteExtract trong app.js), để có 1 chỗ
+     đọc nguyên bài với TẤT CẢ từ được bôi đậm, tách biệt với các Block
+     10-từ-bình-thường phía sau (theo yêu cầu TJ 2026-09-12).
+     LƯU Ý: từ trong Block "full" là BẢN SAO riêng (id khác, cùng nội dung)
+     — 1 dòng "words" chỉ thuộc được đúng 1 block_id, không dùng chung được
+     với các Block chia nhỏ. Vì vậy tổng số từ trong kho sẽ tăng thêm bằng
+     đúng số từ đã trích (bị đếm 2 lần: 1 lần ở Block full, 1 lần rải rác
+     ở các Block 10-từ) — CỐ Ý theo đúng yêu cầu, không phải bug.
+     fullBlockName: tên hiển thị, vd "full_batch1" (app.js tự tính từ tên
+     Batch). Trả về thêm fullBlockId để app.js phân biệt lúc gán bài đọc. */
+  DB.addBatchFromWordsWithFull = async function (pageId, parsedWords, batchName, startGlobalIndex, fullBlockName) {
+    var per = cfg.WORDS_PER_BLOCK || 10;
+    var groups = w.chunk(parsedWords, per);
+    if (!groups.length) throw new Error("Không có từ nào hợp lệ");
+
+    var batch = await insertOne("batches", {
+      page_id: pageId, name: batchName, sort: Date.now() % 100000, created_at: Date.now()
+    });
+
+    var gi = startGlobalIndex || 1;
+    var blocks = [], words = [];
+
+    async function insertWords(blockId, list) {
+      var rows = list.map(function (x, j) {
+        return {
+          block_id: blockId, sort: j, term: x.term, level: x.level || "",
+          pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "",
+          freq: x.freq || ""
+        };
+      });
+      if (DB.mode === "local") {
+        rows.forEach(function (r) { r.id = w.uid("wd"); local().words.push(r); });
+        saveLocal();
+        return rows;
+      }
+      var res = await DB.sb.from("words").insert(rows).select();
+      if (res.error) throw res.error;
+      return res.data || [];
+    }
+
+    /* Block "full" luôn đứng ĐẦU batch (sort=0, global_index nhỏ nhất) —
+       đọc tổng quan cả bài trước khi vào từng Block 10 từ. */
+    var fullBlock = await insertOne("blocks", {
+      batch_id: batch.id, name: fullBlockName, global_index: gi, sort: 0, context_passage: ""
+    });
+    gi++;
+    blocks.push(fullBlock);
+    words = words.concat(await insertWords(fullBlock.id, parsedWords));
+
+    for (var i = 0; i < groups.length; i++) {
+      var blk = await insertOne("blocks", {
+        batch_id: batch.id, name: "Block " + gi, global_index: gi, sort: i + 1, context_passage: ""
+      });
+      gi++;
+      blocks.push(blk);
+      words = words.concat(await insertWords(blk.id, groups[i]));
+    }
+
+    return { batch: batch, blocks: blocks, words: words, fullBlockId: fullBlock.id };
   };
 
   /* ══════════════ LƯU TỪ KIỂU LingQ ══════════════

@@ -90,7 +90,7 @@ APP_BASE_URL = "https://teoteo1081.github.io/tj-wordloop-hub/"
 OUTPUT_DIR = Path(__file__).resolve().parent / "reports"
 OUTPUT_XLSX = OUTPUT_DIR / f"nguoi_hoc_{datetime.datetime.now():%Y%m%d_%H%M%S}.xlsx"
 
-# Tự mở file Excel lên sau khi xuất xong (Windows).
+# Tự mở file Excel lên sau khi xuất xong (Windows/Mac/Linux).
 AUTO_OPEN_EXCEL = True
 
 # ==============================================================================
@@ -716,7 +716,15 @@ def run():
     if AUTO_OPEN_EXCEL:
         try:
             import os
-            os.startfile(str(path))
+            import platform
+            import subprocess
+            system = platform.system()
+            if system == "Windows":
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            elif system == "Darwin":
+                subprocess.run(["open", str(path)], check=True)
+            else:
+                subprocess.run(["xdg-open", str(path)], check=True)
         except Exception as e:
             print(f"  (Không tự mở được Excel: {e})")
 

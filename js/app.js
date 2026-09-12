@@ -1543,6 +1543,61 @@
      đọc của Block không sinh mới — dùng ĐÚNG bài người dùng vừa dán, chỉ
      đánh dấu đúng 10 từ thuộc Block đó (Block khác trong cùng lần dán vẫn
      thấy nguyên bài, chỉ khác từ nào được tô). */
+  /* Lõi dùng chung cho "Dán bài, tự trích từ" (1 bài) VÀ "Dán cả sách, tự
+     chia Chapter" (nhiều bài, gọi lặp lại hàm này cho từng chapter) —
+     tách ra 2026-09-12 để không lặp code. KHÔNG đụng UI (modal/nút) —
+     chỗ gọi tự lo phần đó. Ném lỗi ra ngoài cho chỗ gọi tự xử lý (đơn lẻ
+     hay vòng lặp nhiều chapter cần ứng xử khác nhau khi lỗi). */
+  async function processArticleToBatch(rawInput, name) {
+    var cfg2 = w.APP_CONFIG || {};
+    var extracted = await w.Context.extractVocab(rawInput, cfg2);
+    var cleanText = w.Context.stripPasteNoise(rawInput);
+
+    var parsedWords = extracted.map(function (x) {
+      return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "", freq: x.freq || "" };
+    });
+    /* "full_batch1" kiểu tên: "full_" + tên batch viết liền, không dấu
+       cách (TJ yêu cầu 2026-09-12) — vd tên batch "Batch 1" -> "full_batch1". */
+    var fullBlockName = "full_" + name.toLowerCase().replace(/\s+/g, "");
+    var res = await w.DB.addBatchFromWordsWithFull(S.pageId, parsedWords, name, nextGlobalIndex(), fullBlockName);
+
+    /* mỗi Block dùng lại CHÍNH bài đã dán, chỉ đánh dấu đúng từ của nó —
+       RIÊNG Block "full" (đứng đầu, res.fullBlockId) đánh dấu HẾT mọi từ
+       đã trích, vì nó chứa TOÀN BỘ danh sách từ (xem addBatchFromWordsWithFull). */
+    var viByTerm = {};
+    extracted.forEach(function (x) { if (x.sentence_vi) viByTerm[x.term.toLowerCase()] = x.sentence_vi; });
+
+    for (var i = 0; i < res.blocks.length; i++) {
+      var blk = res.blocks[i];
+      var isFull = (blk.id === res.fullBlockId);
+      var terms = res.words.filter(function (x) { return x.block_id === blk.id; })
+                            .map(function (x) { return x.term; });
+      var marked = w.Context._markTerms(cleanText, terms);
+      var viMap = {};
+      terms.forEach(function (t) {
+        var hit = viByTerm[t.toLowerCase()];
+        if (hit) viMap[t.toLowerCase()] = hit;
+      });
+      var meta = {
+        ai: true, vi: viMap, title: name,
+        source: isFull
+          ? "Bài đọc ĐẦY ĐỦ — nguyên văn bài đã dán, gồm TOÀN BỘ " + terms.length + " từ B1+ đã trích."
+          : "Bài đọc do bạn dán vào — AI trích " + terms.length + " từ B1+ trong đó."
+      };
+      var storable = marked + w.Context.META_SEP + JSON.stringify(meta);
+      blk.context_passage = storable;
+      try { await w.DB.saveContext(blk.id, storable); } catch (e) { /* offline vẫn hiển thị được */ }
+    }
+
+    S.batches.push(res.batch);
+    S.blocks = S.blocks.concat(res.blocks);
+    S.words = S.words.concat(res.words);
+    S.batchId = res.batch.id;
+    saveSel();
+
+    return { res: res, parsedWords: parsedWords, fullBlockName: fullBlockName };
+  }
+
   async function doPasteExtract() {
     if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
     /* "AI chỉ Admin" đã BỎ theo yêu cầu — mọi User đều dùng được. Gemini
@@ -1560,55 +1615,127 @@
     btn.disabled = true; btn.textContent = "⏳ Đang phân tích...";
 
     try {
-      var extracted = await w.Context.extractVocab(rawInput, cfg2);
-      var cleanText = w.Context.stripPasteNoise(rawInput);
-
-      var parsedWords = extracted.map(function (x) {
-        return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "", freq: x.freq || "" };
-      });
       var name = w.$("#extract-name").value.trim() || ("Batch " + (batchesOfPage(S.pageId).length + 1));
-      var res = await w.DB.addBatchFromWords(S.pageId, parsedWords, name, nextGlobalIndex());
-
-      /* mỗi Block dùng lại CHÍNH bài đã dán, chỉ đánh dấu đúng từ của nó */
-      var viByTerm = {};
-      extracted.forEach(function (x) { if (x.sentence_vi) viByTerm[x.term.toLowerCase()] = x.sentence_vi; });
-
-      for (var i = 0; i < res.blocks.length; i++) {
-        var blk = res.blocks[i];
-        var terms = res.words.filter(function (x) { return x.block_id === blk.id; })
-                              .map(function (x) { return x.term; });
-        var marked = w.Context._markTerms(cleanText, terms);
-        var viMap = {};
-        terms.forEach(function (t) {
-          var hit = viByTerm[t.toLowerCase()];
-          if (hit) viMap[t.toLowerCase()] = hit;
-        });
-        var meta = {
-          ai: true, vi: viMap, title: name,
-          source: "Bài đọc do bạn dán vào — AI trích " + terms.length + " từ B1+ trong đó."
-        };
-        var storable = marked + w.Context.META_SEP + JSON.stringify(meta);
-        blk.context_passage = storable;
-        try { await w.DB.saveContext(blk.id, storable); } catch (e) { /* offline vẫn hiển thị được */ }
-      }
-
-      S.batches.push(res.batch);
-      S.blocks = S.blocks.concat(res.blocks);
-      S.words = S.words.concat(res.words);
-      S.batchId = res.batch.id;
-      saveSel();
+      var out = await processArticleToBatch(rawInput, name);
 
       w.$("#modal-extract").hidden = true;
       w.$("#extract-input").value = "";
       w.$("#extract-name").value = "";
       renderBatches(); renderPages(); App.renderBlocks();
-      w.toast("Đã trích " + parsedWords.length + " từ B1+ → " + res.blocks.length + " block ✔", "ok");
+      w.toast("Đã trích " + out.parsedWords.length + " từ B1+ → " + (out.res.blocks.length - 1) +
+        " block 10 từ + 1 block đầy đủ (" + out.fullBlockName + ") ✔", "ok");
     } catch (e) {
       if (e && e.kind && w.App && w.App.showAiError) w.App.showAiError(e);   /* lỗi từ AI (kind có sẵn) -> banner chi tiết */
       w.toast("Lỗi: " + (e.message || e), "err");
     } finally {
       btn.disabled = false; btn.textContent = "✨ Trích từ vựng & tạo Block";
     }
+  }
+
+  /* ══════════════ "DÁN CẢ SÁCH, TỰ CHIA CHAPTER" ══════════════
+     (TJ yêu cầu 2026-09-12) — upload 1 file PDF (đọc bằng pdf.js qua CDN,
+     xem index.html), tự chia theo tiêu đề "Chapter X"/"Chương X"
+     (Context.splitChapters — KHÔNG gọi AI, chỉ cắt text), cho xem trước
+     danh sách chapter để bỏ bớt/đổi tên trước khi xử lý, rồi lặp qua
+     TỪNG chapter đã chọn gọi processArticleToBatch() ở trên — MỖI
+     chapter ra 1 batch riêng (kèm 1 block "full" + các block 10 từ,
+     y hệt dán 1 bài đơn lẻ). Xử lý TUẦN TỰ (không Promise.all) vì mỗi
+     lần gọi AI tốn quota + cần chờ đúng thứ tự để progress hiện đúng. */
+  var bookChapters = [];   /* [{title, text}] — từ splitChapters(), đọc lại khi bấm "Xử lý" */
+
+  async function readPdfText(file) {
+    if (!w.pdfjsLib) throw new Error("Chưa nạp được thư viện đọc PDF (pdf.js) — kiểm tra mạng/CDN trong index.html");
+    var buf = await file.arrayBuffer();
+    var pdf = await w.pdfjsLib.getDocument({ data: buf }).promise;
+    var pages = [];
+    for (var i = 1; i <= pdf.numPages; i++) {
+      var page = await pdf.getPage(i);
+      var content = await page.getTextContent();
+      /* MỖI item trong content.items đã tự có khoảng trắng riêng (item
+         rời chỉ chứa " "), KHÔNG được tự chèn thêm dấu cách giữa các item
+         (sẽ ra "T h i s" cách chữ sai). Ranh giới DÒNG THẬT nằm ở cờ
+         `hasEOL` (pdf.js tự đánh dấu item cuối mỗi dòng theo toạ độ Y) —
+         PHẢI dùng cờ này để chèn \n đúng chỗ, nếu không cả trang dính
+         thành 1 dòng liền, splitChapters() không nhận diện được tiêu đề
+         "Chapter X" (regex đòi hỏi đứng ĐẦU DÒNG) — đã test thật bằng
+         pdf.js + file PDF thật, lỗi này khiến sách không tách được
+         chapter nào cả, chỉ ra đúng 1 phần duy nhất (đã sửa 2026-09-12). */
+      var lineText = "";
+      content.items.forEach(function (it) {
+        lineText += it.str;
+        if (it.hasEOL) lineText += "\n";
+      });
+      pages.push(lineText);
+    }
+    return pages.join("\n\n");
+  }
+
+  function renderBookChapters(chapters) {
+    bookChapters = chapters;
+    var box = w.$("#book-chapters-box");
+    var list = w.$("#book-chapters-list");
+    box.hidden = false;
+    w.$("#book-chapters-summary").textContent =
+      "Tìm được " + chapters.length + " phần — bỏ chọn phần nào không cần, sửa tên Batch nếu muốn, rồi bấm xử lý:";
+    list.innerHTML = chapters.map(function (c, i) {
+      var defaultName = c.title || ("Phần " + (i + 1));
+      return '<div class="book-chapter-row" data-idx="' + i + '">' +
+        '<input type="checkbox" checked class="book-chapter-check">' +
+        '<input type="text" class="text-input book-chapter-name" value="' + w.esc(defaultName) + '">' +
+        '<span class="book-chapter-meta">' + c.text.length + ' ký tự</span>' +
+        '</div>';
+    }).join("");
+    w.$("#book-progress").hidden = true;
+    w.$("#book-progress").textContent = "";
+  }
+
+  async function doBookStart() {
+    if (!S.pageId) { w.toast("Hãy tạo/chọn một Page trước", "err"); return; }
+    var cfg2 = w.APP_CONFIG || {};
+    if (!cfg2.OPENAI_API_KEY && !(cfg2.SUPABASE_URL && cfg2.SUPABASE_ANON_KEY)) {
+      w.toast("Cần key OpenAI (js/keys.local.js) hoặc chạy Cloud mode để dùng tính năng này", "err");
+      return;
+    }
+    var rows = Array.prototype.slice.call(w.$("#book-chapters-list").querySelectorAll(".book-chapter-row"));
+    var selected = rows.filter(function (r) { return r.querySelector(".book-chapter-check").checked; });
+    if (!selected.length) { w.toast("Chưa chọn phần nào", "err"); return; }
+
+    var startBtn = w.$("#btn-book-start");
+    var progBox = w.$("#book-progress");
+    startBtn.disabled = true;
+    progBox.hidden = false;
+
+    var done = 0, failed = [];
+    for (var i = 0; i < selected.length; i++) {
+      var row = selected[i];
+      var idx = parseInt(row.dataset.idx, 10);
+      var chText = bookChapters[idx].text;
+      var chName = row.querySelector(".book-chapter-name").value.trim() || ("Phần " + (i + 1));
+      progBox.textContent = "⏳ Đang xử lý " + (i + 1) + "/" + selected.length + ": " + chName + "...";
+
+      try {
+        await processArticleToBatch(chText, chName);
+        done++;
+        renderBatches(); renderPages(); App.renderBlocks();
+      } catch (e) {
+        failed.push(chName + " — " + (e.message || e));
+        /* Hết quota AI hôm nay -> mọi chapter sau CHẮC CHẮN cũng lỗi y hệt,
+           dừng hẳn vòng lặp thay vì thử tiếp vô ích (đỡ tốn thời gian chờ
+           + đỡ chồng chất lỗi giống nhau trong tóm tắt cuối). Lỗi khác
+           (JSON hỏng thoáng qua, 1 chapter không có từ B1+ nào...) thì bỏ
+           qua CHAPTER ĐÓ thôi, vẫn thử tiếp các chapter còn lại. */
+        if (e && e.kind === "quota_user") {
+          progBox.textContent = "⏸ Dừng lại — đã hết lượt AI hôm nay (" + done + "/" + selected.length + " phần đã xong).";
+          break;
+        }
+      }
+    }
+
+    startBtn.disabled = false;
+    var summary = "Xong! Đã tạo " + done + "/" + selected.length + " phần thành công.";
+    if (failed.length) summary += " Lỗi " + failed.length + " phần: " + failed.join("; ");
+    progBox.textContent = summary;
+    w.toast(summary, failed.length ? "err" : "ok");
   }
 
   /* ══════════════ "THỬ TẢI TỪ LINK" ══════════════
@@ -3376,6 +3503,32 @@
       } finally {
         btn.disabled = false; btn.textContent = oldText;
       }
+    };
+
+    w.$("#btn-read-pdf").onclick = async function () {
+      var file = w.$("#book-pdf-input").files[0];
+      if (!file) { w.toast("Chọn file PDF trước đã", "err"); return; }
+      var btn = this;
+      btn.disabled = true;
+      var oldText = btn.textContent;
+      btn.textContent = "⏳ Đang đọc PDF...";
+      try {
+        var text = await readPdfText(file);
+        var chapters = w.Context.splitChapters(text);
+        if (!chapters.length) { w.toast("Không đọc được nội dung từ PDF này", "err"); return; }
+        renderBookChapters(chapters);
+        w.toast("Đã đọc PDF, tìm được " + chapters.length + " phần — xem lại danh sách bên dưới", "ok");
+      } catch (e) {
+        w.toast("Lỗi đọc PDF: " + (e.message || e), "err");
+      } finally {
+        btn.disabled = false; btn.textContent = oldText;
+      }
+    };
+    w.$("#btn-book-start").onclick = doBookStart;
+    w.$("#btn-book-cancel").onclick = function () {
+      bookChapters = [];
+      w.$("#book-chapters-box").hidden = true;
+      w.$("#book-pdf-input").value = "";
     };
 
     /* --- đóng modal chung --- */

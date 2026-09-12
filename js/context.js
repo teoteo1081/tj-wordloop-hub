@@ -695,6 +695,92 @@
         .trim();
     },
 
+    /* ═══════════ CHIA 1 QUYỂN SÁCH THÀNH TỪNG CHAPTER ═══════════
+       Dùng khi dán/upload nguyên 1 quyển sách (TJ yêu cầu 2026-09-12) —
+       extractVocab bên dưới giới hạn 12000 ký tự/lần nên không nhét được
+       cả sách vào 1 lần gọi AI. Hàm này CHỈ cắt text theo tiêu đề chapter
+       (không gọi AI, không tốn quota) — mỗi phần trả về sẽ được xử lý
+       RIÊNG qua extractVocab + tạo 1 batch riêng ở app.js (doPasteBook).
+       Nhận diện dòng tiêu đề kiểu "Chapter 1"/"CHƯƠNG 2"/"Chapter One" —
+       PHẢI đứng riêng 1 dòng, ngắn (tối đa ~80 ký tự sau số/tên) để tránh
+       khớp nhầm câu văn thường có chữ "chapter" ở giữa (vd "In chapter 5
+       of her life, she..." — câu này DÀI hơn 80 ký tự nên không khớp).
+       Phần nào sau khi cắt vẫn dài hơn giới hạn của extractVocab thì tự
+       cắt tiếp theo ranh giới ĐOẠN VĂN (dòng trống, không cắt giữa câu),
+       đặt tên "... (phần 2)" để phân biệt.
+       Trả về [{title, text}] — title rỗng nếu không tìm thấy chapter nào
+       (coi cả bài là 1 phần duy nhất, ứng dụng vẫn xử lý bình thường). */
+    splitChapters: function (text) {
+      var raw = w.Context.stripPasteNoise(text);
+      if (!raw) return [];
+
+      var re = /^[ \t]*(chapter|chương)\s+([ivxlcdmIVXLCDM]+|\d+|[a-zA-ZÀ-ỹ]+)\s*[:.\-–—]?\s*[^\n]{0,80}$/gim;
+      var matches = [];
+      var m;
+      while ((m = re.exec(raw))) { matches.push({ index: m.index, heading: m[0].trim() }); }
+
+      var chunks = [];
+      if (!matches.length) {
+        chunks.push({ title: "", text: raw });
+      } else {
+        /* Phần trước chapter đầu tiên (lời mở đầu/mục lục/lời tựa) — chỉ
+           giữ lại nếu đủ dài để có ý nghĩa học được, tránh tạo 1 batch
+           rỗng/vụn vặt từ vài dòng mục lục. */
+        var lead = raw.slice(0, matches[0].index).trim();
+        if (lead.length > 200) chunks.push({ title: "Mở đầu", text: lead });
+
+        for (var i = 0; i < matches.length; i++) {
+          var start = matches[i].index;
+          var end = (i + 1 < matches.length) ? matches[i + 1].index : raw.length;
+          var body = raw.slice(start, end).trim();
+          if (body) chunks.push({ title: matches[i].heading, text: body });
+        }
+      }
+
+      /* Sub-split phần nào > MAX ký tự theo ranh giới đoạn văn (dòng trống
+         \n\n) — chừa lề dưới 12000 thật của extractVocab vì stripPasteNoise
+         gọi lần 2 trong đó có thể đổi độ dài đôi chút. Có nguồn dán vào
+         KHÔNG giữ dòng trống giữa đoạn văn (vd copy từ PDF/OCR, cả chapter
+         dính thành 1 khối) — 1 "đoạn văn" tách được theo \n{2,} vẫn có thể
+         TỰ NÓ dài hơn MAX, lúc đó cắt tiếp theo CÂU (. ! ? + khoảng trắng)
+         thay vì để lọt 1 phần vẫn vượt giới hạn ra ngoài. */
+      var MAX = 11000;
+      function splitByLimit(text, max) {
+        var paras = text.split(/\n{2,}/);
+        var parts = [], part = "";
+        function flush() { if (part.trim()) parts.push(part.trim()); part = ""; }
+        paras.forEach(function (p) {
+          if (p.length > max) {
+            /* Gộp phần đang giữ (vd dòng tiêu đề ngắn) vào ĐẦU câu đầu
+               tiên thay vì tách rời thành 1 mảnh lẻ tí hon. */
+            var buf = part; part = "";
+            var sentences = p.split(/(?<=[.!?])\s+/);
+            sentences.forEach(function (s) {
+              if (buf && (buf.length + s.length + 1) > max) { parts.push(buf.trim()); buf = s; }
+              else { buf = buf ? buf + " " + s : s; }
+            });
+            if (buf.trim()) parts.push(buf.trim());
+            return;
+          }
+          if (part && (part.length + p.length + 2) > max) { flush(); part = p; }
+          else { part = part ? part + "\n\n" + p : p; }
+        });
+        flush();
+        return parts;
+      }
+
+      var out = [];
+      chunks.forEach(function (c) {
+        if (c.text.length <= MAX) { out.push(c); return; }
+        var parts = splitByLimit(c.text, MAX);
+        parts.forEach(function (p, i) {
+          out.push({ title: (c.title ? c.title + " " : "") + "(phần " + (i + 1) + ")", text: p });
+        });
+      });
+
+      return out;
+    },
+
     /* ═══════════ DÁN 1 ĐOẠN VĂN CÓ SẴN -> TRÍCH TỪ B1+ ═══════════
        Không có sẵn từ điển CEFR offline trong app này, nên nhờ AI đọc
        đoạn văn và tự chấm cấp độ từng từ. Trả về mảng
@@ -711,6 +797,15 @@
         throw new Error("Đoạn văn dài " + raw.length + " ký tự, quá giới hạn 12000 (~1 bài báo dài / ~15 phút transcript) — cắt bớt rồi dán lại");
       }
 
+      /* Đưa số từ THẬT của bài vào prompt chỉ để AI biết bài dài/ngắn cỡ
+         nào — KHÔNG kèm theo khoảng số lượng kỳ vọng nào (từng thử ép 1
+         khoảng cụ thể, TJ yêu cầu bỏ 2026-09-12: "có bao nhiêu thì lấy ra
+         bấy nhiêu" — bài có ít từ khó thật thì danh sách ngắn cũng được,
+         không cần AI cố nặn thêm cho đủ số; bài nhiều thì cứ liệt kê hết,
+         không tự giới hạn). Chỉ mục 4 dưới đây nhắc "đọc từng câu" để
+         tránh bỏ sót, không ép số lượng. */
+      var wordCount = raw.trim().split(/\s+/).filter(Boolean).length;
+
       var sys = "Bạn là trợ lý phân tích văn bản tiếng Anh để giúp người Việt học từ vựng. " +
         "Luôn trả lời DUY NHẤT một object JSON đúng schema được yêu cầu, không thêm chữ nào khác, " +
         "không dùng markdown code fence.";
@@ -723,11 +818,31 @@
         "(B1, B2, C1, C2 — bỏ qua từ A1/A2 quá cơ bản như 'the', 'go', 'happy'...) THỰC SỰ " +
         "XUẤT HIỆN NGUYÊN VĂN trong đoạn văn bên dưới, mỗi từ chỉ liệt kê 1 lần (không lặp các " +
         "dạng gần giống nhau của cùng 1 từ).\n\n" +
+        "QUAN TRỌNG — LIỆT KÊ ĐA DẠNG LOẠI, KHÔNG CHỈ TỪ ĐƠN B2/C1 KHÓ:\n" +
+        "1. ĐỪNG bỏ sót từ B1 phổ biến chỉ vì nó \"dễ\" hơn B2/C1/C2 — nếu đoạn văn có từ B1 " +
+        "thực sự đạt ngưỡng (không phải A1/A2 quá cơ bản), PHẢI liệt kê đầy đủ, đừng chỉ chọn " +
+        "toàn từ khó nhất bài.\n" +
+        "2. NGOÀI từ đơn (Verb/Noun/Adjective/Adverb), CHỦ ĐỘNG tìm thêm CỤM ĐỘNG TỪ/phrasal verb " +
+        "(vd \"point out\", \"carry out\", \"look into\"), CỤM TỪ CỐ ĐỊNH/collocation (vd \"make a " +
+        "decision\", \"heavy rain\", \"take responsibility for\"), và THÀNH NGỮ/idiom (vd \"a piece " +
+        "of cake\", \"under the weather\") NẾU đoạn văn có — đừng chỉ liệt kê từ đơn.\n" +
+        "3. Với cụm từ (phrasal verb/collocation/idiom): CHỈ lấy nếu các từ trong cụm đứng LIỀN " +
+        "NHAU, NGUYÊN VẸN, ĐÚNG THỨ TỰ trong đoạn văn (không bị chia cắt bởi từ khác ở giữa, vd " +
+        "câu có \"pointed several risks out\" thì KHÔNG được lấy \"point out\" vì 2 từ không liền " +
+        "nhau trong câu này) — cụm nào bị tách rời thì BỎ QUA, đừng cố liệt kê.\n" +
+        "4. LIỆT KÊ ĐẦY ĐỦ, ĐỪNG CHỈ CHỌN VÀI TỪ \"NỔI BẬT\" NHẤT BÀI — hãy đọc LẦN LƯỢT TỪNG " +
+        "CÂU một trong đoạn văn (đoạn văn bên dưới dài " + wordCount + " từ tiếng Anh), với MỖI " +
+        "câu tự hỏi \"câu này có từ/cụm nào đạt B1 trở lên không\" rồi liệt kê hết, đừng bỏ qua " +
+        "câu nào (rất nhiều từ B1 thông dụng vẫn tính, không chỉ từ B2/C1 \"khó\", ấn tượng). " +
+        "CÓ BAO NHIÊU TỪ ĐẠT CHUẨN THÌ LIỆT KÊ BẤY NHIÊU — KHÔNG có số lượng mục tiêu cố định " +
+        "nào cả: bài dùng toàn từ đơn giản thì danh sách ngắn cũng được, đừng cố nặn thêm từ " +
+        "không thực sự có trong bài; bài nhiều từ khó thì liệt kê hết, đừng tự dừng sớm.\n\n" +
         'ĐOẠN VĂN:\n"""\n' + raw + '\n"""\n\n' +
         "Với mỗi từ, ghi lại ĐẦY ĐỦ, KHÔNG ĐƯỢC bỏ trống trường nào:\n" +
-        "- term: đúng NGUYÊN VĂN dạng xuất hiện trong đoạn văn (giữ nguyên chia động từ/số nhiều)\n" +
+        "- term: đúng NGUYÊN VĂN dạng xuất hiện trong đoạn văn (giữ nguyên chia động từ/số nhiều; " +
+        "với cụm từ phải giữ NGUYÊN các từ liền nhau đúng như trong bài)\n" +
         "- level: cấp độ CEFR (B1/B2/C1/C2)\n" +
-        "- pos: loại từ (Verb/Noun/Adjective/Adverb/Phrase…)\n" +
+        "- pos: loại từ/cụm (Verb/Noun/Adjective/Adverb/Phrasal Verb/Collocation/Idiom…)\n" +
         "- ipa: phiên âm quốc tế (IPA) của TỪ GỐC (dạng từ điển, ví dụ /ˈlevərɪdʒ/), kể cả khi " +
         "term trong bài đang chia động từ/số nhiều\n" +
         "- def_en: định nghĩa tiếng Anh ngắn gọn\n" +
