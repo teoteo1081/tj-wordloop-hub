@@ -170,19 +170,23 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
     trước) để test: chuyển ngôn ngữ đổi đúng chữ ngay lập tức, tab Nghĩa
     ZH hiện đúng 3 tab + đúng thông báo trống cho Block cũ chưa có dữ
     liệu meaning_zh, insert thật lên Supabase có meaning_zh không lỗi.
-  - **Nút xoay vòng ngôn ngữ sát 🌙/☀️** (`#lang-btn`, TJ yêu cầu "sát nút
-    đổi giao diện") — bấm 1 phát xoay vi→en→zh→vi, y hệt cảm giác đổi
-    sáng/tối. Hàng "Ngôn ngữ" (3 lá cờ) trong menu vẫn còn song song, để
-    chọn thẳng 1 ngôn ngữ nếu không muốn bấm xoay nhiều lần — cả 2 luôn
-    đồng bộ.
-  - **FIX BUG THẬT #2** phát hiện lúc test nút xoay vòng: `I18N.apply()`
-    chỉ dịch TỪ tiếng Việt gốc (`DICT`/`DICT_ZH` đều chỉ có chiều "từ
-    vi") — đổi THẲNG en→zh (bỏ qua vi ở giữa, xảy ra thật khi bấm xoay
-    vòng 2 lần liên tiếp) đứng yên sai ở "en" vì không có bản dịch trực
-    tiếp en<->zh. Sửa: `apply()` giờ LUÔN đưa DOM về "vi" trước (vô hại/
-    no-op nếu đã sẵn vi) rồi mới dịch sang đích thật — đúng với MỌI
-    hướng chuyển đổi. Đã test Playwright qua 2 vòng xoay liên tiếp, ổn
-    định hoàn toàn.
+  - **Nút xổ xuống chọn ngôn ngữ sát 🌙/☀️** (`#lang-picker`/`#lang-btn`/
+    `#lang-dropdown`, TJ yêu cầu "sát nút đổi giao diện" rồi chốt lại
+    "chọn 3 ngôn ngữ" — không phải xoay vòng từng bước) — bấm nút (hiện
+    lá cờ + ▾) xổ ra đúng 3 lựa chọn 🇻🇳/🇺🇸/🇨🇳 để CHỌN THẲNG, tự đóng sau
+    khi chọn, đóng khi bấm ra ngoài (cùng cơ chế mở/đóng với #user-menu).
+    Cờ EN đổi thành 🇺🇸 (Mỹ) thay vì 🇬🇧 (Anh) theo yêu cầu, khớp với quy
+    ước "US" đã dùng sẵn trong app (giọng đọc "Nghe US", "en-US"...).
+    Hàng "Ngôn ngữ" (3 lá cờ) trong menu vẫn còn song song, luôn đồng bộ
+    (dùng chung class `.lang-dot`).
+  - **FIX BUG THẬT #2** phát hiện lúc test: `I18N.apply()` chỉ dịch TỪ
+    tiếng Việt gốc (`DICT`/`DICT_ZH` đều chỉ có chiều "từ vi") — đổi
+    THẲNG en→zh (bỏ qua vi ở giữa, xảy ra thật khi chọn 2 ngôn ngữ khác
+    "vi" liên tiếp trong dropdown) đứng yên sai ở "en" vì không có bản
+    dịch trực tiếp en<->zh. Sửa: `apply()` giờ LUÔN đưa DOM về "vi"
+    trước (vô hại/no-op nếu đã sẵn vi) rồi mới dịch sang đích thật —
+    đúng với MỌI hướng chuyển đổi. Đã test Playwright qua nhiều lượt
+    chọn liên tiếp, ổn định hoàn toàn.
   - **Hướng dẫn sử dụng — ĐÃ TẠO** (không phải Notebook riêng — COMMUNICATION
     hoá ra là 1 NOTEBOOK có sẵn, không phải Hub): thêm 1 Section mới
     "📘 Hướng dẫn sử dụng" ngay bên trong Notebook COMMUNICATION (id

@@ -1387,7 +1387,7 @@
            thêm. KHÔNG ảnh hưởng cách chấm điểm/quiz. */
         '<select class="mini-select" data-lang-select="' + p.id + '" title="Ngôn ngữ giao diện của tài khoản này">' +
           '<option value="vi"' + (p.lang === "vi" ? " selected" : "") + '>🇻🇳 Tiếng Việt</option>' +
-          '<option value="en"' + (p.lang !== "vi" && p.lang !== "zh" ? " selected" : "") + '>🇬🇧 English</option>' +
+          '<option value="en"' + (p.lang !== "vi" && p.lang !== "zh" ? " selected" : "") + '>🇺🇸 English</option>' +
           '<option value="zh"' + (p.lang === "zh" ? " selected" : "") + '>🇨🇳 中文</option>' +
         "</select>" +
         '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
@@ -3151,7 +3151,7 @@
   var LS_LOCAL_LANG = "tjwl_local_lang_v1";
   var MY_LANGS = { vi: 1, en: 1, zh: 1 };
   var LANG_ORDER = ["vi", "en", "zh"];
-  var LANG_FLAG = { vi: "🇻🇳", en: "🇬🇧", zh: "🇨🇳" };
+  var LANG_FLAG = { vi: "🇻🇳", en: "🇺🇸", zh: "🇨🇳" };
 
   function applyLangDots() {
     var cur = (w.Auth && w.Auth.effectiveLang && w.Auth.effectiveLang()) || "vi";
@@ -3161,20 +3161,13 @@
     });
     var row = w.$("#lang-row");
     if (row) row.hidden = !known;
-    /* Nút nhanh sát 🌙/☀️ (topbar) — hiện đúng lá cờ đang dùng, bấm là
-       XOAY VÒNG sang ngôn ngữ kế tiếp (TJ yêu cầu 2026-09-13, "sát nút
-       đổi giao diện"). Ẩn tới khi biết user là ai, y hệt #lang-row. */
+    /* Nút xổ xuống sát 🌙/☀️ (topbar) — hiện đúng lá cờ đang dùng, bấm
+       xổ ra đúng 3 lựa chọn để CHỌN THẲNG (TJ chốt 2026-09-13: "chọn 3
+       ngôn ngữ", không phải xoay vòng). Ẩn tới khi biết user là ai. */
+    var picker = w.$("#lang-picker");
+    if (picker) picker.hidden = !known;
     var btn = w.$("#lang-btn");
-    if (btn) {
-      btn.hidden = !known;
-      btn.textContent = LANG_FLAG[cur] || "🇻🇳";
-    }
-  }
-
-  function cycleMyLang() {
-    var cur = (w.Auth && w.Auth.effectiveLang && w.Auth.effectiveLang()) || "vi";
-    var i = LANG_ORDER.indexOf(cur);
-    setMyLang(LANG_ORDER[(i + 1) % LANG_ORDER.length]);
+    if (btn) btn.textContent = (LANG_FLAG[cur] || "🇻🇳") + " ▾";
   }
 
   function setMyLang(lang) {
@@ -4126,7 +4119,16 @@
 
     /* --- đổi giao diện --- */
     w.$("#theme-btn").onclick = function (e) { e.stopPropagation(); App.toggleTheme(); };
-    w.$("#lang-btn").onclick = function (e) { e.stopPropagation(); cycleMyLang(); };
+    /* Xổ xuống 3 lá cờ — cùng cơ chế mở/đóng với #user-menu: bấm nút thì
+       toggle, bấm ra ngoài thì đóng, bấm bên trong dropdown không lan
+       ra ngoài (kẻo đóng luôn trước khi kịp xử lý). */
+    var langDrop = w.$("#lang-dropdown");
+    w.$("#lang-btn").onclick = function (e) {
+      e.stopPropagation();
+      langDrop.hidden = !langDrop.hidden;
+      w.$("#lang-btn").setAttribute("aria-expanded", langDrop.hidden ? "false" : "true");
+    };
+    langDrop.addEventListener("click", function (e) { e.stopPropagation(); });
 
     /* --- ghim cột --- */
     w.$("#pin-left").onclick = function (e) { e.stopPropagation(); togglePin("left"); };
@@ -4148,8 +4150,13 @@
       d.onclick = function () { setAccent(d.dataset.accent); };
     });
     w.$$(".lang-dot").forEach(function (d) {
-      d.onclick = function () { setMyLang(d.dataset.mylang); };
+      d.onclick = function () {
+        setMyLang(d.dataset.mylang);
+        langDrop.hidden = true;   /* chọn xong tự đóng dropdown — nếu nút này nằm trong đó, vô hại nếu là nút trong menu */
+        w.$("#lang-btn").setAttribute("aria-expanded", "false");
+      };
     });
+    document.addEventListener("click", function () { langDrop.hidden = true; });
     applyLangDots();
     if (w.Auth && w.Auth.onChange) w.Auth.onChange(applyLangDots);
     /* Không dùng stopPropagation trên cột — làm vậy sẽ chặn luôn sự kiện

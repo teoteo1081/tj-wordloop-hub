@@ -883,7 +883,7 @@
   };
 
   /* ---------- Đề chọn nghĩa (tab Nghĩa, riêng, không ảnh hưởng SRS) ----------
-     2 kiểu kiểm tra CHỌN ĐƯỢC bằng nút "🇻🇳 Nghĩa VN" / "🇬🇧 Meaning EN" ngay
+     2 kiểu kiểm tra CHỌN ĐƯỢC bằng nút "🇻🇳 Nghĩa VN" / "🇺🇸 Meaning EN" ngay
      trong tab (KHÔNG tự động theo Auth.effectiveLang() — đây là lựa chọn
      RIÊNG của người đang làm bài, có thể khác giao diện đang dùng). Mặc
      định khi CHƯA từng chọn gì là "vi" (2026-09-10, TJ chốt lại — dù app
@@ -1500,7 +1500,7 @@
     w.$("#meaning-back").onclick = function () { D.close(); w.App.renderBlocks(); };
   };
 
-  /* Nút "🇻🇳 Nghĩa VN" / "🇬🇧 Meaning EN" — đổi NGAY (tạo lại đề, về câu 1)
+  /* Nút "🇻🇳 Nghĩa VN" / "🇺🇸 Meaning EN" — đổi NGAY (tạo lại đề, về câu 1)
      khi bấm khác lựa chọn hiện tại; bấm lại đúng cái đang chọn thì bỏ qua. */
   D.bindMeaningLangTabs = function () {
     var box = w.$("#meaning-lang-tabs");

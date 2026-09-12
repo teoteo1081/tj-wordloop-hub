@@ -647,7 +647,7 @@
      dịch sang đích thật — bắt buộc phải làm vậy vì DICT/DICT_ZH chỉ có
      chiều "từ vi", không có bản dịch TRỰC TIẾP en<->zh. Thiếu bước này,
      đổi THẲNG en->zh (bỏ qua vi ở giữa, xảy ra thật khi bấm nút xoay
-     vòng 🇻🇳→🇬🇧→🇨🇳 mới thêm 2026-09-13) sẽ đứng yên sai ở "en" — đã bắt
+     vòng 🇻🇳→🇺🇸→🇨🇳 mới thêm 2026-09-13) sẽ đứng yên sai ở "en" — đã bắt
      lỗi này bằng Playwright trước khi sửa. Nhờ vậy gọi apply() lại bao
      nhiêu lần cũng an toàn, không cần biết trạng thái DOM trước đó. */
   I18N.apply = function (root) {

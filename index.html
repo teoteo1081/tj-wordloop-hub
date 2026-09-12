@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/app.css?v=17">
+<link rel="stylesheet" href="css/app.css?v=18">
 </head>
 <body>
 
@@ -49,12 +49,19 @@
     <button class="btn-learning" id="btn-learning" title="Quay lại trang đang học" hidden>📖 Learning</button>
     <button class="theme-btn" id="theme-btn" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện sáng / tối">🌙</button>
     <!-- Nút nhanh đổi ngôn ngữ giao diện — sát nút sáng/tối (TJ yêu cầu
-         2026-09-13: "sát nút đổi giao diện"), bấm là XOAY VÒNG vi -> en ->
-         zh -> vi, y hệt cảm giác bấm 🌙/☀️. Hàng "Ngôn ngữ" (3 lá cờ) trong
-         menu user vẫn còn — dùng khi muốn CHỌN THẲNG đúng 1 ngôn ngữ thay
-         vì bấm xoay vòng nhiều lần; cả 2 nơi luôn đồng bộ (xem applyLangDots
-         trong app.js). Chữ/icon hiển thị tự cập nhật theo ngôn ngữ hiện tại. -->
-    <button class="theme-btn" id="lang-btn" title="Đổi ngôn ngữ giao diện" aria-label="Đổi ngôn ngữ giao diện" hidden>🇻🇳</button>
+         2026-09-13: "sát nút đổi giao diện", rồi chốt lại "chọn 3 ngôn
+         ngữ" — bấm nút là XỔ XUỐNG đúng 3 lá cờ VN/EN/CN để CHỌN THẲNG,
+         không phải xoay vòng từng bước). Hàng "Ngôn ngữ" trong menu user
+         vẫn còn, luôn đồng bộ (dùng chung class .lang-dot, xem
+         applyLangDots trong app.js). Ẩn tới khi biết user là ai. -->
+    <div class="lang-picker" id="lang-picker" hidden>
+      <button class="theme-btn" id="lang-btn" title="Đổi ngôn ngữ giao diện" aria-label="Đổi ngôn ngữ giao diện" aria-haspopup="true" aria-expanded="false">🇻🇳 ▾</button>
+      <div class="lang-dropdown" id="lang-dropdown" hidden>
+        <button class="lang-dot" data-mylang="vi">🇻🇳 Tiếng Việt</button>
+        <button class="lang-dot" data-mylang="en">🇺🇸 English</button>
+        <button class="lang-dot" data-mylang="zh">🇨🇳 中文</button>
+      </div>
+    </div>
     <span class="mode-pill" id="mode-pill" title="Chế độ lưu dữ liệu">…</span>
     <span class="word-counter" id="word-counter" title="Tổng số từ đã thuộc / Tổng số từ trong kho — bấm để xem Journey">📚 … / …</span>
 
@@ -110,7 +117,7 @@
         <span>Ngôn ngữ</span>
         <div class="lang-dots" id="lang-dots">
           <button class="lang-dot" data-mylang="vi" title="Tiếng Việt">🇻🇳</button>
-          <button class="lang-dot" data-mylang="en" title="English">🇬🇧</button>
+          <button class="lang-dot" data-mylang="en" title="English">🇺🇸</button>
           <button class="lang-dot" data-mylang="zh" title="中文">🇨🇳</button>
         </div>
       </div>
@@ -455,7 +462,7 @@
              D.meaningLang() ngay khi mở tab. -->
         <div class="meaning-lang-tabs" id="meaning-lang-tabs">
           <button class="mn-lang-tab active" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
-          <button class="mn-lang-tab" data-mnlang="en">🇬🇧 Meaning EN</button>
+          <button class="mn-lang-tab" data-mnlang="en">🇺🇸 Meaning EN</button>
           <button class="mn-lang-tab" data-mnlang="zh">🇨🇳 意思 ZH</button>
         </div>
         <div class="card final-wrap" id="meaning-card"></div>
@@ -1015,6 +1022,6 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/export.js?v=2"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=24"></script>
+<script src="js/app.js?v=25"></script>
 </body>
 </html>
