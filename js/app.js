@@ -1521,7 +1521,12 @@
         if (needy.length) {
           btn.textContent = "⏳ Đang tra từ điển AI...";
           try {
-            var r = await w.Context.enrichWords(parsed, cfg2);
+            /* quotaCtx: 1 blockId GIẢ dùng chung cho CẢ lượt dán này (kể cả
+               nếu enrichWords phải chia nhiều lượt gọi AI vì >25 từ) — tính
+               đúng 1 "Block" trong hạn mức 3 Block AI/ngày của user thường
+               (xem ghi chú Context.enrichWords). */
+            var quotaCtx = { userId: (w.Auth.user && w.Auth.user.id) || null, blockId: w.uid("pasteq") };
+            var r = await w.Context.enrichWords(parsed, cfg2, quotaCtx);
             if (r.filled) w.toast("AI đã tự điền " + r.filled + " ô còn thiếu", "ok");
             /* Ghi lại nguồn/chi phí để hiện cạnh "Danh sách từ vựng cần học"
                (giống bài đọc) — theo yêu cầu "cho thêm là nguồn nào tốn kém".
@@ -1587,9 +1592,14 @@
      tách ra 2026-09-12 để không lặp code. KHÔNG đụng UI (modal/nút) —
      chỗ gọi tự lo phần đó. Ném lỗi ra ngoài cho chỗ gọi tự xử lý (đơn lẻ
      hay vòng lặp nhiều chapter cần ứng xử khác nhau khi lỗi). */
-  async function processArticleToBatch(rawInput, name) {
+  async function processArticleToBatch(rawInput, name, quotaCtx) {
     var cfg2 = w.APP_CONFIG || {};
-    var extracted = await w.Context.extractVocab(rawInput, cfg2);
+    /* quotaCtx: truyền sẵn từ nơi gọi khi xử lý NHIỀU chapter cùng lượt
+       (doBookStart — cả cuốn sách tính đúng 1 "Block" quota); tự sinh 1
+       cái mới nếu gọi lẻ (doPasteExtract — 1 lượt dán = 1 "Block"). Xem
+       ghi chú Context.extractVocab. */
+    if (!quotaCtx) quotaCtx = { userId: (w.Auth.user && w.Auth.user.id) || null, blockId: w.uid("pasteq") };
+    var extracted = await w.Context.extractVocab(rawInput, cfg2, quotaCtx);
     var cleanText = w.Context.stripPasteNoise(rawInput);
 
     /* Đọc lại provider/chi phí NGAY sau extractVocab — Context._callProvider
@@ -1764,6 +1774,12 @@
     startBtn.disabled = true;
     progBox.hidden = false;
 
+    /* CẢ CUỐN SÁCH tính đúng 1 "Block" trong hạn mức 3 Block AI/ngày của
+       user thường (1 quotaCtx dùng chung cho MỌI chapter) — không phải
+       mỗi chapter trừ 1 "Block" riêng, nếu không dán 1 cuốn sách nhiều
+       chapter sẽ tự nuốt hết cả hạn mức trong 1 lượt. */
+    var bookQuotaCtx = { userId: (w.Auth.user && w.Auth.user.id) || null, blockId: w.uid("bookq") };
+
     var done = 0, failed = [];
     for (var i = 0; i < selected.length; i++) {
       var row = selected[i];
@@ -1773,7 +1789,7 @@
       progBox.textContent = "⏳ Đang xử lý " + (i + 1) + "/" + selected.length + ": " + chName + "...";
 
       try {
-        await processArticleToBatch(chText, chName);
+        await processArticleToBatch(chText, chName, bookQuotaCtx);
         done++;
         renderBatches(); renderPages(); App.renderBlocks();
       } catch (e) {

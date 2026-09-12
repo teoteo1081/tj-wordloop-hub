@@ -801,8 +801,18 @@
        là chuỗi con thật sự có trong đoạn văn gốc (lọc bỏ từ AI bịa thêm
        không có trong bài, để bước đánh dấu [..] sau này luôn tìm thấy).
        Nhận nhiều nguồn: bài báo dán nguyên trang, transcript YouTube/
-       Yglish (còn dính mốc thời gian), ghi chú tự gõ… */
-    extractVocab: async function (text, cfg) {
+       Yglish (còn dính mốc thời gian), ghi chú tự gõ…
+       quotaCtx: { userId, blockId } — 2026-09-13 (TJ yêu cầu "chỉ giới
+       hạn lại gemini lượt xài của user thôi", sau khi đã mở "Dán bài, tự
+       trích từ"/"Dán cả sách" cho MỌI user) — dùng CHUNG cơ chế quota
+       "3 Block AI/ngày cho user thường" với generateAI() (Admin không bị
+       giới hạn, xem checkQuota() trong gemini-proxy/openai-proxy). Vì
+       tính năng này CHƯA có Block thật lúc gọi AI (Block chỉ được tạo
+       SAU khi trích xong), gọi nơi dùng (processArticleToBatch) tự sinh
+       1 blockId GIẢ dùng CHUNG cho MỌI lượt gọi bên trong CÙNG 1 lượt
+       dán/1 cuốn sách — mỗi lượt dán tính đúng 1 "Block" quota, không bị
+       tính nhiều lần dù bên trong gọi AI bao nhiêu lượt. */
+    extractVocab: async function (text, cfg, quotaCtx) {
       var raw = w.Context.stripPasteNoise(text);
       if (!raw) throw new Error("Chưa dán đoạn văn nào");
       /* Không tự check "chưa có key" ở đây — xem lý do ở generateAI() phía trên. */
@@ -870,7 +880,7 @@
         "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
         '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","sentence_vi":"...","freq":"common|uncommon"}]}';
 
-      var raw2 = await w.Context._callProvider(cfg, sys, user);
+      var raw2 = await w.Context._callProvider(cfg, sys, user, quotaCtx);
       var parsed = JSON.parse(raw2);
       var lower = raw.toLowerCase();
       var seen = {};
@@ -892,8 +902,12 @@
        không bao giờ ghi đè lên dữ liệu đã có sẵn (dù AI gợi ý khác), để
        không phá dữ liệu đã được biên soạn/sửa tay từ trước.
        words: [{term, level?, pos?, ipa?, def_en?, meaning_vi?}] — SỬA
-       TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}. */
-    enrichWords: async function (words, cfg) {
+       TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}.
+       quotaCtx: xem ghi chú ở extractVocab() phía trên — CÙNG 1 quotaCtx
+       (1 blockId giả) dùng lại cho MỌI batch bên trong 1 lượt "+ Paste từ
+       mới", tính đúng 1 "Block" quota cho cả lượt dán dù >25 từ phải
+       chia nhiều lượt gọi AI. */
+    enrichWords: async function (words, cfg, quotaCtx) {
       /* Không tự check "chưa có key" ở đây — xem lý do ở generateAI() phía trên. */
       /* meaning_zh: nghĩa tiếng Trung — CHỈ dùng cho tab "Nghĩa" khi chọn
          "🇨🇳 意思 ZH" (TJ yêu cầu 2026-09-13), KHÔNG phải cột hiển thị
@@ -942,7 +956,7 @@
           '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","meaning_zh":"...","freq":"common|uncommon"}]}';
 
         w.Context._lastCostUsd = null;
-        var raw = await w.Context._callProvider(cfg, sys, user);
+        var raw = await w.Context._callProvider(cfg, sys, user, quotaCtx);
         var parsed = JSON.parse(raw);
         var got = parsed.words || [];
 
