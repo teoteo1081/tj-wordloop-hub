@@ -1745,22 +1745,15 @@
       });
     }
 
-    w.$("#btn-read").onclick = function () {
-      D._autoRead = true;
-      readCurrent();
-      startStickyPlayer();
-    };
-    w.$("#btn-stop").onclick = function () {
-      D._autoRead = false;
-      w.Speech.stop();
-      w.$("#btn-read").textContent = "🎧 Nghe US";
-      hideStickyPlayer();
-    };
-
     /* ══════════ THANH ĐIỀU KHIỂN NGHE NỔI (sticky player) ══════════
        TJ yêu cầu 2026-09-12 — giống mini-player "Listen to Page" của
-       Safari: tự hiện khi cuộn RA KHỎI vùng bài đọc lúc đang nghe, để
-       tạm dừng/dừng hẳn bất cứ lúc nào không cần cuộn lại lên đầu.
+       Safari: tự hiện ngay khi cuộn khỏi TẦM NHÌN CỦA NÚT DỪNG (không
+       phải khỏi cả khối nội dung — bài dài cuộn tới GIỮA CHỪNG thì khối
+       nội dung vẫn còn hiện 1 phần trên màn hình, nhưng nút Dừng ở đầu
+       khối đã khuất từ lâu rồi, TJ báo lúc đó vẫn phải hiện thanh nổi
+       mới bấm dừng được). Dùng chung cho CẢ bài đọc (audio-toolbar quanh
+       #btn-read) LẪN bảng từ vựng (audio-toolbar quanh #btn-read-all) —
+       D._stickyAnchor giữ đúng hàng nút đang cần theo dõi.
        Không dùng IntersectionObserver riêng — 1 setInterval vừa kiểm
        tra "còn đang đọc không" (tự tắt khi hết bài/bị dừng nơi khác,
        vd chuyển tab Quiz) vừa kiểm tra vị trí cuộn, đỡ phải wiring
@@ -1769,18 +1762,20 @@
       var s = Math.max(0, Math.round(ms / 1000));
       return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
     }
-    function passageOutOfView() {
-      var box = w.$("#passage-content-block");
+    /* true nếu KHÔNG CÒN nhìn thấy tí nào của `el` trong vùng cuộn
+       `#workspace` — chỉ cần 1 phần còn hiện (vd đang lơ lửng ngay mép)
+       thì coi là "còn nhìn thấy", chưa cần thanh nổi. */
+    function controlsOutOfView(el) {
       var scroller = w.$("#workspace");
-      if (!box || !scroller) return false;
-      var br = box.getBoundingClientRect();
+      if (!el || !scroller) return false;
+      var br = el.getBoundingClientRect();
       var sr = scroller.getBoundingClientRect();
       return br.bottom < sr.top || br.top > sr.bottom;
     }
     function tickStickyPlayer() {
       if (!w.Speech.isSpeaking() && !w.Speech.isPaused()) { hideStickyPlayer(); return; }
       var bar = w.$("#sticky-player");
-      if (passageOutOfView()) {
+      if (controlsOutOfView(D._stickyAnchor)) {
         bar.hidden = false;
         var p = w.Speech.getProgress();
         w.$("#sp-elapsed").textContent = fmtTime(p.elapsedMs);
@@ -1791,20 +1786,53 @@
         bar.hidden = true;
       }
     }
-    function startStickyPlayer() {
-      w.$("#sp-title").textContent = w.$("#passage-title").textContent || "";
+    /* anchorEl: hàng nút (.audio-toolbar) cần theo dõi vị trí cuộn —
+       truyền vào lúc bắt đầu nghe vì có 2 chỗ dùng chung 1 thanh nổi
+       (bài đọc / bảng từ vựng), không đoán được đang nghe cái nào nếu
+       không được báo trước. */
+    function startStickyPlayer(anchorEl, title) {
+      D._stickyAnchor = anchorEl;
+      w.$("#sp-title").textContent = title || "";
       if (D._stickyTimer) clearInterval(D._stickyTimer);
       D._stickyTimer = setInterval(tickStickyPlayer, 300);
     }
     function hideStickyPlayer() {
       if (D._stickyTimer) { clearInterval(D._stickyTimer); D._stickyTimer = null; }
+      D._stickyAnchor = null;
       var bar = w.$("#sticky-player");
       if (bar) bar.hidden = true;
     }
     w.$("#sp-toggle").onclick = function () {
       if (w.Speech.isPaused()) { w.Speech.resume(); } else { w.Speech.pause(); }
     };
+    /* "🎤" — cuộn thẳng tới ĐÚNG chữ/dòng đang đọc (karaoke), dù đang
+       cuộn xa tới đâu (TJ yêu cầu 2026-09-12). Bài đọc tô sáng bằng
+       .kw.on (xem lightAt trong speech.js), bảng từ vựng tô sáng bằng
+       tr.reading — thử bài đọc trước, không có mới thử bảng từ vựng. */
+    w.$("#sp-jump").onclick = function () {
+      var cur = w.$(".kw.on") || w.$("#vocab-tbody tr.reading");
+      if (!cur) { w.toast("Chưa có chữ nào đang sáng để nhảy tới", "err"); return; }
+      cur.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    /* Dừng hẳn từ thanh nổi — không biết đang dừng bài đọc hay bảng từ
+       vựng nên reset chữ + trạng thái của CẢ 2 nơi cho chắc, vô hại nếu
+       nơi kia vốn không đang chạy. */
     w.$("#sp-close").onclick = function () {
+      D._autoRead = false;
+      w.Speech.stop();
+      w.$("#btn-read").textContent = "🎧 Nghe US";
+      w.$("#btn-read-all").textContent = "🔊 Đọc tất cả từ";
+      w.$("#btn-read-all-full").textContent = "🔊 Đọc + định nghĩa";
+      w.$$("#vocab-tbody tr").forEach(function (tr) { tr.classList.remove("reading"); });
+      hideStickyPlayer();
+    };
+
+    w.$("#btn-read").onclick = function () {
+      D._autoRead = true;
+      readCurrent();
+      startStickyPlayer(w.$("#btn-read").closest(".audio-toolbar"), w.$("#passage-title").textContent);
+    };
+    w.$("#btn-stop").onclick = function () {
       D._autoRead = false;
       w.Speech.stop();
       w.$("#btn-read").textContent = "🎧 Nghe US";
@@ -1965,6 +1993,7 @@
       if (!ws.length) return;
       var btn = this;
       btn.textContent = "🔊 Đang đọc…";
+      startStickyPlayer(btn.closest(".audio-toolbar"), "📘 Danh sách từ vựng");
       w.Speech.speakList(
         ws.map(function (x) { return { text: x.term }; }),
         function (i) {
@@ -1993,6 +2022,7 @@
       if (!ws.length) return;
       var btn = this;
       btn.textContent = "🔊 Đang đọc…";
+      startStickyPlayer(btn.closest(".audio-toolbar"), "📘 Danh sách từ vựng");
       var items = [];
       ws.forEach(function (x, idx) {
         items.push({ text: x.term, lang: "en-US", groupIndex: idx });
@@ -2013,6 +2043,7 @@
       w.$$("#vocab-tbody tr").forEach(function (tr) { tr.classList.remove("reading"); });
       w.$("#btn-read-all").textContent = "🔊 Đọc tất cả từ";
       w.$("#btn-read-all-full").textContent = "🔊 Đọc + định nghĩa";
+      hideStickyPlayer();
     };
 
   };

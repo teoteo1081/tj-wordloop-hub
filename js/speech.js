@@ -153,6 +153,14 @@
     S._listStop = false;
     var i = 0;
 
+    /* Mốc bắt đầu + ước tính tổng thời gian — y hệt readPassage(), để
+       thanh điều khiển nghe nổi (sticky player) cũng dùng được cho bảng
+       từ vựng (TJ yêu cầu 2026-09-12), không chỉ riêng bài đọc. */
+    S._startedAt = Date.now();
+    S._pausedAt = null; S._pausedMs = 0;
+    var totalChars = items.reduce(function (a, it) { return a + (it.text || "").length; }, 0);
+    S._estTotalMs = (totalChars / 14.5) * 1000 / (S.vocabRate || 1);
+
     function step() {
       if (S._listStop || i >= items.length) {
         if (onEach) onEach(-1);
