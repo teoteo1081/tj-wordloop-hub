@@ -78,9 +78,21 @@
      thử phản ánh ĐÚNG cái người đó thấy, kể cả ngôn ngữ. Dùng ở
      js/i18n.js (đổi khung UI) và detail.js/app.js (đổi cột "Nghĩa" sang
      def_en khi lang="en") — KHÔNG đụng gì tới cách chấm điểm/quiz. */
+  /* Fallback "vi" khi Auth.user CHƯA có (đang chờ Auth.init() xong, i18n.js
+     chạy lượt apply() ĐẦU TIÊN lúc DOMContentLoaded — CHẮC CHẮN chạy
+     TRƯỚC KHI Auth.init() (bất đồng bộ, chờ Supabase) kịp gán Auth.user
+     thật) — PHẢI khớp với DOM lúc đó (luôn là tiếng Việt gốc, mọi HTML/JS
+     render ra vi trước, i18n dịch đè sau, xem i18n.js). Từng để "en" ở
+     đây (tưởng vô hại vì đa số tài khoản mặc định "en") nhưng lộ bug thật
+     khi thêm "zh" (2026-09-13): lượt đầu dịch NHẦM sang "en" (do fallback
+     sai), lượt sau mới có Auth.user.lang="zh" thật thì DOM đã là "en" chứ
+     không còn "vi" nữa -> tra DICT_ZH (vốn có khoá là tiếng Việt) không
+     khớp gì cả, đứng yên ở "en" sai hoàn toàn. Fallback "vi" (= im lặng,
+     không dịch gì ở lượt đầu, ĐÚNG vì DOM đang thật sự là vi) sửa dứt
+     điểm cho mọi ngôn ngữ, kể cả en/zh sau này thêm nữa. */
   Auth.effectiveLang = function () {
-    if (Auth.viewAsUserId) return Auth.viewAsUserLang || "en";
-    return (Auth.user && Auth.user.lang) || "en";
+    if (Auth.viewAsUserId) return Auth.viewAsUserLang || "vi";
+    return (Auth.user && Auth.user.lang) || "vi";
   };
   /* userId = null -> tắt xem thử, về lại chính mình. userId = 1 profile
      id -> xem ĐÚNG như người đó (Share/notebook_access của họ), không
@@ -155,12 +167,35 @@
     fire();
   };
 
+  /* Ngôn ngữ giao diện cho hồ sơ LOCAL (không có bảng profiles thật để
+     lưu) — nhớ lựa chọn qua localStorage (App.setMyLang trong app.js ghi
+     vào đúng key này khi tự đổi qua menu, giống theme). CHƯA từng chọn gì
+     (máy/hồ sơ mới) thì đoán theo NGÔN NGỮ TRÌNH DUYỆT (navigator.language)
+     — TJ yêu cầu 2026-09-13 "tuỳ người đó là gì mà mặc định là của nước
+     họ". Chỉ áp dụng cho local mode — hồ sơ Cloud do Admin tạo hộ, máy
+     Admin đang dùng không phản ánh đúng ngôn ngữ của người SẼ dùng tài
+     khoản đó, nên vẫn để mặc định 'en' + để người đó tự đổi lần đầu mở
+     link (xem #lang-row trong app.js). */
+  var LS_LOCAL_LANG = "tjwl_local_lang_v1";
+  function detectLocalLang() {
+    try {
+      var saved = localStorage.getItem(LS_LOCAL_LANG);
+      if (saved === "vi" || saved === "en" || saved === "zh") return saved;
+    } catch (e) {}
+    try {
+      var nav = String((w.navigator && (w.navigator.language || w.navigator.userLanguage)) || "").toLowerCase();
+      if (nav.indexOf("vi") === 0) return "vi";
+      if (nav.indexOf("zh") === 0) return "zh";
+    } catch (e) {}
+    return "en";
+  }
+
   function loadLocalCurrent() {
     var arr = readUsers();
     var id = localStorage.getItem(LS_CUR);
     var u = arr.find(function (x) { return x.id === id; }) || arr[0];
     localStorage.setItem(LS_CUR, u.id);
-    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: "en" };
+    Auth.user = { id: u.id, name: u.name, emoji: u.emoji, email: null, cloud: false, admin: false, canEditPassage: false, lang: detectLocalLang() };
     if (w.DB) w.DB.progressCloud = false;
   }
 

@@ -1386,8 +1386,9 @@
            nước ngoài (xem js/i18n.js). Đổi lưu ngay, không cần bấm gì
            thêm. KHÔNG ảnh hưởng cách chấm điểm/quiz. */
         '<select class="mini-select" data-lang-select="' + p.id + '" title="Ngôn ngữ giao diện của tài khoản này">' +
-          '<option value="vi"' + (p.lang !== "en" ? " selected" : "") + '>🇻🇳 Tiếng Việt</option>' +
-          '<option value="en"' + (p.lang === "en" ? " selected" : "") + '>🇬🇧 English</option>' +
+          '<option value="vi"' + (p.lang === "vi" ? " selected" : "") + '>🇻🇳 Tiếng Việt</option>' +
+          '<option value="en"' + (p.lang !== "vi" && p.lang !== "zh" ? " selected" : "") + '>🇬🇧 English</option>' +
+          '<option value="zh"' + (p.lang === "zh" ? " selected" : "") + '>🇨🇳 中文</option>' +
         "</select>" +
         '<button class="btn-soft" data-copy-link="' + p.id + '" title="Copy link đăng nhập của tài khoản này">📋 Copy link</button>' +
         '<button class="btn-soft" data-email-link="' + p.id + '" title="Mở email có sẵn để gửi link đăng nhập này">📧 Gửi email</button>' +
@@ -1565,7 +1566,7 @@
     var vocabOrigin = w.Context._isWebOrigin() ? "web" : "local";
 
     var parsedWords = extracted.map(function (x) {
-      return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "", freq: x.freq || "" };
+      return { term: x.term, level: x.level || "", pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "", meaning_zh: x.meaning_zh || "", freq: x.freq || "" };
     });
     /* "full_batch1" kiểu tên: "full_" + tên batch viết liền, không dấu
        cách (TJ yêu cầu 2026-09-12) — vd tên batch "Batch 1" -> "full_batch1". */
@@ -3140,6 +3141,43 @@
     applyAccent();
   }
 
+  /* ══════════════ TỰ ĐỔI NGÔN NGỮ GIAO DIỆN — GIỐNG ĐỔI SÁNG/TỐI ══════
+     TJ yêu cầu 2026-09-13: ai cũng tự đổi được ngôn ngữ CHÍNH MÌNH ngay
+     trong menu (không cần qua Admin "👑 Quản lý tài khoản" nữa — chỗ đó
+     vẫn còn, giờ dùng để Admin đổi HỘ người khác). Đăng nhập Cloud thật
+     (Auth.user.cloud) thì lưu vào profiles.lang (theo tài khoản, đổi máy
+     vẫn còn) — hồ sơ Local/Khách thì lưu tạm TRONG MÁY NÀY (localStorage,
+     giống hệt theme) vì local mode không có bảng profiles thật để lưu. */
+  var LS_LOCAL_LANG = "tjwl_local_lang_v1";
+  var MY_LANGS = { vi: 1, en: 1, zh: 1 };
+
+  function applyLangDots() {
+    var cur = (w.Auth && w.Auth.effectiveLang && w.Auth.effectiveLang()) || "vi";
+    w.$$(".lang-dot").forEach(function (d) {
+      d.classList.toggle("on", d.dataset.mylang === cur);
+    });
+    var row = w.$("#lang-row");
+    if (row) row.hidden = !(w.Auth && w.Auth.user);
+  }
+
+  function setMyLang(lang) {
+    if (!MY_LANGS[lang] || !(w.Auth && w.Auth.user)) return;
+    w.Auth.user.lang = lang;   /* đổi ngay trong bộ nhớ để I18N.apply() thấy đúng */
+    /* Đổi GIAO DIỆN NGAY (không chờ mạng) — giống hệt cảm giác đổi sáng/
+       tối, bấm là thấy liền. Lưu lên Supabase (nếu Cloud) CHẠY NỀN phía
+       sau — mạng đang chậm (TJ báo 2026-09-12) có thể mất 1-2s, không nên
+       bắt UI đứng chờ mới đổi chữ. Local mode lưu localStorage, tức thì. */
+    if (w.Auth.user.cloud && w.DB && w.DB.setProfileLang) {
+      w.DB.setProfileLang(w.Auth.user.id, lang).catch(function (e) {
+        w.toast("Không lưu được ngôn ngữ lên tài khoản: " + (e.message || e), "err");
+      });
+    } else {
+      try { localStorage.setItem(LS_LOCAL_LANG, lang); } catch (e) {}
+    }
+    applyLangDots();
+    if (w.I18N && w.I18N.apply) w.I18N.apply();
+  }
+
   /* ══════════════ KÉO GIÃN ĐỘ RỘNG CỘT NOTEBOOKS / PAGES ══════════════
      Kéo thanh #resizer-left / #resizer-right bằng chuột. Nhớ độ rộng
      riêng cho từng cột trong máy. Bấm đúp vào thanh kéo -> về 210px. */
@@ -4091,6 +4129,11 @@
     w.$$(".accent-dot").forEach(function (d) {
       d.onclick = function () { setAccent(d.dataset.accent); };
     });
+    w.$$(".lang-dot").forEach(function (d) {
+      d.onclick = function () { setMyLang(d.dataset.mylang); };
+    });
+    applyLangDots();
+    if (w.Auth && w.Auth.onChange) w.Auth.onChange(applyLangDots);
     /* Không dùng stopPropagation trên cột — làm vậy sẽ chặn luôn sự kiện
        lên tới document, khiến nút ⋯ trong cột không mở được bảng thao tác.
        Thay vào đó chỉ cần bỏ qua khi cú bấm nằm trong cột. */

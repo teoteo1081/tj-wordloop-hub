@@ -83,11 +83,13 @@ create table if not exists words (
   ipa text default '',
   def_en text default '',
   meaning_vi text default '',
-  freq text default ''   -- "common" (thông dụng) | "uncommon" (ít thông dụng) | "" (chưa chấm) — AI tự điền, xem Context.extractVocab/enrichWords
+  freq text default '',  -- "common" (thông dụng) | "uncommon" (ít thông dụng) | "" (chưa chấm) — AI tự điền, xem Context.extractVocab/enrichWords
+  meaning_zh text default ''  -- nghĩa tiếng Trung — CHỈ dùng cho tab "Nghĩa" (D.buildMeaningQuiz khi D.meaningLang()==="zh"), KHÔNG phải cột hiển thị trong bảng từ vựng chính (đó vẫn chỉ VI/EN như cũ, TJ chốt 2026-09-13)
 );
 -- Project cũ đã tạo bảng words từ trước (chưa có cột freq) -> thêm cột này
 -- vào, KHÔNG phá dữ liệu đã có (mọi dòng cũ tự nhận default '').
 alter table words add column if not exists freq text default '';
+alter table words add column if not exists meaning_zh text default '';
 
 -- ---------- TIẾN TRÌNH HỌC (RIÊNG TỪNG NGƯỜI) ----------
 create table if not exists word_progress (

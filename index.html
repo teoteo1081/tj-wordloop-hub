@@ -93,6 +93,20 @@
           <button class="accent-dot" data-accent="pink" title="Hồng"></button>
         </div>
       </div>
+      <!-- Tự đổi ngôn ngữ giao diện của CHÍNH MÌNH — giống hệt cách đổi
+           màu nhấn/sáng-tối ở trên (bấm là đổi ngay, không cần qua Admin
+           "👑 Quản lý tài khoản" nữa — TJ yêu cầu 2026-09-13). Đăng nhập
+           Cloud thật thì lưu vào profiles.lang (theo tài khoản, đổi máy
+           vẫn còn); hồ sơ Local/Khách thì lưu tạm trong máy này (giống
+           theme). Ẩn khi chưa xác định được user (lúc app còn đang tải). -->
+      <div class="menu-row" id="lang-row" hidden>
+        <span>Ngôn ngữ</span>
+        <div class="lang-dots" id="lang-dots">
+          <button class="lang-dot" data-mylang="vi" title="Tiếng Việt">🇻🇳</button>
+          <button class="lang-dot" data-mylang="en" title="English">🇬🇧</button>
+          <button class="lang-dot" data-mylang="zh" title="中文">🇨🇳</button>
+        </div>
+      </div>
 
       <div class="user-menu-sep"></div>
       <button class="menu-item" id="mi-switch">👥 <span>Đổi / Thêm người học</span></button>
@@ -435,6 +449,7 @@
         <div class="meaning-lang-tabs" id="meaning-lang-tabs">
           <button class="mn-lang-tab active" data-mnlang="vi">🇻🇳 Nghĩa VN</button>
           <button class="mn-lang-tab" data-mnlang="en">🇬🇧 Meaning EN</button>
+          <button class="mn-lang-tab" data-mnlang="zh">🇨🇳 意思 ZH</button>
         </div>
         <div class="card final-wrap" id="meaning-card"></div>
       </div>
@@ -983,16 +998,16 @@ mitigate | giảm nhẹ"></textarea>
 <script src="js/keys.local.js?v=1"></script>
 <script src="js/util.js?v=1"></script>
 <script src="js/srs.js?v=1"></script>
-<script src="js/context.js?v=14"></script>
+<script src="js/context.js?v=15"></script>
 <script src="js/speech.js?v=3"></script>
-<script src="js/db.js?v=7"></script>
-<script src="js/auth.js?v=4"></script>
-<script src="js/i18n.js?v=1"></script>
+<script src="js/db.js?v=8"></script>
+<script src="js/auth.js?v=5"></script>
+<script src="js/i18n.js?v=2"></script>
 <script src="js/reader.js?v=1"></script>
-<script src="js/detail.js?v=21"></script>
+<script src="js/detail.js?v=22"></script>
 <script src="js/export.js?v=2"></script>
 <script src="js/journey.js?v=5"></script>
 <script src="js/home.js?v=2"></script>
-<script src="js/app.js?v=22"></script>
+<script src="js/app.js?v=23"></script>
 </body>
 </html>

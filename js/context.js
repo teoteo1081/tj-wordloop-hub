@@ -882,8 +882,11 @@
        TRỰC TIẾP (mutate) từng phần tử đang thiếu, trả về {words, filled}. */
     enrichWords: async function (words, cfg) {
       /* Không tự check "chưa có key" ở đây — xem lý do ở generateAI() phía trên. */
+      /* meaning_zh: nghĩa tiếng Trung — CHỈ dùng cho tab "Nghĩa" khi chọn
+         "🇨🇳 意思 ZH" (TJ yêu cầu 2026-09-13), KHÔNG phải cột hiển thị
+         trong bảng từ vựng chính (đó vẫn chỉ VI/EN như cũ). */
       var needy = (words || []).filter(function (x) {
-        return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi || !x.freq);
+        return x && x.term && (!x.level || !x.pos || !x.ipa || !x.def_en || !x.meaning_vi || !x.freq || !x.meaning_zh);
       });
       if (!needy.length) return { words: words, filled: 0, cost_usd: 0, providers: {} };
 
@@ -903,6 +906,7 @@
           var known = [];
           if (x.meaning_vi) known.push("nghĩa VI đã biết: " + x.meaning_vi);
           if (x.def_en) known.push("định nghĩa EN đã biết: " + x.def_en);
+          if (x.meaning_zh) known.push("nghĩa ZH đã biết: " + x.meaning_zh);
           if (x.level) known.push("cấp độ đã biết: " + x.level);
           if (x.pos) known.push("loại từ đã biết: " + x.pos);
           if (x.freq) known.push("độ thông dụng đã biết: " + x.freq);
@@ -914,14 +918,15 @@
         var user =
           "Với ĐÚNG " + chunk.length + " từ/cụm từ tiếng Anh sau (đã đánh số thứ tự), cho biết đầy " +
           "đủ: cấp độ CEFR (A1/A2/B1/B2/C1/C2), loại từ (Verb/Noun/Adjective/Adverb/Phrase…), phiên " +
-          "âm IPA kiểu từ điển (có dấu / /), định nghĩa tiếng Anh ngắn gọn, nghĩa tiếng Việt, và độ " +
+          "âm IPA kiểu từ điển (có dấu / /), định nghĩa tiếng Anh ngắn gọn, nghĩa tiếng Việt, nghĩa " +
+          "tiếng Trung giản thể (ngắn gọn, đúng nghĩa dùng trong từ điển), và độ " +
           "THÔNG DỤNG NGOÀI ĐỜI THẬT của từ đó (freq: chỉ \"common\" [thông dụng — người bản ngữ " +
           "dùng/gặp thường xuyên trong đời sống thật] hoặc \"uncommon\" [ít thông dụng — hiếm gặp " +
           "hơn trong đời sống thật], KHÔNG suy từ cấp độ CEFR — từ khó vẫn có thể thông dụng ngoài đời). " +
           "Trả về ĐÚNG THEO THỨ TỰ đã đánh số, đủ " + chunk.length + " mục, không bỏ mục nào, không " +
           "gộp/tách mục:\n\n" + listText + "\n\n" +
           "Trả về đúng schema JSON sau, không thêm trường khác:\n" +
-          '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","freq":"common|uncommon"}]}';
+          '{"words":[{"term":"...","level":"...","pos":"...","ipa":"...","def_en":"...","meaning_vi":"...","meaning_zh":"...","freq":"common|uncommon"}]}';
 
         w.Context._lastCostUsd = null;
         var raw = await w.Context._callProvider(cfg, sys, user);
@@ -940,6 +945,7 @@
           if (!orig.ipa && suggestion.ipa) { orig.ipa = suggestion.ipa; filled++; }
           if (!orig.def_en && suggestion.def_en) { orig.def_en = suggestion.def_en; filled++; }
           if (!orig.meaning_vi && suggestion.meaning_vi) { orig.meaning_vi = suggestion.meaning_vi; filled++; }
+          if (!orig.meaning_zh && suggestion.meaning_zh) { orig.meaning_zh = suggestion.meaning_zh; filled++; }
           if (!orig.freq && suggestion.freq) { orig.freq = suggestion.freq; filled++; }
         }
       }

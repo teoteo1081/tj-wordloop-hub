@@ -136,6 +136,44 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
 - **Data quality**: `data/starter.json` (kho mẫu ban đầu) đã được 1 subagent rà soát và sửa 4 notebook bị lỗi xáo trộn cột — còn vài quyết định treo (gán CEFR cho 600 collocation TOEIC, xử lý các dòng "bảng tham chiếu" lẫn trong bảng words) cần người dùng tự quyết, xem log commit tương ứng.
 - **Audit UI/UX** (1 subagent, xem log commit "Vá 5 lỗi từ audit UI/UX"): đã vá các lỗi ưu tiên cao (tab treo sau Active Recall Quiz, nút "⋯" vô hình trên Block card, 4 chỗ hardcode màu hex phá theme sáng, thiếu `[data-block]` ở contextmenu, thiếu aria-label). Các mục còn treo trước đây **đã vá xong đêm 08/09** (xem log commit "A11y: vòng focus bàn phím...", "Mobile: nới vùng bấm...", "Thêm thanh loading mảnh..."): (1) `.block-card`/`.jrow`/`.g-row` đã có `tabindex`/`role="button"` + vòng focus bàn phím; (2) `.batches-bar` đã hết chật ở màn hẹp (nới vùng bấm icon-button ~40px + wrap); (3) đã có thanh loading mảnh lúc `boot()` đang tải ở chế độ Cloud/mạng chậm. Chỉ còn treo đúng 1 mục: **(4) chưa có phím tắt cho bài trắc nghiệm** (1-4/A-D chọn đáp án, Enter next).
 - **Tab "🎧 Dictation"**: đã code xong + lên live (nghe câu, gõ lại, tự chấm) — xem quyết định phạm vi (không ghi điểm/SRS, chỉ luyện) trong `CLAUDE.md` mục "Quyết định đã chốt".
+- **Phiên 2026-09-13 — ĐÃ XONG, đã test bằng Playwright:**
+  - **Thêm tiếng Trung (zh) làm ngôn ngữ giao diện thứ 3** (cạnh vi/en) —
+    `js/i18n.js` thêm `DICT_ZH`/`REV_ZH`/`PARTIAL_ZH` (dịch ~150 chuỗi UI
+    chính: menu, nút, tiêu đề). `translateText`/`applyPartial`/`walk`/
+    `I18N.apply`/observer đều đã tổng quát hoá cho 3 ngôn ngữ.
+  - **FIX BUG THẬT** phát hiện lúc thêm zh: `Auth.effectiveLang()` fallback
+    "en" khi `Auth.user` CHƯA có (đang chờ `Auth.init()` xong) khiến lượt
+    dịch ĐẦU TIÊN lúc boot LUÔN chạy nhầm sang "en" trước khi biết ngôn
+    ngữ thật — vô hại với vi/en (vì "en" tình cờ đúng cho user "en") nhưng
+    HỎNG HẲN với "zh" (dịch nhầm vi->en trước, rồi khi biết đúng là "zh"
+    thì DOM đã là "en" chứ không còn "vi", tra `DICT_ZH` (khoá tiếng Việt)
+    không khớp gì cả, đứng yên sai). Sửa: fallback về "vi" (khớp đúng
+    trạng thái DOM thật lúc đó) — sửa dứt điểm cho mọi ngôn ngữ.
+  - **Tự đổi ngôn ngữ trong menu, giống hệt nút sáng/tối** — hàng "Ngôn
+    ngữ" mới (`#lang-row`, 3 lá cờ) trong menu user, TỰ ĐỔI NGAY không cần
+    qua Admin nữa (Admin panel vẫn còn, giờ dùng để đổi HỘ người khác).
+    Cloud mode lưu `profiles.lang` (chạy NỀN, không chờ mạng mới đổi giao
+    diện — bài học từ vụ freq/mạng chậm trước đó); Local mode lưu
+    localStorage riêng máy đó (`tjwl_local_lang_v1`).
+  - **Hồ sơ Local mới** tự đoán ngôn ngữ theo `navigator.language` của
+    trình duyệt (vi/zh nhận diện được, còn lại mặc định "en") thay vì
+    luôn cứng "en" — CHỈ áp dụng Local mode (Cloud do Admin tạo hộ, máy
+    Admin không phản ánh đúng ngôn ngữ người dùng thật, để họ tự đổi lần
+    đầu mở link qua nút mới ở trên).
+  - **Tab "Nghĩa" thêm lựa chọn "🇨🇳 意思 ZH"** (cạnh VN/EN có sẵn) — cột
+    mới `words.meaning_zh` (đã chạy `alter table` trên Supabase thật),
+    `Context.enrichWords` giờ cũng tự điền nghĩa tiếng Trung khi thiếu
+    (dùng cho "+ Paste từ mới"). PHẠM VI CHỦ Ý HẸP (TJ chốt): CHỈ tab
+    Nghĩa đổi, bảng từ vựng chính/PDF export vẫn CHỈ VI/EN như cũ, không
+    đổi gì thêm.
+  - Đã tự cài lại Playwright (CLI, browser binary vẫn cache từ phiên
+    trước) để test: chuyển ngôn ngữ đổi đúng chữ ngay lập tức, tab Nghĩa
+    ZH hiện đúng 3 tab + đúng thông báo trống cho Block cũ chưa có dữ
+    liệu meaning_zh, insert thật lên Supabase có meaning_zh không lỗi.
+  - **CÒN THIẾU**: tạo Notebook "📘 Hướng dẫn sử dụng" trong Hub
+    COMMUNICATION (TJ yêu cầu, có ví dụ + hướng dẫn cách đổi ngôn ngữ
+    vi/en/zh) — chưa làm, xem tiếp nếu phiên sau nhặt lại việc này.
+
 - **Phiên 2026-09-12 — ĐÃ XONG (lên live, commit `733ea53`):**
   - Fix DB thiếu cột `words.freq` (chưa từng chạy migration thật) — đã khiến CẢ "+ Paste từ mới" LẪN "✨ Dán bài, tự trích từ" lỗi PGRST204 mỗi lần tạo từ mới.
   - "✨ Dán bài, tự trích từ" giờ tạo thêm 1 Block `full_<tên batch>` đứng đầu batch, chứa TOÀN BỘ từ đã trích + nguyên văn bài đọc (không giới hạn 10 từ như các Block thường).

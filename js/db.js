@@ -840,7 +840,7 @@
         return {
           block_id: blk.id, sort: j, term: x.term, level: x.level || "",
           pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "",
-          freq: x.freq || ""
+          meaning_zh: x.meaning_zh || "", freq: x.freq || ""
         };
       });
 
@@ -887,7 +887,7 @@
         return {
           block_id: blockId, sort: j, term: x.term, level: x.level || "",
           pos: x.pos || "", ipa: x.ipa || "", def_en: x.def_en || "", meaning_vi: x.meaning_vi || "",
-          freq: x.freq || ""
+          meaning_zh: x.meaning_zh || "", freq: x.freq || ""
         };
       });
       if (DB.mode === "local") {

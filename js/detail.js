@@ -892,15 +892,20 @@
      "vi" dùng meaning_vi — "en" dùng def_en (định nghĩa Anh có sẵn, không
      dịch AI gì thêm). */
   var LS_MEANING_LANG = "tjwl_meaning_lang_v1";
+  var MEANING_LANGS = { vi: 1, en: 1, zh: 1 };
   D.meaningLang = function () {
-    try { return localStorage.getItem(LS_MEANING_LANG) === "en" ? "en" : "vi"; } catch (e) { return "vi"; }
+    try {
+      var v = localStorage.getItem(LS_MEANING_LANG);
+      return MEANING_LANGS[v] ? v : "vi";
+    } catch (e) { return "vi"; }
   };
   D.setMeaningLang = function (lang) {
-    try { localStorage.setItem(LS_MEANING_LANG, lang === "en" ? "en" : "vi"); } catch (e) {}
+    try { localStorage.setItem(LS_MEANING_LANG, MEANING_LANGS[lang] ? lang : "vi"); } catch (e) {}
   };
+  var MEANING_FIELD = { vi: "meaning_vi", en: "def_en", zh: "meaning_zh" };
   D.buildMeaningQuiz = function () {
     var ws = words();
-    var field = D.meaningLang() === "en" ? "def_en" : "meaning_vi";
+    var field = MEANING_FIELD[D.meaningLang()] || "meaning_vi";
     var withVi = ws.filter(function (x) { return x[field]; });
     if (!withVi.length) return null;
 
@@ -1366,6 +1371,8 @@
     if (!ex) {
       var emptyMsg = D.meaningLang() === "en"
         ? "Block này chưa có từ nào có English Definition để tạo bài này."
+        : D.meaningLang() === "zh"
+        ? "Block này chưa có từ nào có nghĩa tiếng Trung để tạo bài này."
         : "Block này chưa có từ nào có nghĩa tiếng Việt để tạo bài này.";
       w.$("#meaning-card").innerHTML = '<div class="quiz-done">' + emptyMsg + "</div>";
       return;
