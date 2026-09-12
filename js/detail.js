@@ -284,6 +284,23 @@
     if (btn) btn.textContent = collapsed ? "▸ Mở rộng" : "▾ Thu gọn";
   }
 
+  /* Thu gọn bài đọc — giống hệt bảng từ vựng ở trên, riêng cho bài đọc
+     (Block "full_..." dán cả bài báo thường rất dài, TJ yêu cầu
+     2026-09-12). Mặc định KHÔNG thu gọn (khác bảng từ vựng mặc định thu
+     gọn) — bài đọc là nội dung chính cần đọc ngay, chỉ thu gọn khi
+     người dùng tự bấm. */
+  var LS_PASSAGE_COLLAPSE = "tjwl_passage_collapsed_v1";
+  function passageCollapsed() {
+    try { return localStorage.getItem(LS_PASSAGE_COLLAPSE) === "1"; } catch (e) { return false; }
+  }
+  function applyPassageCollapse() {
+    var box = w.$("#passage"), btn = w.$("#btn-toggle-passage");
+    if (!box) return;
+    var collapsed = passageCollapsed();
+    box.classList.toggle("collapsed", collapsed);
+    if (btn) btn.textContent = collapsed ? "▸ Mở rộng" : "▾ Thu gọn";
+  }
+
   D.renderStudy = function () {
     var ws = words();
     var b = block();
@@ -448,6 +465,7 @@
     /* tô màu từ đã lưu + áp dụng chế độ đọc đang chọn */
     w.Reader.decorate();
     w.Reader.applyMode();
+    applyPassageCollapse();
   };
 
   /* Nhờ AI viết bài mới — CHỈ chạy khi đã cấu hình key (js/keys.local.js).
@@ -1893,6 +1911,10 @@
     w.$("#btn-toggle-vocab").onclick = function () {
       try { localStorage.setItem(LS_VOCAB_COLLAPSE, vocabCollapsed() ? "0" : "1"); } catch (e) {}
       applyVocabCollapse();
+    };
+    w.$("#btn-toggle-passage").onclick = function () {
+      try { localStorage.setItem(LS_PASSAGE_COLLAPSE, passageCollapsed() ? "0" : "1"); } catch (e) {}
+      applyPassageCollapse();
     };
     w.$("#btn-copy-passage").onclick = function () { copyText(this, D._passagePlain || ""); };
     w.$("#btn-copy-vocab").onclick = function () {

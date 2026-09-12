@@ -918,6 +918,17 @@ body.resizing-left,body.resizing-right{cursor:col-resize;user-select:none;}
 .passage{
   line-height:2;font-size:.92rem;color:var(--text-1);
 }
+/* Thu gọn bài đọc còn ~1 màn hình — giống hệt cách bảng từ vựng thu gọn
+   (.table-wrap.collapsed) — bài dài (vd Block "full_..." dán cả bài báo)
+   đỡ chiếm hết màn hình khi chỉ cần lướt qua (TJ yêu cầu 2026-09-12).
+   Vẫn overflow-y:auto (không phải hidden) — lý do y hệt bảng từ vựng: (1)
+   kéo tay xem hết không cần bấm "Mở rộng", (2) speech.js tự dò khung cuộn
+   GẦN NHẤT để cuộn theo từ đang đọc, overflow:hidden sẽ khiến nó bỏ qua. */
+.passage.collapsed{max-height:22rem;overflow-y:auto;position:relative;scroll-padding-top:1rem;}
+.passage.collapsed::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:2.6rem;
+  background:linear-gradient(to bottom, transparent, var(--bg-card));pointer-events:none;
+}
 .passage p{margin:0 0 .8rem;}
 .passage p:last-child{margin-bottom:0;}
 .kw{border-radius:4px;padding:.05rem .05rem;cursor:pointer;transition:background .12s,color .12s;}
