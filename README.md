@@ -200,6 +200,55 @@ Icon 📊 "Journey" trên thanh trên cùng. Số liệu ở đây **LUÔN là c
     từ, đúng 10 từ được bôi [ngoặc] karaoke, đúng tiêu đề/nội dung khi mở
     Block thật trên app.
 
+- **Phiên 2026-09-13 (tiếp) — ĐANG LÀM DỞ:**
+  - **Tên Hub/Notebook/Section/Page/Batch tự đổi theo ngôn ngữ giao diện**
+    (TJ yêu cầu: "đổi cờ là phải đồng bộ ... các Page nếu đang có tên
+    tiếng Việt thì đổi qua luôn", đã hỏi rõ phạm vi = CẢ 5 cấp Hub/
+    Notebook/Section/Page/Batch, không phải chỉ Page). Đã làm: thêm cột
+    `name_en`/`name_zh` (`tools/supabase_schema.sql`), helper `displayName(row)`
+    trong `js/app.js` (đọc theo `Auth.effectiveLang()`, rơi về `.name` gốc
+    nếu ô dịch trống — KHÔNG bao giờ hiện trống trơn) đã nối vào
+    `renderHubs`/`renderNotebooks`/`renderSections`/`renderPages`/
+    `renderBatches`/`renderCrumb` — chỉ Hub/Notebook/Section/Page/Batch,
+    CHỪA RIÊNG Block/Word (tên Block ít ý nghĩa để dịch). Script
+    `tools/backfill_names.py` (mẫu y hệt `backfill_meaning_zh.py` đã chạy
+    ổn định trước đó) đã viết xong, gọi Gemini dịch hàng loạt, GIỮ NGUYÊN
+    tên đã là tiếng Anh/mã/tên riêng, chỉ dịch tên tiếng Việt có nghĩa thật.
+    **CÒN THIẾU: (1) chưa chạy migration SQL thật trên Supabase** (đã verify
+    bằng `curl` — cột `name_en` CHƯA tồn tại, script sẽ lỗi 42703 nếu chạy
+    ngay bây giờ) — cần TJ tự chạy 10 dòng `alter table` trong
+    `tools/supabase_schema.sql`, hoặc nhờ chạy hộ; (2) `tools/backfill_names.py`
+    chưa test bằng `--limit` nhỏ, chưa chạy full, chưa commit; (3) label
+    "Ôn sau N giờ/ngày/tháng/phút" (đếm ngược ôn tập) vẫn CHƯA dịch theo
+    ngôn ngữ (còn nguyên tiếng Việt bất kể chọn en/zh) — thiết kế đã có
+    (PARTIAL dict prefix/suffix cho en, đảo từ cho zh) nhưng chưa code;
+    (4) toast/thông báo nhỏ khác ("đã lưu", "lỗi"...) vẫn hoàn toàn tiếng
+    Việt, chưa đụng tới phần này.
+  - **FIX BUG THẬT**: "Đang ở Journey, bấm qua Block khác thì không nhảy,
+    màn hình vẫn đứng ở Journey, phải bấm lại 📖 Learning mới thoát ra
+    (trả về màn danh sách Block, KHÔNG phải đúng Block vừa bấm)" — TJ báo.
+    Root cause: `App.jumpTo(opts)` (dùng chung cho Journey/Trang chủ nhảy
+    thẳng vào 1 Block) gọi `await App.ensureNotebookContext(...)` (tải
+    Notebook đích nếu khác Notebook đang mở) KHÔNG bọc try/catch — mạng
+    chậm/lỗi lúc tải (đúng kiểu độ trễ Supabase đã ghi nhận ở phiên
+    2026-09-12) khiến `await` NÉM LỖI, cả hàm `async` dừng NGANG giữa
+    chừng TRƯỚC đoạn code ẩn `#screen-journey` phía dưới -> kẹt nguyên tại
+    Journey, không có thông báo lỗi nào cho biết vì sao. Bấm "Learning"
+    sau đó chỉ đơn thuần đóng Journey theo nhánh dự phòng (trả về
+    `#screen-blocks`, không phải đúng Block) — đúng y hệt hiện tượng TJ
+    mô tả. Đã verify bằng Playwright: cố tình giả lập `DB.loadNotebook`
+    ném lỗi cho 1 notebookId giả -> xác nhận đúng lỗi trên (màn kẹt tại
+    Journey, promise `App.jumpTo` bị reject không được bắt). Sửa: (1) bọc
+    try/catch quanh `ensureNotebookContext` trong `App.jumpTo`, báo lỗi
+    bằng `toast` thay vì im lặng treo; (2) luôn chạy tiếp phần dọn màn
+    hình bên dưới dù tải lỗi (không kẹt ở Journey nữa); (3) nếu Block đích
+    rốt cuộc vẫn chưa có trong `S.blocks` (do bước trên lỗi), chốt cứng
+    về `#screen-blocks` thay vì gọi `Detail.open` (vốn sẽ tự lặng lẽ
+    không làm gì nếu không tìm thấy Block, để lại màn trắng). Đã verify
+    lại bằng Playwright sau khi sửa: giả lập lỗi y hệt -> giờ ra đúng
+    toast lỗi + về `#screen-blocks` gọn gàng, không còn kẹt tại Journey.
+    File đổi: `js/app.js` (bump `?v=27` trong `index.html`).
+
 - **Phiên 2026-09-12 — ĐÃ XONG (lên live, commit `733ea53`):**
   - Fix DB thiếu cột `words.freq` (chưa từng chạy migration thật) — đã khiến CẢ "+ Paste từ mới" LẪN "✨ Dán bài, tự trích từ" lỗi PGRST204 mỗi lần tạo từ mới.
   - "✨ Dán bài, tự trích từ" giờ tạo thêm 1 Block `full_<tên batch>` đứng đầu batch, chứa TOÀN BỘ từ đã trích + nguyên văn bài đọc (không giới hạn 10 từ như các Block thường).

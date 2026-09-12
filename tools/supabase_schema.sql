@@ -91,6 +91,23 @@ create table if not exists words (
 alter table words add column if not exists freq text default '';
 alter table words add column if not exists meaning_zh text default '';
 
+-- Tên dịch sẵn (EN/ZH) cho Hub/Notebook/Section/Page/Batch — TÊN DO NGƯỜI
+-- DÙNG TỰ ĐẶT (khác từ vựng/bài đọc), khi đổi giao diện sang en/zh thì
+-- app hiện name_en/name_zh thay vì "name" gốc (rơi về "name" nếu ô dịch
+-- đang trống, xem js/app.js displayName()). Trống '' = chưa dịch — chạy
+-- tools/backfill_names.py để AI tự điền hàng loạt (TJ yêu cầu 2026-09-13,
+-- "đổi cờ là phải đồng bộ ... các Page nếu đang có tên tiếng Việt").
+alter table hubs      add column if not exists name_en text default '';
+alter table hubs      add column if not exists name_zh text default '';
+alter table notebooks add column if not exists name_en text default '';
+alter table notebooks add column if not exists name_zh text default '';
+alter table sections  add column if not exists name_en text default '';
+alter table sections  add column if not exists name_zh text default '';
+alter table pages     add column if not exists name_en text default '';
+alter table pages     add column if not exists name_zh text default '';
+alter table batches   add column if not exists name_en text default '';
+alter table batches   add column if not exists name_zh text default '';
+
 -- ---------- TIẾN TRÌNH HỌC (RIÊNG TỪNG NGƯỜI) ----------
 create table if not exists word_progress (
   user_id uuid not null references auth.users(id) on delete cascade,

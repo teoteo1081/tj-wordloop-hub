@@ -200,12 +200,30 @@
   }
   var updateHubTabsScroll, updateSectionTabsScroll;
 
+  /* Tên hiển thị của Hub/Notebook/Section/Page/Batch THEO NGÔN NGỮ GIAO
+     DIỆN hiện tại — đây là TÊN NGƯỜI DÙNG TỰ ĐẶT (khác hẳn từ vựng/bài
+     đọc, vốn i18n.js không đụng vào) — TJ yêu cầu 2026-09-13 "đổi cờ là
+     phải đồng bộ ... các Page nếu đang có tên tiếng Việt thì đổi qua
+     luôn". Đọc cột name_en/name_zh (AI backfill sẵn, xem
+     tools/backfill_names.py) — RỖNG (chưa backfill xong, hoặc tên mới
+     tạo sau này chưa kịp dịch) thì rơi về .name gốc, không bao giờ hiện
+     trống trơn. KHÔNG áp dụng cho Block/Word — 2 cấp đó không nằm trong
+     yêu cầu này (tên Block thường chỉ là "Block N", ít ý nghĩa để dịch). */
+  function displayName(row) {
+    if (!row) return "";
+    var lang = (w.Auth && w.Auth.effectiveLang && w.Auth.effectiveLang()) || "vi";
+    if (lang === "en" && row.name_en) return row.name_en;
+    if (lang === "zh" && row.name_zh) return row.name_zh;
+    return row.name;
+  }
+
   function renderHubs() {
     var hubs = visibleHubIds ? S.hubs.filter(function (h) { return visibleHubIds.has(h.id); }) : S.hubs;
     w.$("#hub-tabs").innerHTML = hubs.map(function (h) {
+      var nm = displayName(h);
       return '<span class="hub-tab' + (h.id === S.hubId ? " active" : "") +
-             '" data-hub="' + h.id + '" draggable="true" tabindex="0" role="button">' + w.esc(h.name) +
-             '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác" aria-label="Thao tác với hub ' + w.esc(h.name) + '">⋯</button>' +
+             '" data-hub="' + h.id + '" draggable="true" tabindex="0" role="button">' + w.esc(nm) +
+             '<button class="dots" data-menu="hubs" data-id="' + h.id + '" title="Thao tác" aria-label="Thao tác với hub ' + w.esc(nm) + '">⋯</button>' +
              "</span>";
     }).join("");
     if (updateHubTabsScroll) updateHubTabsScroll();
@@ -536,10 +554,11 @@
       var indent = "";
       for (var g = 0; g < depth; g++) indent += '<span class="nb-indent"></span>';
       return list.slice().sort(bySort).map(function (n) {
+        var nm = displayName(n);
         var children = byParent[n.id] || [];
         var collapsed = children.length && collapsedSet.has(n.id);
         var caret = children.length
-          ? '<button class="nb-caret" data-caret="' + n.id + '" title="' + (collapsed ? "Bung nhánh" : "Thu nhánh") + '" aria-label="' + (collapsed ? "Bung" : "Thu") + ' nhánh ' + w.esc(n.name) + '">' + (collapsed ? "▸" : "▾") + "</button>"
+          ? '<button class="nb-caret" data-caret="' + n.id + '" title="' + (collapsed ? "Bung nhánh" : "Thu nhánh") + '" aria-label="' + (collapsed ? "Bung" : "Thu") + ' nhánh ' + w.esc(nm) + '">' + (collapsed ? "▸" : "▾") + "</button>"
           : '<span class="nb-caret-sp"></span>';
         /* Mặc định KHÔNG hiện icon nữa (theo yêu cầu TJ — "bỏ mấy quyển
            sách đi") — "📓" là icon MẶC ĐỊNH tự gán lúc tạo (xem
@@ -550,8 +569,8 @@
         return '<div class="nav-item' + (n.id === S.notebookId ? " active" : "") +
                  '" data-nb="' + n.id + '" draggable="true" tabindex="0" role="button">' +
                  indent + caret +
-                 (showIcon ? "<span>" + w.esc(n.icon) + "</span>" : "") + '<span class="nm">' + w.esc(n.name) + "</span>" +
-                 '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(n.name) + '">⋯</button>' +
+                 (showIcon ? "<span>" + w.esc(n.icon) + "</span>" : "") + '<span class="nm">' + w.esc(nm) + "</span>" +
+                 '<button class="dots" data-menu="notebooks" data-id="' + n.id + '" title="Thao tác" aria-label="Thao tác với notebook ' + w.esc(nm) + '">⋯</button>' +
                "</div>" +
                (children.length && !collapsed ? renderLevel(children, depth + 1) : "");
       }).join("");
@@ -568,10 +587,11 @@
       return;
     }
     box.innerHTML = S.sections.map(function (s) {
+      var nm = displayName(s);
       var n = pagesOfSection(s.id).length;
       return '<span class="section-tab' + (s.id === S.sectionId ? " active" : "") + '" data-sec="' + s.id + '" draggable="true" tabindex="0" role="button">' +
-               w.esc(s.name) + '<span class="count">' + n + "</span>" +
-               '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác" aria-label="Thao tác với section ' + w.esc(s.name) + '">⋯</button>' +
+               w.esc(nm) + '<span class="count">' + n + "</span>" +
+               '<button class="dots" data-menu="sections" data-id="' + s.id + '" title="Thao tác" aria-label="Thao tác với section ' + w.esc(nm) + '">⋯</button>' +
              "</span>";
     }).join("");
     if (updateSectionTabsScroll) updateSectionTabsScroll();
@@ -590,9 +610,10 @@
        📄 đầu dòng (theo yêu cầu TJ — thử bỏ icon cho gọn/đỡ rối), tên
        Page giờ có thêm chỗ để hiện dài hơn trước khi bị "…". */
     box.innerHTML = list.map(function (p) {
+      var nm = displayName(p);
       return '<div class="nav-item' + (p.id === S.pageId ? " active" : "") + '" data-page="' + p.id + '" draggable="true" tabindex="0" role="button">' +
-               '<span class="nm">' + w.esc(p.name) + '</span>' +
-               '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác" aria-label="Thao tác với page ' + w.esc(p.name) + '">⋯</button>' +
+               '<span class="nm">' + w.esc(nm) + '</span>' +
+               '<button class="dots" data-menu="pages" data-id="' + p.id + '" title="Thao tác" aria-label="Thao tác với page ' + w.esc(nm) + '">⋯</button>' +
              "</div>";
     }).join("");
   }
@@ -606,7 +627,7 @@
   function renderCrumb() {
     function nameOf(list, id, fb) {
       var x = list.find(function (r) { return r.id === id; });
-      return x ? x.name : fb;
+      return x ? displayName(x) : fb;
     }
     /* Notebook giờ lồng được vào nhau (thư mục mẹ/con, xem renderNotebooks)
        -> đường dẫn phải đi hết CHUỖI Notebook cha (nếu có), không chỉ 1
@@ -615,7 +636,7 @@
     var curNb = S.notebooks.find(function (n) { return n.id === S.notebookId; });
     var guard = 0;
     while (curNb && guard++ < 50) {
-      nbChain.unshift(curNb.name);
+      nbChain.unshift(displayName(curNb));
       curNb = curNb.parent_notebook_id ? S.notebooks.find(function (n) { return n.id === curNb.parent_notebook_id; }) : null;
     }
     if (!nbChain.length) nbChain.push("—");
@@ -670,6 +691,7 @@
          sách Block" mới thấy). Gọi renderBatches() lại ngay sau khi thi
          xong (xem submitFinal/renderMeaning cuối trong detail.js) để badge
          này cập nhật NGAY, không cần thoát ra vào lại nữa. */
+      var bnm = displayName(b);
       var label;
       if (showBlockName) {
         var bpOpen = S.bp[openBlock.id];
@@ -680,11 +702,11 @@
           '<span class="n">' + w.esc(cycleTxt) + "</span>" +
           '<span class="n">' + doneOpen.badge + "</span>";
       } else {
-        label = w.esc(b.name) + '<span class="n">' + done + "/" + n + "</span>";
+        label = w.esc(bnm) + '<span class="n">' + done + "/" + n + "</span>";
       }
       return '<span class="batch-tab' + (b.id === S.batchId ? " active" : "") + '" data-batch="' + b.id + '" draggable="true" tabindex="0" role="button">' +
                label +
-               '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác" aria-label="Thao tác với batch ' + w.esc(b.name) + '">⋯</button>' +
+               '<button class="dots" data-menu="batches" data-id="' + b.id + '" title="Thao tác" aria-label="Thao tác với batch ' + w.esc(bnm) + '">⋯</button>' +
              "</span>";
     }).join("") || '<span class="nav-empty">Chưa có batch — bấm "+ Paste từ mới"</span>';
   }
@@ -1001,7 +1023,18 @@
   App.jumpTo = async function (opts) {
     opts = opts || {};
     w.Speech.stop();
-    await App.ensureNotebookContext(opts.hubId, opts.notebookId);
+    /* Bug đã gặp (2026-09-13, TJ báo từ Journey): mạng chậm/lỗi lúc tải
+       Notebook đích (DB.loadNotebook) khiến await bên dưới NÉM LỖI ->
+       cả hàm async này dừng NGANG giữa chừng, TRƯỚC ĐOẠN ẩn #screen-journey
+       ở dưới -> màn hình kẹt nguyên tại Journey, tưởng như "bấm không ăn",
+       phải tự bấm "📖 Learning" mới thoát ra được. Bọc try/catch để dù
+       tải lỗi vẫn LUÔN chạy tiếp phần dọn màn hình bên dưới (không kẹt),
+       chỉ báo lỗi bằng toast thay vì im lặng treo máy. */
+    try {
+      await App.ensureNotebookContext(opts.hubId, opts.notebookId);
+    } catch (e) {
+      w.toast("Không tải được, thử lại: " + (e.message || e), "err");
+    }
     /* Nhảy tới 1 Hub mà không chỉ rõ Notebook (vd bấm "↗" ngay ở dòng Hub
        trong cây Journey) -> mở Notebook ĐẦU TIÊN của Hub đó, giống hệt
        hành vi bấm thẳng vào tab Hub ở thanh trên. Thiếu bước này thì
@@ -1038,7 +1071,12 @@
        mở; nhảy từ Home/Journey thì #screen-detail vốn đã ẩn từ trước (họ
        tự ẩn nó lúc mở), nên #screen-blocks không được bật lại. Luôn chốt
        lại đúng 1 trong 2 màn hiện, không phụ thuộc màn nào đang mở trước đó. */
-    if (opts.blockId) {
+    /* Nếu tải Notebook đích vừa lỗi ở trên (catch phía trên), S.blocks có
+       thể chưa kịp có block này -> Detail.open sẽ tự im lặng bỏ qua (xem
+       "if (!b) return" trong detail.js), để lại 2 màn screen-detail/
+       screen-blocks CÙNG ẩn (màn trắng) — chốt cứng về #screen-blocks
+       trong trường hợp đó thay vì màn trắng không rõ vì sao. */
+    if (opts.blockId && S.blocks.some(function (b) { return b.id === opts.blockId; })) {
       w.Detail.open(opts.blockId);
     } else {
       w.$("#screen-detail").hidden = true;
