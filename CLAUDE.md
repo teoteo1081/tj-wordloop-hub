@@ -21,6 +21,13 @@
     supabase functions deploy gemini-proxy --project-ref pqarpszsipbdugrumhfy --no-verify-jwt
     ```
   - Test nhanh sau khi deploy: `curl -s -X POST https://pqarpszsipbdugrumhfy.supabase.co/functions/v1/gemini-proxy -H "Content-Type: application/json" -d '{"model":"gemini-3.6-flash","sys":"Reply JSON only.","user":"Return {\"ok\":true}"}'` — phải trả JSON có `candidates[0].content.parts[0].text`, không phải lỗi 401/404.
+- **`OPENAI_API_KEY` cũng đã chuyển sang Supabase Edge Function `openai-proxy`** (`supabase/functions/openai-proxy/index.ts`, 2026-09-13, TJ yêu cầu "cho user dùng chung, cất trong Supabase luôn") — y hệt lý do/cấu trúc `gemini-proxy` ở trên, KHÔNG phải vì key từng bị thu hồi (OpenAI không tự động quét/thu hồi như Google) mà để MỌI USER (không chỉ máy có `js/keys.local.js`) dùng chung được key OpenAI của TJ. `Context._callOpenAI` (`js/context.js`) gọi proxy này nếu máy đang Cloud mode (`cfg.SUPABASE_URL`/`SUPABASE_ANON_KEY`) — CHỈ gọi thẳng OpenAI bằng `cfg.OPENAI_API_KEY` (đường cũ) khi máy KHÔNG chạy Cloud mode (vd test Node thuần). `Context._callProvider` giờ LUÔN thử **Gemini trước** (miễn phí), OpenAI chỉ còn là dự phòng khi Gemini lỗi — đã bỏ hẳn việc máy có `OPENAI_API_KEY` cục bộ thì ưu tiên OpenAI trước như quyết định 2026-09-11 cũ (TJ chốt lại "ưu tiên gemini nha"). 2 proxy DÙNG CHUNG 1 quota "3 Block AI/ngày cho user thường" (bảng `ai_usage_daily`, không lọc theo `provider` khi đếm) — dùng Gemini rồi lại dùng OpenAI cho CÙNG 1 Block trong ngày chỉ tính 1 Block đã dùng, không cấp thêm hạn mức riêng từng nhà cung cấp.
+  - Deploy (cần `supabase login` trước, y hệt gemini-proxy):
+    ```
+    supabase secrets set OPENAI_API_KEY=<key thật> --project-ref pqarpszsipbdugrumhfy
+    supabase functions deploy openai-proxy --project-ref pqarpszsipbdugrumhfy --no-verify-jwt
+    ```
+  - Test nhanh sau khi deploy: `curl -s -X POST https://pqarpszsipbdugrumhfy.supabase.co/functions/v1/openai-proxy -H "Content-Type: application/json" -d '{"model":"gpt-4o-mini","sys":"Reply JSON only.","user":"Return {\"ok\":true}"}'` — phải trả JSON có `choices[0].message.content`, không phải lỗi 401/404.
 
 ## Kiến trúc tóm tắt (chi tiết xem README.md)
 - `js/db.js` là lớp duy nhất biết dữ liệu nằm ở local hay Supabase (`DB.mode`). Code khác **không bao giờ** đọc `localStorage` trực tiếp hay gọi Supabase trực tiếp — luôn qua `DB.xxx()`.

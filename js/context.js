@@ -315,15 +315,39 @@
        Gemini). Không tự thử lại nhiều lần như Gemini (OpenAI hiếm khi
        503 tạm thời kiểu free-tier), chỉ thử lại đúng 1 lần nếu lỗi 500+
        (server OpenAI trục trặc thoáng qua), lỗi 4xx (401/429 hết tiền,
-       sai key...) thì báo ngay, thử lại vô ích. */
-    _callOpenAI: async function (cfg, sys, user) {
+       sai key...) thì báo ngay, thử lại vô ích.
+       2026-09-13 (TJ yêu cầu "cất OpenAI trong Supabase luôn, cho user
+       dùng chung"): CHUYỂN QUA PROXY (supabase/functions/openai-proxy),
+       y hệt Gemini — OPENAI_API_KEY giờ CHỈ tồn tại dưới dạng Supabase
+       secret, không client nào cần biết giá trị thật nữa. `cfg.OPENAI_API_KEY`
+       (js/keys.local.js) vẫn được GIỮ làm đường gọi TRỰC TIẾP dự phòng
+       (chỉ dùng khi máy KHÔNG chạy Cloud mode — vd test Node thuần không
+       có SUPABASE_URL) — máy có cả 2 thì proxy luôn được ưu tiên vì đó là
+       đường DÙNG CHUNG được cho mọi user, không riêng máy này. */
+    _callOpenAI: async function (cfg, sys, user, quotaCtx) {
       var model = cfg.OPENAI_MODEL || "gpt-4o-mini";
-      var url = "https://api.openai.com/v1/chat/completions";
-      var body = JSON.stringify({
-        model: model, temperature: 0.9, response_format: { type: "json_object" },
-        messages: [{ role: "system", content: sys }, { role: "user", content: user }]
-      });
-      var headers = { "Authorization": "Bearer " + cfg.OPENAI_API_KEY, "Content-Type": "application/json" };
+      var viaProxy = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+      var url, headers, body;
+      if (viaProxy) {
+        url = cfg.SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/openai-proxy";
+        headers = {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + cfg.SUPABASE_ANON_KEY,
+          "apikey": cfg.SUPABASE_ANON_KEY
+        };
+        body = JSON.stringify({
+          model: model, sys: sys, user: user,
+          user_id: (quotaCtx && quotaCtx.userId) || null,
+          block_id: (quotaCtx && quotaCtx.blockId) || null
+        });
+      } else {
+        url = "https://api.openai.com/v1/chat/completions";
+        headers = { "Authorization": "Bearer " + cfg.OPENAI_API_KEY, "Content-Type": "application/json" };
+        body = JSON.stringify({
+          model: model, temperature: 0.9, response_format: { type: "json_object" },
+          messages: [{ role: "system", content: sys }, { role: "user", content: user }]
+        });
+      }
 
       var lastErr = null;
       for (var attempt = 0; attempt < 2; attempt++) {
@@ -349,6 +373,16 @@
           break;
         }
         var errText = await res.text().catch(function () { return ""; });
+        /* Proxy chặn ở 403 kèm {kind:"quota_user"} giống gemini-proxy (xem
+           _callGemini) — dừng ngay, không thử lại. */
+        try {
+          var errJson = JSON.parse(errText);
+          if (errJson && errJson.kind === "quota_user") {
+            lastErr = new Error(errJson.error || "Đã dùng hết lượt AI hôm nay");
+            lastErr.kind = "quota_user"; lastErr.provider = "openai";
+            break;
+          }
+        } catch (eParse) { /* không phải JSON quota -> lỗi thường, xử lý như cũ bên dưới */ }
         /* 401 = sai/hết hạn key, 429 = hết hạn mức hoặc hết tiền — cả 2 đều
            KHÔNG thử lại vô ích. Chỉ thử lại khi 500+ (lỗi tạm thời phía OpenAI). */
         lastErr = w.Context._apiError("openai", res.status, errText);
@@ -368,54 +402,33 @@
       } catch (e) { return false; }
     },
 
-    /* Chọn nhà cung cấp (2026-09-11, theo yêu cầu TJ) — KHÁC NHAU theo máy:
-       · Máy LOCAL (TJ đang cấu hình OPENAI_API_KEY trong js/keys.local.js):
-         DÙNG OPENAI TRƯỚC như trước giờ — Gemini (qua proxy) chỉ còn là
-         DỰ PHÒNG khi OpenAI lỗi.
-       · Trên WEB LIVE (người học khác vào, không có OPENAI_API_KEY vì file
-         key đó gitignore, không lên git): GEMINI (free, qua proxy) LUÔN
-         được thử TRƯỚC — chỉ cần cfg.SUPABASE_URL/SUPABASE_ANON_KEY (luôn
-         có ở Cloud mode), không cần GEMINI_API_KEY client-side. OpenAI chỉ
-         còn là dự phòng NẾU lỡ máy đó cũng có key riêng.
-       Trừ đúng 1 trường hợp bất kể máy nào: Gemini từ chối vì "quota_user"
-       (user thường đã dùng đủ 3 Block AI hôm nay, xem _callGemini/
-       gemini-proxy) thì KHÔNG rơi về OpenAI — nếu không, giới hạn đó vô
-       nghĩa với máy có sẵn OPENAI_API_KEY.
+    /* Chọn nhà cung cấp — ĐỔI 2026-09-13 (TJ chốt lại rõ ràng: "ưu tiên
+       gemini nha", sau khi đã cho OpenAI chạy qua proxy dùng CHUNG được
+       cho mọi user, không còn lý do gì để máy TJ tự ưu tiên OpenAI riêng
+       nữa như quyết định 2026-09-11 cũ — đã BỎ hẳn phân biệt theo máy
+       local/web ở dưới). GEMINI (free, qua proxy) LUÔN được thử TRƯỚC
+       nếu có Cloud mode (cfg.SUPABASE_URL/SUPABASE_ANON_KEY, không cần
+       GEMINI_API_KEY client-side) — OpenAI CHỈ còn là DỰ PHÒNG khi Gemini
+       lỗi (hoặc dùng thẳng nếu máy không có Cloud mode nhưng có
+       OPENAI_API_KEY riêng, xem _callOpenAI).
+       Trừ đúng 1 trường hợp: Gemini từ chối vì "quota_user" (user thường
+       đã dùng đủ 3 Block AI hôm nay — quota CHUNG cho cả 2 nhà cung cấp,
+       xem checkQuota() trong cả 2 proxy) thì KHÔNG rơi qua OpenAI — nếu
+       không, giới hạn đó vô nghĩa với máy có sẵn OPENAI_API_KEY.
        Không có cả 2 thì báo rõ "chưa cấu hình" (kind: "no_key").
        Ghi lại _lastProvider ("gemini"/"openai") NGAY KHI THÀNH CÔNG — để
        generateAI() lưu vào meta.provider, giúp TJ biết bài nào tốn tiền
        OpenAI thật, bài nào chỉ chạy Gemini free (kiểm soát chi phí). */
     _lastProvider: null,
     _callProvider: async function (cfg, sys, user, quotaCtx) {
-      var hasOpenAI = !!(cfg && cfg.OPENAI_API_KEY);
+      var hasOpenAI = !!(cfg && (cfg.OPENAI_API_KEY || (cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY)));
       var hasGeminiProxy = !!(cfg && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
       if (!hasOpenAI && !hasGeminiProxy) {
         var noKey = new Error("Chưa cấu hình OpenAI key (js/keys.local.js) và cũng chưa chạy Cloud mode để gọi Gemini qua proxy");
         noKey.kind = "no_key";
         throw noKey;
       }
-      /* Máy local có OPENAI_API_KEY -> ưu tiên OpenAI như cũ (kể cả nếu
-         Cloud mode cũng bật). Chỉ khi KHÔNG có OpenAI (web live, hoặc máy
-         local chưa cấu hình key) mới ưu tiên Gemini trước. */
-      var preferOpenAI = hasOpenAI && !w.Context._isWebOrigin();
 
-      if (preferOpenAI) {
-        try {
-          var rO1 = await w.Context._callOpenAI(cfg, sys, user);
-          w.Context._lastProvider = "openai";
-          return rO1;
-        } catch (eOpenAI1) {
-          if (!hasGeminiProxy) throw eOpenAI1;
-          try {
-            var rG1 = await w.Context._callGemini(cfg, sys, user, quotaCtx);
-            w.Context._lastProvider = "gemini";
-            return rG1;
-          } catch (eGemini1) {
-            eOpenAI1.message += " (Gemini dự phòng cũng lỗi: " + eGemini1.message + ")";
-            throw eOpenAI1;
-          }
-        }
-      }
       if (hasGeminiProxy) {
         try {
           var r1 = await w.Context._callGemini(cfg, sys, user, quotaCtx);
@@ -425,7 +438,7 @@
           if (eGemini.kind === "quota_user") throw eGemini;   /* hết lượt hôm nay -> báo thẳng, không lách qua OpenAI */
           if (!hasOpenAI) throw eGemini;
           try {
-            var r2 = await w.Context._callOpenAI(cfg, sys, user);
+            var r2 = await w.Context._callOpenAI(cfg, sys, user, quotaCtx);
             w.Context._lastProvider = "openai";
             return r2;
           } catch (eOpenAI) {
@@ -436,7 +449,7 @@
           }
         }
       }
-      var r3 = await w.Context._callOpenAI(cfg, sys, user);
+      var r3 = await w.Context._callOpenAI(cfg, sys, user, quotaCtx);
       w.Context._lastProvider = "openai";
       return r3;
     },
