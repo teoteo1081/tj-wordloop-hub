@@ -270,7 +270,56 @@
     "Học block mới →": "Learn new block →",
     "chưa block nào vào chu kỳ": "no block in the cycle yet",
     "chưa học. Học xong và đạt ≥ 80% ở bài kiểm tra thì Block mới vào lịch ôn Tony Buzan.":
-      "not studied. Finish and score ≥ 80% on the test to enter the Tony Buzan review cycle."
+      "not studied. Finish and score ≥ 80% on the test to enter the Tony Buzan review cycle.",
+
+    /* ---- Modal "✨ Dán bài, tự trích từ" (2026-09-13 — TJ báo modal này
+       vẫn tiếng Việt khi Aaron dùng giao diện Trung, dù nút mở modal đã
+       dịch — vì nội dung BÊN TRONG modal chưa từng được thêm vào DICT/
+       DICT_ZH lúc mới làm tính năng, xem CLAUDE.md "khi đổi cờ phải đồng
+       bộ, dù thông báo/chữ nhỏ nhất". CÁC KEY BÊN DƯỚI đã lấy CHÍNH XÁC
+       nguyên văn từng text node thật (đã dò lại bằng jsdom trên chính
+       index.html — <p class="modal-desc">/<b>/<code> cắt 1 câu thành
+       NHIỀU text node riêng, mỗi node phải khớp NGUYÊN VĂN, không thừa/
+       thiếu khoảng trắng ở 2 đầu vì applyToTextNode chỉ so khớp phần ĐÃ
+       trim()). */
+    "✨ Dán bài, tự trích từ vựng B1+": "✨ Paste article, auto-extract B1+ vocab",
+    "Dán 1 bài báo, đoạn văn, hoặc transcript video (YouTube: bấm":
+      "Paste an article, passage, or video transcript (YouTube: click",
+    "\"Hiện bản ghi\"": "\"Show transcript\"",
+    "dưới video rồi copy toàn bộ; Yglish: copy phần lời thoại) — AI sẽ tự tìm các từ vựng cấp độ":
+      "below the video then copy it all; Yglish: copy the dialogue) — AI will auto-find vocabulary at",
+    "B1 trở lên": "B1 and above",
+    ", chia thành Block 10 từ để học, và giữ NGUYÊN chính bài bạn dán làm bài đọc (không sinh bài khác). Cần đã có key Gemini trong":
+      ", split into 10-word Blocks to study, and keep the exact article you pasted as the reading passage (no new text is generated). Requires a Gemini key set up in",
+    "Tên Batch (tuỳ chọn)": "Batch name (optional)",
+    "Ví dụ: Báo VnExpress 06/09": "e.g. VnExpress article 09/06",
+    "Hoặc dán LINK bài báo — thử tải tự động (không phải trang nào cũng được, nhiều báo chặn)":
+      "Or paste the article LINK — try auto-fetch (not every site works, many news sites block it)",
+    "🔗 Thử tải": "🔗 Try fetch",
+    "Dán bài vào đây (hoặc để nút Thử tải tự điền)": "Paste the article here (or let \"Try fetch\" fill it in)",
+    "Dán bài báo / đoạn văn / transcript vào đây… (tối đa ~12.000 ký tự)":
+      "Paste the article / passage / transcript here… (max ~12,000 characters)",
+    "✨ Trích từ vựng & tạo Block": "✨ Extract vocabulary & create Block",
+    "⏳ Đang phân tích...": "⏳ Analyzing...",
+    "📚 Hoặc upload cả 1 quyển sách (PDF) — tự chia theo Chapter": "📚 Or upload a whole book (PDF) — auto-split by Chapter",
+    "Mỗi Chapter nhận diện được (\"Chapter 1\"/\"Chương 2\"...) sẽ ra":
+      "Every Chapter detected (\"Chapter 1\"/\"Chương 2\"...) becomes",
+    "1 Batch riêng": "its own Batch",
+    "(kèm 1 Block \"full\" chứa toàn bài + các Block 10 từ như bình thường) — xử lý lần lượt từng Chapter, tốn kha khá quota AI nếu sách nhiều chương, xem lại danh sách trước khi bấm xử lý.":
+      "(plus 1 \"full\" Block with the whole text + the usual 10-word Blocks) — processed one Chapter at a time, uses a fair amount of AI quota for books with many chapters, review the list before processing.",
+    "📖 Đọc PDF & chia Chapter": "📖 Read PDF & split into Chapters",
+    "Huỷ danh sách này": "Discard this list",
+    "🚀 Xử lý các phần đã chọn": "🚀 Process the selected parts",
+    "Chưa chọn phần nào": "No part selected yet",
+    "Không đọc được nội dung từ PDF này": "Couldn't read any content from this PDF",
+    "Chưa nạp được thư viện đọc PDF (pdf.js) — kiểm tra mạng/CDN trong index.html":
+      "Couldn't load the PDF library (pdf.js) — check your network/the CDN in index.html",
+    /* ---- 3 toast dùng chung ở cả "+ Paste từ mới"/"Dán bài, tự trích từ"/
+       "Dán cả sách" (kiểm tra Page trước khi thao tác, cảnh báo thiếu key) ---- */
+    "Hãy tạo/chọn một Page trước": "Create/select a Page first",
+    "Cần key OpenAI (js/keys.local.js) hoặc chạy Cloud mode để dùng tính năng này":
+      "Needs an OpenAI key (js/keys.local.js) or Cloud mode to use this feature",
+    "Chưa dán bài nào": "Nothing pasted yet"
   };
 
   /* Từ điển vi -> zh (giản thể). Khoá PHẢI khớp NGUYÊN VĂN 100% với DICT
@@ -506,7 +555,47 @@
     "Học block mới →": "学习新区块 →",
     "chưa block nào vào chu kỳ": "还没有区块进入周期",
     "chưa học. Học xong và đạt ≥ 80% ở bài kiểm tra thì Block mới vào lịch ôn Tony Buzan.":
-      "尚未学习。完成学习并在测验中达到 ≥ 80% 后，该区块才会进入 Tony Buzan 复习计划。"
+      "尚未学习。完成学习并在测验中达到 ≥ 80% 后，该区块才会进入 Tony Buzan 复习计划。",
+
+    /* ---- Modal "✨ Dán bài, tự trích từ" — xem ghi chú đầy đủ ở DICT
+       (EN) phía trên, các key PHẢI khớp NGUYÊN VĂN y hệt nhau giữa 2
+       bảng vì cùng đọc từ MỘT text node tiếng Việt gốc. ---- */
+    "✨ Dán bài, tự trích từ vựng B1+": "✨ 粘贴文章，自动提取 B1+ 单词",
+    "Dán 1 bài báo, đoạn văn, hoặc transcript video (YouTube: bấm":
+      "粘贴 1 篇文章、段落，或视频文字记录（YouTube：点击",
+    "\"Hiện bản ghi\"": "\"显示文字记录\"",
+    "dưới video rồi copy toàn bộ; Yglish: copy phần lời thoại) — AI sẽ tự tìm các từ vựng cấp độ":
+      "在视频下方，然后复制全部内容；Yglish：复制对话部分）— AI 会自动查找",
+    "B1 trở lên": "B1 及以上",
+    ", chia thành Block 10 từ để học, và giữ NGUYÊN chính bài bạn dán làm bài đọc (không sinh bài khác). Cần đã có key Gemini trong":
+      "级别的词汇，分成每 10 个词 1 个 Block 来学习，并原样保留你粘贴的文章作为阅读材料（不会另外生成新文章）。需要在",
+    "Tên Batch (tuỳ chọn)": "Batch 名称（可选）",
+    "Ví dụ: Báo VnExpress 06/09": "例如：VnExpress 文章 09/06",
+    "Hoặc dán LINK bài báo — thử tải tự động (không phải trang nào cũng được, nhiều báo chặn)":
+      "或粘贴文章链接 — 尝试自动抓取（不是每个网站都行，很多新闻网站会拦截）",
+    "🔗 Thử tải": "🔗 尝试抓取",
+    "Dán bài vào đây (hoặc để nút Thử tải tự điền)": "把文章粘贴到这里（或让\"尝试抓取\"按钮自动填入）",
+    "Dán bài báo / đoạn văn / transcript vào đây… (tối đa ~12.000 ký tự)":
+      "把文章 / 段落 / 文字记录粘贴到这里…（最多约 12,000 字符）",
+    "✨ Trích từ vựng & tạo Block": "✨ 提取单词并创建 Block",
+    "⏳ Đang phân tích...": "⏳ 正在分析...",
+    "📚 Hoặc upload cả 1 quyển sách (PDF) — tự chia theo Chapter": "📚 或上传整本书（PDF）— 自动按 Chapter 拆分",
+    "Mỗi Chapter nhận diện được (\"Chapter 1\"/\"Chương 2\"...) sẽ ra":
+      "每个识别出的 Chapter（\"Chapter 1\"/\"Chương 2\"...）都会变成",
+    "1 Batch riêng": "独立的 1 个 Batch",
+    "(kèm 1 Block \"full\" chứa toàn bài + các Block 10 từ như bình thường) — xử lý lần lượt từng Chapter, tốn kha khá quota AI nếu sách nhiều chương, xem lại danh sách trước khi bấm xử lý.":
+      "（附带 1 个包含全文的\"full\" Block + 照常的 10 词 Block）— 逐个 Chapter 处理，章节多的书会消耗不少 AI 额度，处理前请先检查列表。",
+    "📖 Đọc PDF & chia Chapter": "📖 读取 PDF 并拆分 Chapter",
+    "Huỷ danh sách này": "放弃此列表",
+    "🚀 Xử lý các phần đã chọn": "🚀 处理已选部分",
+    "Chưa chọn phần nào": "尚未选择任何部分",
+    "Không đọc được nội dung từ PDF này": "无法从此 PDF 读取内容",
+    "Chưa nạp được thư viện đọc PDF (pdf.js) — kiểm tra mạng/CDN trong index.html":
+      "PDF 读取库（pdf.js）尚未加载 — 请检查网络/index.html 中的 CDN",
+    "Hãy tạo/chọn một Page trước": "请先创建/选择一个 Page",
+    "Cần key OpenAI (js/keys.local.js) hoặc chạy Cloud mode để dùng tính năng này":
+      "需要 OpenAI 密钥（js/keys.local.js）或运行 Cloud 模式才能使用此功能",
+    "Chưa dán bài nào": "还没有粘贴任何文章"
   };
 
   /* Tự sinh chiều ngược lại (en -> vi, zh -> vi) để đổi VỀ tiếng Việt
@@ -534,7 +623,13 @@
     "Tháng ": "Month ",
     "🏆 Xếp hạng — ": "🏆 Ranking — ",
     "🔴 Đến hạn ôn ngay (": "🔴 Review due now (",
-    "🟢 Đã ôn, chưa tới hạn kế tiếp (": "🟢 Reviewed, next round not due ("
+    "🟢 Đã ôn, chưa tới hạn kế tiếp (": "🟢 Reviewed, next round not due (",
+    /* toast "Đã trích N từ B1+ → M block 10 từ + 1 block đầy đủ (tên) ✔"
+       (doPasteExtract, app.js) — nhiều mảnh số liệu động xen giữa nên
+       không so khớp NGUYÊN VĂN được, tách PARTIAL từng mảnh cố định. */
+    "Đã trích ": "Extracted ",
+    " từ B1+ → ": " B1+ words → ",
+    " block 10 từ + 1 block đầy đủ (": " 10-word blocks + 1 full block ("
   };
   var PARTIAL_REV = {};
   Object.keys(PARTIAL).forEach(function (k) { PARTIAL_REV[PARTIAL[k]] = k; });
@@ -553,7 +648,10 @@
     "Tháng ": "月 ",
     "🏆 Xếp hạng — ": "🏆 排行榜 — ",
     "🔴 Đến hạn ôn ngay (": "🔴 现已到复习期限 (",
-    "🟢 Đã ôn, chưa tới hạn kế tiếp (": "🟢 已复习，尚未到下次期限 ("
+    "🟢 Đã ôn, chưa tới hạn kế tiếp (": "🟢 已复习，尚未到下次期限 (",
+    "Đã trích ": "已提取 ",
+    " từ B1+ → ": " 个B1+单词 → ",
+    " block 10 từ + 1 block đầy đủ (": " 个10词Block + 1个完整Block ("
   };
   var PARTIAL_ZH_REV = {};
   Object.keys(PARTIAL_ZH).forEach(function (k) { PARTIAL_ZH_REV[PARTIAL_ZH[k]] = k; });
@@ -634,8 +732,17 @@
   function walk(node, target) {
     if (node.nodeType === 3) { applyToTextNode(node, target); return; }
     if (node.nodeType !== 1) return;
-    if (SKIP_TAGS[node.tagName]) return;
+    /* BUG THẬT (2026-09-13, phát hiện lúc verify modal "Dán bài, tự trích
+       từ" bằng jsdom): applyToAttrs() từng nằm SAU dòng "if (SKIP_TAGS...)
+       return" — INPUT/TEXTAREA nằm trong SKIP_TAGS (đúng, không có text
+       con để walk vào) nên return NGAY, khiến applyToAttrs() KHÔNG BAO
+       GIỜ chạy cho 2 loại thẻ này -> placeholder của MỌI input/textarea
+       trong toàn app chưa từng được dịch, dù có sẵn trong DICT/DICT_ZH.
+       Sửa: gọi applyToAttrs() TRƯỚC, chỉ dùng SKIP_TAGS để chặn ĐI SÂU
+       vào con (input/textarea vốn không có con để dịch, script/style là
+       code thô không nên đụng). */
     applyToAttrs(node, target);
+    if (SKIP_TAGS[node.tagName]) return;
     for (var i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i], target);
   }
 
